@@ -74,8 +74,7 @@ static void _starpu_destroy_priority_taskq(struct starpu_priority_taskq_s *prior
 	free(priority_queue);
 }
 
-static void initialize_eager_center_priority_policy(struct starpu_machine_topology_s *topology, 
-			__attribute__ ((unused))	struct starpu_sched_policy_s *_policy) 
+static void initialize_eager_center_priority_policy(struct starpu_sched_ctx *sched_ctx) 
 {
 	/* In this policy, we support more than two levels of priority. */
 	starpu_sched_set_min_priority(MIN_LEVEL);
@@ -87,13 +86,17 @@ static void initialize_eager_center_priority_policy(struct starpu_machine_topolo
 	PTHREAD_MUTEX_INIT(&global_sched_mutex, NULL);
 	PTHREAD_COND_INIT(&global_sched_cond, NULL);
 
+	int nworkers = sched_ctx->nworkers_in_ctx;
 	unsigned workerid;
-	for (workerid = 0; workerid < topology->nworkers; workerid++)
+	int workerid_ctx;
+	for (workerid_ctx = 0; workerid_ctx < nworkers; workerid_ctx++)
+	{
+                workerid = sched_ctx->workerid[workerid_ctx];
 		starpu_worker_set_sched_condition(workerid, &global_sched_cond, &global_sched_mutex);
+	}
 }
 
-static void deinitialize_eager_center_priority_policy(struct starpu_machine_topology_s *topology __attribute__ ((unused)),
-		   __attribute__ ((unused)) struct starpu_sched_policy_s *_policy) 
+static void deinitialize_eager_center_priority_policy(struct starpu_sched_ctx *sched_ctx) 
 {
 	/* TODO check that there is no task left in the queue */
 
@@ -101,7 +104,7 @@ static void deinitialize_eager_center_priority_policy(struct starpu_machine_topo
 	_starpu_destroy_priority_taskq(taskq);
 }
 
-static int _starpu_priority_push_task(struct starpu_task *task)
+static int _starpu_priority_push_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
 {
 	/* wake people waiting for a task */
 	PTHREAD_MUTEX_LOCK(&global_sched_mutex);

@@ -40,6 +40,8 @@ static pthread_key_t worker_key;
 
 static struct starpu_machine_config_s config;
 
+static struct starpu_sched_ctx sched_ctx;
+
 struct starpu_machine_config_s *_starpu_get_machine_config(void)
 {
 	return &config;
@@ -143,6 +145,9 @@ static void _starpu_launch_drivers(struct starpu_machine_config_s *config)
 		struct starpu_worker_s *workerarg = &config->workers[worker];
 
 		workerarg->config = config;
+
+		PTHREAD_MUTEX_INIT(&workerarg->changing_ctx_mutex, NULL);
+		PTHREAD_COND_INIT(&workerarg->changing_ctx_cond, NULL);
 
 		PTHREAD_MUTEX_INIT(&workerarg->mutex, NULL);
 		PTHREAD_COND_INIT(&workerarg->ready_cond, NULL);
@@ -344,7 +349,13 @@ int starpu_init(struct starpu_conf *user_conf)
 	_starpu_initialize_current_task_key();	
 
 	/* initialize the scheduling policy */
-	_starpu_init_sched_policy(&config);
+
+	if(user_conf == NULL)
+	  _starpu_create_sched_ctx(&sched_ctx, NULL, NULL, -1, 1);
+	else
+	  _starpu_create_sched_ctx(&sched_ctx, user_conf->sched_policy_name, NULL, -1, 1);
+
+	//_starpu_init_sched_policy(&config, &sched_ctx);
 
 	_starpu_initialize_registered_performance_models();
 
@@ -406,7 +417,7 @@ static void _starpu_terminate_workers(struct starpu_machine_config_s *config)
 #endif
 			}
 		}
-
+		worker->status = STATUS_JOINED;
 		STARPU_ASSERT(starpu_task_list_empty(&worker->local_tasks));
 		starpu_job_list_delete(worker->terminated_jobs);
 	}
@@ -476,7 +487,8 @@ void starpu_shutdown(void)
 	/* wait for their termination */
 	_starpu_terminate_workers(&config);
 
-	_starpu_deinit_sched_policy(&config);
+	//	_starpu_deinit_sched_policy(&config);
+	
 
 	_starpu_destroy_topology(&config);
 
@@ -639,4 +651,8 @@ void starpu_worker_set_sched_condition(int workerid, pthread_cond_t *sched_cond,
 {
 	config.workers[workerid].sched_cond = sched_cond;
 	config.workers[workerid].sched_mutex = sched_mutex;
+}
+
+struct starpu_sched_ctx* _starpu_get_initial_sched_ctx(void){
+	return &sched_ctx;
 }

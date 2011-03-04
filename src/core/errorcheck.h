@@ -34,7 +34,11 @@ typedef enum {
 	/* during the execution of the callback */
 	STATUS_CALLBACK,
 	/* while sleeping because there is nothing to do */
-	STATUS_SLEEPING
+	STATUS_SLEEPING,
+	/* changing ctx because a new one was create */
+	STATUS_CHANGING_CTX,
+	/* after having done join */
+	STATUS_JOINED
 } starpu_worker_status;
 
 /* Specify what the local worker is currently doing (eg. executing a callback).

@@ -77,7 +77,10 @@ struct starpu_worker_s {
 	unsigned worker_is_initialized;
 	starpu_worker_status status; /* what is the worker doing now ? (eg. CALLBACK) */
 	char name[32];
-
+	struct starpu_sched_ctx *sched_ctx;
+	unsigned changing_ctx;
+	pthread_mutex_t changing_ctx_mutex;
+	pthread_cond_t changing_ctx_cond;
 #ifdef __GLIBC__
 	cpu_set_t initial_cpu_set;
 	cpu_set_t current_cpu_set;
@@ -207,4 +210,6 @@ void _starpu_worker_set_status(int workerid, starpu_worker_status status);
 /* TODO move */
 unsigned _starpu_execute_registered_progression_hooks(void);
 
+/* We keep an initial sched ctx which might be used in care no other ctx is available */
+struct starpu_sched_ctx* _starpu_get_initial_sched_ctx(void);
 #endif // __WORKERS_H__

@@ -25,17 +25,19 @@ static unsigned nworkers;
 static pthread_cond_t sched_cond[STARPU_NMAXWORKERS];
 static pthread_mutex_t sched_mutex[STARPU_NMAXWORKERS];
 
-static int _random_push_task(struct starpu_task *task, unsigned prio)
+static int _random_push_task(struct starpu_task *task, unsigned prio, struct starpu_sched_ctx *sched_ctx)
 {
 	/* find the queue */
-	unsigned worker;
+        unsigned worker, worker_in_ctx;
 
 	unsigned selected = 0;
 
 	double alpha_sum = 0.0;
 
-	for (worker = 0; worker < nworkers; worker++)
+	for (worker_in_ctx = 0; worker_in_ctx < nworkers; worker_in_ctx++)
 	{
+                worker = sched_ctx->workerid[worker_in_ctx];
+
 		enum starpu_perf_archtype perf_arch = starpu_worker_get_perf_archtype(worker);
 		alpha_sum += starpu_worker_get_relative_speedup(perf_arch);
 	}
@@ -44,8 +46,10 @@ static int _random_push_task(struct starpu_task *task, unsigned prio)
 //	_STARPU_DEBUG("my rand is %e\n", random);
 
 	double alpha = 0.0;
-	for (worker = 0; worker < nworkers; worker++)
+	for (worker_in_ctx = 0; worker_in_ctx < nworkers; worker_in_ctx++)
 	{
+                worker = sched_ctx->workerid[worker_in_ctx];
+
 		enum starpu_perf_archtype perf_arch = starpu_worker_get_perf_archtype(worker);
 		double worker_alpha = starpu_worker_get_relative_speedup(perf_arch);
 
@@ -62,26 +66,27 @@ static int _random_push_task(struct starpu_task *task, unsigned prio)
 	return starpu_push_local_task(selected, task, prio);
 }
 
-static int random_push_prio_task(struct starpu_task *task)
+static int random_push_prio_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
 {
-	return _random_push_task(task, 1);
+        return _random_push_task(task, 1, sched_ctx);
 }
 
-static int random_push_task(struct starpu_task *task)
+static int random_push_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
 {
-	return _random_push_task(task, 0);
+        return _random_push_task(task, 0, sched_ctx);
 }
 
-static void initialize_random_policy(struct starpu_machine_topology_s *topology, 
-	 __attribute__ ((unused)) struct starpu_sched_policy_s *_policy) 
+static void initialize_random_policy(struct starpu_sched_ctx *sched_ctx) 
 {
 	starpu_srand48(time(NULL));
 
-	nworkers = topology->nworkers;
+	nworkers = sched_ctx->nworkers_in_ctx;	
 
-	unsigned workerid;
-	for (workerid = 0; workerid < nworkers; workerid++)
+	unsigned workerid, workerid_ctx;
+	for (workerid_ctx = 0; workerid_ctx < nworkers; workerid_ctx++)
 	{
+                workerid = sched_ctx->workerid[workerid_ctx];
+	
 		PTHREAD_MUTEX_INIT(&sched_mutex[workerid], NULL);
 		PTHREAD_COND_INIT(&sched_cond[workerid], NULL);
 	

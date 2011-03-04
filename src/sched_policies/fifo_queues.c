@@ -94,7 +94,6 @@ struct starpu_task *_starpu_fifo_pop_task(struct starpu_fifo_taskq_s *fifo_queue
 		
 		STARPU_TRACE_JOB_POP(task, 0);
 	}
-	
 	return task;
 }
 

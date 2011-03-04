@@ -16,7 +16,6 @@
 
 #include <core/workers.h>
 #include <sched_policies/fifo_queues.h>
-#include <common/barrier.h>
 
 /* the former is the actual queue, the latter some container */
 static struct starpu_fifo_taskq_s *fifo;
@@ -35,26 +34,31 @@ static int possible_combinations_cnt[STARPU_NMAXWORKERS];
 static int possible_combinations[STARPU_NMAXWORKERS][10];
 static int possible_combinations_size[STARPU_NMAXWORKERS][10];
 
-static void initialize_pgreedy_policy(struct starpu_machine_topology_s *topology, 
-		   __attribute__ ((unused)) struct starpu_sched_policy_s *_policy) 
+static void initialize_pgreedy_policy(struct starpu_sched_ctx *sched_ctx) 
 {
 	/* masters pick tasks from that queue */
 	fifo = _starpu_create_fifo();
 
+	struct starpu_machine_config_s *config = _starpu_get_machine_config();
+        struct starpu_machine_topology_s *topology = &config->topology;
+
 	_starpu_sched_find_worker_combinations(topology);
 
-	unsigned workerid;
-	unsigned ncombinedworkers, nworkers;
-
+	unsigned workerid, workerid_ctx;;
+	unsigned ncombinedworkers, nworkers, nworkers_in_ctx;
+	
 	nworkers = topology->nworkers;
+	nworkers_in_ctx = sched_ctx->nworkers_in_ctx;
 	ncombinedworkers = starpu_combined_worker_get_count();
 
 	/* Find the master of each worker. We first assign the worker as its
 	 * own master, and then iterate over the different worker combinations
 	 * to find the biggest combination containing this worker. */
 
-	for (workerid = 0; workerid < nworkers; workerid++)
-	{
+	for (workerid_ctx = 0; workerid_ctx < nworkers_in_ctx; workerid_ctx++)
+	  {
+    	        workerid = sched_ctx->workerid[workerid_ctx];
+
 		int cnt = possible_combinations_cnt[workerid]++;
 		possible_combinations[workerid][cnt] = workerid;
 		possible_combinations_size[workerid][cnt] = 1;
@@ -90,14 +94,17 @@ static void initialize_pgreedy_policy(struct starpu_machine_topology_s *topology
 	PTHREAD_MUTEX_INIT(&sched_mutex, NULL);
 	PTHREAD_COND_INIT(&sched_cond, NULL);
 
-	for (workerid = 0; workerid < nworkers; workerid++)
-	{
+	for (workerid_ctx = 0; workerid_ctx < nworkers_in_ctx; workerid_ctx++)
+	  {
+                workerid = sched_ctx->workerid[workerid_ctx];
+
 		PTHREAD_MUTEX_INIT(&master_sched_mutex[workerid], NULL);
 		PTHREAD_COND_INIT(&master_sched_cond[workerid], NULL);
 	}
+	for (workerid_ctx = 0; workerid_ctx < nworkers_in_ctx; workerid_ctx++)
+          {
+	        workerid = sched_ctx->workerid[workerid_ctx];
 
-	for (workerid = 0; workerid < nworkers; workerid++)
-	{
 		/* slaves pick up tasks from their local queue, their master
 		 * will put tasks directly in that local list when a parallel
 		 * tasks comes. */
@@ -119,15 +126,16 @@ static void initialize_pgreedy_policy(struct starpu_machine_topology_s *topology
 	}
 
 #if 0
-	for (workerid = 0; workerid < nworkers; workerid++)
-	{
+	for (workerid_ctx = 0; workerid_ctx < nworkers_in_ctx; workerid_ctx++)
+          {
+                workerid = sched_ctx->workerid[workerid_ctx];
+
 		fprintf(stderr, "MASTER of %d = %d\n", workerid, master_id[workerid]);
 	}
 #endif
 }
 
-static void deinitialize_pgreedy_policy(__attribute__ ((unused)) struct starpu_machine_topology_s *topology, 
-		   __attribute__ ((unused)) struct starpu_sched_policy_s *_policy) 
+static void deinitialize_pgreedy_policy(__attribute__ ((unused)) struct starpu_sched_ctx *sched_ctx) 
 {
 	/* TODO check that there is no task left in the queue */
 
@@ -135,7 +143,7 @@ static void deinitialize_pgreedy_policy(__attribute__ ((unused)) struct starpu_m
 	_starpu_destroy_fifo(fifo);
 }
 
-static int push_task_pgreedy_policy(struct starpu_task *task)
+static int push_task_pgreedy_policy(struct starpu_task *task, __attribute__ ((unused)) struct starpu_sched_ctx *sched_ctx)
 {
 	return _starpu_fifo_push_task(fifo, &sched_mutex, &sched_cond, task);
 }

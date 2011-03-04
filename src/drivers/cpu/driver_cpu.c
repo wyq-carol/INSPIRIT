@@ -144,27 +144,41 @@ void *_starpu_cpu_worker(void *arg)
 
 	int res;
 
+	pthread_cond_t *sched_cond = cpu_arg->sched_cond;
+	pthread_mutex_t *sched_mutex = cpu_arg->sched_mutex;
+	pthread_cond_t *changing_ctx_cond = &cpu_arg->changing_ctx_cond;
+	pthread_mutex_t *changing_ctx_mutex = &cpu_arg->changing_ctx_mutex;
+
+
 	while (_starpu_machine_is_running())
 	{
 		STARPU_TRACE_START_PROGRESS(memnode);
 		_starpu_datawizard_progress(memnode, 1);
 		STARPU_TRACE_END_PROGRESS(memnode);
 
-		PTHREAD_MUTEX_LOCK(cpu_arg->sched_mutex);
+		/*when contex is changing block the threads belonging to it*/
+		PTHREAD_MUTEX_LOCK(changing_ctx_mutex);
+		if(cpu_arg->status == STATUS_CHANGING_CTX){
+			_starpu_increment_nblocked_ths(cpu_arg->sched_ctx->nworkers_of_next_ctx);
+			_starpu_block_worker(workerid, changing_ctx_cond, changing_ctx_mutex);
+		}
+		PTHREAD_MUTEX_UNLOCK(changing_ctx_mutex);
+  
+		PTHREAD_MUTEX_LOCK(sched_mutex);
 
 		task = _starpu_pop_task(cpu_arg);
 	
                 if (!task) 
 		{
-			if (_starpu_worker_can_block(memnode))
-				_starpu_block_worker(workerid, cpu_arg->sched_cond, cpu_arg->sched_mutex);
+		   if (_starpu_worker_can_block(memnode))
+				_starpu_block_worker(workerid, sched_cond, sched_mutex);
 
-			PTHREAD_MUTEX_UNLOCK(cpu_arg->sched_mutex);
-
+			PTHREAD_MUTEX_UNLOCK(sched_mutex);
 			continue;
 		};
 
-		PTHREAD_MUTEX_UNLOCK(cpu_arg->sched_mutex);	
+		PTHREAD_MUTEX_UNLOCK(sched_mutex);	
+
 
 		STARPU_ASSERT(task);
 		j = _starpu_get_job_associated_to_task(task);

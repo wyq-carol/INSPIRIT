@@ -182,7 +182,7 @@ static void disable_last_writer_callback(void *cl_arg)
  * */
 /* NB : handle->sequential_consistency_mutex must be hold by the caller */
 void _starpu_detect_implicit_data_deps_with_handle(struct starpu_task *pre_sync_task, struct starpu_task *post_sync_task,
-						starpu_data_handle handle, starpu_access_mode mode)
+						   starpu_data_handle handle, starpu_access_mode mode)
 {
 	STARPU_ASSERT(!(mode & STARPU_SCRATCH));
         _STARPU_LOG_IN();

@@ -39,10 +39,9 @@ static double exp_end[STARPU_NMAXWORKERS];
 static double exp_len[STARPU_NMAXWORKERS];
 static double ntasks[STARPU_NMAXWORKERS];
 
-static void heft_init(struct starpu_machine_topology_s *topology, 
-	 __attribute__ ((unused)) struct starpu_sched_policy_s *_policy) 
+static void heft_init(struct starpu_sched_ctx *sched_ctx)
 {
-	nworkers = topology->nworkers;
+	nworkers = sched_ctx->nworkers_in_ctx;
 
 	const char *strval_alpha = getenv("STARPU_SCHED_ALPHA");
 	if (strval_alpha)
@@ -60,9 +59,10 @@ static void heft_init(struct starpu_machine_topology_s *topology,
 	if (strval_idle_power)
 		idle_power = atof(strval_idle_power);
 
-	unsigned workerid;
-	for (workerid = 0; workerid < nworkers; workerid++)
-	{
+	unsigned workerid, workerid_ctx;
+        for (workerid_ctx = 0; workerid_ctx < nworkers; workerid_ctx++)
+	  {
+	        workerid = sched_ctx->workerid[workerid_ctx];
 		exp_start[workerid] = starpu_timing_now();
 		exp_len[workerid] = 0.0;
 		exp_end[workerid] = exp_start[workerid]; 
@@ -139,97 +139,97 @@ static int push_task_on_best_worker(struct starpu_task *task, int best_workerid,
 }
 
 static void compute_all_performance_predictions(struct starpu_task *task,
-					double *local_task_length, double *exp_end,
-					double *max_exp_endp, double *best_exp_endp,
-					double *local_data_penalty,
-					double *local_power, int *forced_best,
-					struct starpu_task_bundle *bundle)
+						double *local_task_length, double *exp_end,
+						double *max_exp_endp, double *best_exp_endp,
+						double *local_data_penalty,
+						double *local_power, int *forced_best,
+						struct starpu_task_bundle *bundle)
 {
-	int calibrating = 0;
-	double max_exp_end = DBL_MIN;
-	double best_exp_end = DBL_MAX;
-	int ntasks_best = -1;
-	double ntasks_best_end = 0.0;
+  int calibrating = 0;
+  double max_exp_end = DBL_MIN;
+  double best_exp_end = DBL_MAX;
+  int ntasks_best = -1;
+  double ntasks_best_end = 0.0;
 
-	/* A priori, we know all estimations */
-	int unknown = 0;
+  /* A priori, we know all estimations */
+  int unknown = 0;
 
-	unsigned worker;
-	for (worker = 0; worker < nworkers; worker++)
+  unsigned worker;
+  for (worker = 0; worker < nworkers; worker++)
+    {
+      /* Sometimes workers didn't take the tasks as early as we expected */
+      exp_start[worker] = STARPU_MAX(exp_start[worker], starpu_timing_now());
+      exp_end[worker] = exp_start[worker] + exp_len[worker];
+      if (exp_end[worker] > max_exp_end)
+	max_exp_end = exp_end[worker];
+
+      if (!starpu_worker_may_execute_task(worker, task))
 	{
-		/* Sometimes workers didn't take the tasks as early as we expected */
-		exp_start[worker] = STARPU_MAX(exp_start[worker], starpu_timing_now());
-		exp_end[worker] = exp_start[worker] + exp_len[worker];
-		if (exp_end[worker] > max_exp_end)
-			max_exp_end = exp_end[worker];
-
-		if (!starpu_worker_may_execute_task(worker, task))
-		{
-			/* no one on that queue may execute this task */
-			continue;
-		}
-
-		enum starpu_perf_archtype perf_arch = starpu_worker_get_perf_archtype(worker);
-		unsigned memory_node = starpu_worker_get_memory_node(worker);
-
-		if (bundle)
-		{
-			local_task_length[worker] = starpu_task_bundle_expected_length(bundle, perf_arch);
-			local_data_penalty[worker] = starpu_task_bundle_expected_data_transfer_time(bundle, memory_node);
-			local_power[worker] = starpu_task_bundle_expected_power(bundle, perf_arch);
-		}
-		else {
-			local_task_length[worker] = starpu_task_expected_length(task, perf_arch);
-			local_data_penalty[worker] = starpu_task_expected_data_transfer_time(memory_node, task);
-			local_power[worker] = starpu_task_expected_power(task, perf_arch);
-		}
-
-		double ntasks_end = ntasks[worker] / starpu_worker_get_relative_speedup(perf_arch);
-
-		if (ntasks_best == -1
-				|| (!calibrating && ntasks_end < ntasks_best_end) /* Not calibrating, take better task */
-				|| (!calibrating && local_task_length[worker] == -1.0) /* Not calibrating but this worker is being calibrated */
-				|| (calibrating && local_task_length[worker] == -1.0 && ntasks_end < ntasks_best_end) /* Calibrating, compete this worker with other non-calibrated */
-				) {
-			ntasks_best_end = ntasks_end;
-			ntasks_best = worker;
-		}
-
-		if (local_task_length[worker] == -1.0)
-			/* we are calibrating, we want to speed-up calibration time
-			 * so we privilege non-calibrated tasks (but still
-			 * greedily distribute them to avoid dumb schedules) */
-			calibrating = 1;
-
-		if (local_task_length[worker] <= 0.0)
-			/* there is no prediction available for that task
-			 * with that arch yet, so switch to a greedy strategy */
-			unknown = 1;
-
-		if (unknown)
-			continue;
-
-		exp_end[worker] = exp_start[worker] + exp_len[worker] + local_task_length[worker];
-
-		if (exp_end[worker] < best_exp_end)
-		{
-			/* a better solution was found */
-			best_exp_end = exp_end[worker];
-		}
-
-		if (local_power[worker] == -1.0)
-			local_power[worker] = 0.;
+	  /* no one on that queue may execute this task */
+	  continue;
 	}
 
-	*forced_best = unknown?ntasks_best:-1;
+      enum starpu_perf_archtype perf_arch = starpu_worker_get_perf_archtype(worker);
+      unsigned memory_node = starpu_worker_get_memory_node(worker);
 
-	*best_exp_endp = best_exp_end;
-	*max_exp_endp = max_exp_end;
+      if (bundle)
+	{
+	  local_task_length[worker] = starpu_task_bundle_expected_length(bundle, perf_arch);
+	  local_data_penalty[worker] = starpu_task_bundle_expected_data_transfer_time(bundle, memory_node);
+	  local_power[worker] = starpu_task_bundle_expected_power(bundle, perf_arch);
+	}
+      else {
+	local_task_length[worker] = starpu_task_expected_length(task, perf_arch);
+	local_data_penalty[worker] = starpu_task_expected_data_transfer_time(memory_node, task);
+	local_power[worker] = starpu_task_expected_power(task, perf_arch);
+      }
+
+      double ntasks_end = ntasks[worker] / starpu_worker_get_relative_speedup(perf_arch);
+
+      if (ntasks_best == -1
+	  || (!calibrating && ntasks_end < ntasks_best_end) /* Not calibrating, take better task */
+	  || (!calibrating && local_task_length[worker] == -1.0) /* Not calibrating but this worker is being calibrated */
+	  || (calibrating && local_task_length[worker] == -1.0 && ntasks_end < ntasks_best_end) /* Calibrating, compete this worker with other non-calibrated */
+	  ) {
+	ntasks_best_end = ntasks_end;
+	ntasks_best = worker;
+      }
+
+      if (local_task_length[worker] == -1.0)
+	/* we are calibrating, we want to speed-up calibration time
+	 * so we privilege non-calibrated tasks (but still
+	 * greedily distribute them to avoid dumb schedules) */
+	calibrating = 1;
+
+      if (local_task_length[worker] <= 0.0)
+	/* there is no prediction available for that task
+	 * with that arch yet, so switch to a greedy strategy */
+	unknown = 1;
+
+      if (unknown)
+	continue;
+
+      exp_end[worker] = exp_start[worker] + exp_len[worker] + local_task_length[worker];
+
+      if (exp_end[worker] < best_exp_end)
+	{
+	  /* a better solution was found */
+	  best_exp_end = exp_end[worker];
+	}
+
+      if (local_power[worker] == -1.0)
+	local_power[worker] = 0.;
+    }
+
+  *forced_best = unknown?ntasks_best:-1;
+
+  *best_exp_endp = best_exp_end;
+  *max_exp_endp = max_exp_end;
 }
 
-static int _heft_push_task(struct starpu_task *task, unsigned prio)
+static int _heft_push_task(struct starpu_task *task, unsigned prio, struct starpu_sched_ctx *sched_ctx)
 {
-	unsigned worker;
+	unsigned worker, worker_in_ctx;
 	int best = -1;
 	
 	/* this flag is set if the corresponding worker is selected because
@@ -270,8 +270,9 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio)
 	double fitness[nworkers];
 	double best_fitness = -1;
 
-	for (worker = 0; worker < nworkers; worker++)
+	for (worker_in_ctx = 0; worker_in_ctx < nworkers; worker_in_ctx++)
 	{
+		worker = sched_ctx->workerid[worker_in_ctx];
 		if (!starpu_worker_may_execute_task(worker, task))
 		{
 			/* no one on that queue may execute this task */
@@ -328,25 +329,26 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio)
 	return push_task_on_best_worker(task, best, model_best, prio);
 }
 
-static int heft_push_prio_task(struct starpu_task *task)
+static int heft_push_prio_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
 {
-	return _heft_push_task(task, 1);
+        return _heft_push_task(task, 1, sched_ctx);
 }
 
-static int heft_push_task(struct starpu_task *task)
+static int heft_push_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
 {
 	if (task->priority > 0)
-		return _heft_push_task(task, 1);
+        	  return _heft_push_task(task, 1, sched_ctx);
 
-	return _heft_push_task(task, 0);
+	return _heft_push_task(task, 0, sched_ctx);
 }
 
-static void heft_deinit(struct starpu_machine_topology_s *topology, 
-	 __attribute__ ((unused)) struct starpu_sched_policy_s *_policy) 
+static void heft_deinit(struct starpu_sched_ctx *sched_ctx) 
 {
-	unsigned workerid;
-	for (workerid = 0; workerid < nworkers; workerid++)
-	{
+        unsigned workerid;
+	int workerid_in_ctx;
+	int nworkers = sched_ctx->nworkers_in_ctx;
+	for (workerid_in_ctx = 0; workerid_in_ctx < nworkers; workerid_in_ctx++){
+	        workerid = sched_ctx->workerid[workerid_in_ctx];
 		PTHREAD_MUTEX_DESTROY(&sched_mutex[workerid]);
 		PTHREAD_COND_DESTROY(&sched_cond[workerid]);
 	}

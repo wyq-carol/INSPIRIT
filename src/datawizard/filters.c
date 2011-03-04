@@ -86,7 +86,7 @@ starpu_data_handle starpu_data_get_sub_data(starpu_data_handle root_handle, unsi
 	{
 		unsigned next_child;
 		next_child = va_arg(pa, unsigned);
-
+		printf("next child = %d \n", next_child);
 		STARPU_ASSERT(next_child < current_handle->nchildren);
 
 		current_handle = &current_handle->children[next_child];

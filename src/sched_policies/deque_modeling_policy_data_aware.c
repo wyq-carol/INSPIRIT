@@ -298,11 +298,11 @@ static int push_task_on_best_worker(struct starpu_task *task, int best_workerid,
 	}
 }
 
-static int _dm_push_task(struct starpu_task *task, unsigned prio)
+static int _dm_push_task(struct starpu_task *task, unsigned prio, struct starpu_sched_ctx *sched_ctx)
 {
 	/* find the queue */
 	struct starpu_fifo_taskq_s *fifo;
-	unsigned worker;
+	unsigned worker, worker_in_ctx;
 	int best = -1;
 
 	double best_exp_end = 0.0;
@@ -315,8 +315,9 @@ static int _dm_push_task(struct starpu_task *task, unsigned prio)
 	/* A priori, we know all estimations */
 	int unknown = 0;
 
-	for (worker = 0; worker < nworkers; worker++)
+	for (worker_in_ctx = 0; worker_in_ctx < nworkers; worker_in_ctx++)
 	{
+                worker = sched_ctx->workerid[worker_in_ctx];
 		double exp_end;
 		
 		fifo = queue_array[worker];
@@ -378,11 +379,11 @@ static int _dm_push_task(struct starpu_task *task, unsigned prio)
 	return push_task_on_best_worker(task, best, model_best, prio);
 }
 
-static int _dmda_push_task(struct starpu_task *task, unsigned prio)
+static int _dmda_push_task(struct starpu_task *task, unsigned prio, struct starpu_sched_ctx *sched_ctx)
 {
 	/* find the queue */
 	struct starpu_fifo_taskq_s *fifo;
-	unsigned worker;
+	unsigned worker, worker_in_ctx;
 	int best = -1;
 	
 	/* this flag is set if the corresponding worker is selected because
@@ -408,8 +409,10 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio)
 	/* A priori, we know all estimations */
 	int unknown = 0;
 
-	for (worker = 0; worker < nworkers; worker++)
+	for (worker_in_ctx = 0; worker_in_ctx < nworkers; worker_in_ctx++)
 	{
+                worker = sched_ctx->workerid[worker_in_ctx];
+
 		fifo = queue_array[worker];
 
 		/* Sometimes workers didn't take the tasks as early as we expected */
@@ -475,8 +478,10 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio)
 	
 	if (forced_best == -1)
 	{
-		for (worker = 0; worker < nworkers; worker++)
-		{
+	        for (worker_in_ctx = 0; worker_in_ctx < nworkers; worker_in_ctx++)
+	        {
+		        worker = sched_ctx->workerid[worker_in_ctx];
+
 			fifo = queue_array[worker];
 	
 			if (!starpu_worker_may_execute_task(worker, task))
@@ -527,41 +532,40 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio)
 	return push_task_on_best_worker(task, best, model_best, prio);
 }
 
-static int dmda_push_sorted_task(struct starpu_task *task)
+static int dmda_push_sorted_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
 {
-	return _dmda_push_task(task, 2);
+  return _dmda_push_task(task, 2, sched_ctx);
 }
 
-static int dm_push_prio_task(struct starpu_task *task)
+static int dm_push_prio_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
 {
-	return _dm_push_task(task, 1);
+	return _dm_push_task(task, 1, sched_ctx);
 }
 
-static int dm_push_task(struct starpu_task *task)
+static int dm_push_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
 {
 	if (task->priority > 0)
-		return _dm_push_task(task, 1);
+		return _dm_push_task(task, 1, sched_ctx);
 
-	return _dm_push_task(task, 0);
+	return _dm_push_task(task, 0, sched_ctx);
 }
 
-static int dmda_push_prio_task(struct starpu_task *task)
+static int dmda_push_prio_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
 {
-	return _dmda_push_task(task, 1);
+	return _dmda_push_task(task, 1, sched_ctx);
 }
 
-static int dmda_push_task(struct starpu_task *task)
+static int dmda_push_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
 {
 	if (task->priority > 0)
-		return _dmda_push_task(task, 1);
+		return _dmda_push_task(task, 1, sched_ctx);
 
-	return _dmda_push_task(task, 0);
+	return _dmda_push_task(task, 0, sched_ctx);
 }
 
-static void initialize_dmda_policy(struct starpu_machine_topology_s *topology, 
-	 __attribute__ ((unused)) struct starpu_sched_policy_s *_policy) 
+static void initialize_dmda_policy(struct starpu_sched_ctx *sched_ctx) 
 {
-	nworkers = topology->nworkers;
+	nworkers = sched_ctx->nworkers_in_ctx;
 
 	const char *strval_alpha = getenv("STARPU_SCHED_ALPHA");
 	if (strval_alpha)
@@ -575,13 +579,10 @@ static void initialize_dmda_policy(struct starpu_machine_topology_s *topology,
 	if (strval_gamma)
 		_gamma = atof(strval_gamma);
 
-	const char *strval_idle_power = getenv("STARPU_IDLE_POWER");
-	if (strval_idle_power)
-		idle_power = atof(strval_idle_power);
-
-	unsigned workerid;
-	for (workerid = 0; workerid < nworkers; workerid++)
+	unsigned workerid, workerid_ctx;
+	for (workerid_ctx = 0; workerid_ctx < nworkers; workerid_ctx++)
 	{
+                workerid = sched_ctx->workerid[workerid_ctx];
 		queue_array[workerid] = _starpu_create_fifo();
 	
 		PTHREAD_MUTEX_INIT(&sched_mutex[workerid], NULL);
@@ -591,22 +592,24 @@ static void initialize_dmda_policy(struct starpu_machine_topology_s *topology,
 	}
 }
 
-static void initialize_dmda_sorted_policy(struct starpu_machine_topology_s *topology,
-					struct starpu_sched_policy_s *_policy)
+static void initialize_dmda_sorted_policy(struct starpu_sched_ctx *sched_ctx)
 {
-	initialize_dmda_policy(topology, _policy);
+	initialize_dmda_policy(sched_ctx);
 
 	/* The application may use any integer */
 	starpu_sched_set_min_priority(INT_MIN);
 	starpu_sched_set_max_priority(INT_MAX);
 }
 
-static void deinitialize_dmda_policy(struct starpu_machine_topology_s *topology, 
-	 __attribute__ ((unused)) struct starpu_sched_policy_s *_policy) 
+static void deinitialize_dmda_policy(struct starpu_sched_ctx *sched_ctx) 
 {
-	unsigned workerid;
-	for (workerid = 0; workerid < topology->nworkers; workerid++)
+        unsigned workerid;
+	int workerid_in_ctx;
+        int nworkers = sched_ctx->nworkers_in_ctx;
+	for (workerid_in_ctx = 0; workerid_in_ctx < nworkers; workerid_in_ctx++){
+                workerid = sched_ctx->workerid[workerid_in_ctx];
 		_starpu_destroy_fifo(queue_array[workerid]);
+	}
 
 	_STARPU_DEBUG("total_task_cnt %ld ready_task_cnt %ld -> %f\n", total_task_cnt, ready_task_cnt, (100.0f*ready_task_cnt)/total_task_cnt);
 }

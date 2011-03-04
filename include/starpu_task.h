@@ -88,6 +88,7 @@ typedef struct starpu_codelet_t {
 } starpu_codelet;
 
 struct starpu_task {
+  char *name;
 	struct starpu_codelet_t *cl;
 
 	/* arguments managed by the DSM */
@@ -156,6 +157,9 @@ struct starpu_task {
 	 * by hand (without starpu_task_create), this field should be set to
 	 * NULL. */
 	void *starpu_private;
+     
+        struct starpu_sched_ctx *sched_ctx;
+  
 };
 
 /* It is possible to initialize statically allocated tasks with this value.
@@ -242,6 +246,7 @@ struct starpu_task *starpu_task_create(void);
  * allocated task results in an undefined behaviour. */
 void starpu_task_destroy(struct starpu_task *task);
 int starpu_task_submit(struct starpu_task *task);
+int starpu_task_submit_to_ctx(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx);
 
 /* This function blocks until the task was executed. It is not possible to
  * synchronize with a task more than once. It is not possible to wait

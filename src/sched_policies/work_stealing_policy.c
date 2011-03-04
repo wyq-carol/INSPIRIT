@@ -168,7 +168,7 @@ static struct starpu_task *ws_pop_task(void)
 	return task;
 }
 
-int ws_push_task(struct starpu_task *task)
+int ws_push_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
 {
 	starpu_job_t j = _starpu_get_job_associated_to_task(task);
 
@@ -192,18 +192,18 @@ int ws_push_task(struct starpu_task *task)
         return 0;
 }
 
-static void initialize_ws_policy(struct starpu_machine_topology_s *topology, 
-				__attribute__ ((unused)) struct starpu_sched_policy_s *_policy) 
+static void initialize_ws_policy(struct starpu_sched_ctx *sched_ctx) 
 {
-	nworkers = topology->nworkers;
+	nworkers = sched_ctx->nworkers_in_ctx;
 	rr_worker = 0;
 
 	PTHREAD_MUTEX_INIT(&global_sched_mutex, NULL);
 	PTHREAD_COND_INIT(&global_sched_cond, NULL);
 
-	unsigned workerid;
-	for (workerid = 0; workerid < nworkers; workerid++)
+	unsigned workerid, workerid_ctx;
+	for (workerid_ctx = 0; workerid_ctx < nworkers; workerid_ctx++)
 	{
+                workerid = sched_ctx->workerid[workerid_ctx];
 		queue_array[workerid] = _starpu_create_deque();
 		starpu_worker_set_sched_condition(workerid, &global_sched_cond, &global_sched_mutex);
 	}

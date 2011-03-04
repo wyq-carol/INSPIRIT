@@ -390,7 +390,7 @@ void *gordon_worker_inject(struct starpu_worker_set_s *arg)
 #else
 			/* gordon should accept a little more work */
 			starpu_job_t j;
-			j =  _starpu_pop_task();
+			j =  _starpu_pop_task(arg->current_sched_ctx);
 	//		_STARPU_DEBUG("pop task %p\n", j);
 			if (j) {
 				if (STARPU_GORDON_MAY_PERFORM(j)) {
@@ -399,7 +399,7 @@ void *gordon_worker_inject(struct starpu_worker_set_s *arg)
 					inject_task(j, &arg->workers[0]);
 				}
 				else {
-					_starpu_push_task(j, 0);
+				  _starpu_push_task(j, 0, arg->current_sched_ctx);
 				}
 			}
 #endif
