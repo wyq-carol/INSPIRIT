@@ -37,9 +37,9 @@ void _starpu_sched_post_exec_hook(struct starpu_task *task);
 
 void _starpu_wait_on_sched_event(void);
 
-void _starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int *workerid, int nworkerids);
+void _starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int *workerid, int nworkerids, unsigned is_init_sched);
 
-void _starpu_delete_sched_ctx(struct starpu_sched_ctx *sched_ctx);
+void _starpu_delete_all_sched_ctxs();
 
 void _starpu_increment_nblocked_ths(int nworkers);
 

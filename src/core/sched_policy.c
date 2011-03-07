@@ -422,10 +422,11 @@ static int starpu_get_ctx_id(struct starpu_sched_ctx *sched_ctx, struct starpu_w
 	return -1;
 }
 
-void _starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int *workerids_in_ctx, int nworkerids_in_ctx)
+void _starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int *workerids_in_ctx, int nworkerids_in_ctx, unsigned is_init_sched)
 {
 	sched_ctx->nworkers_in_ctx = nworkerids_in_ctx;
 	sched_ctx->sched_policy = malloc(sizeof(struct starpu_sched_policy_s));
+	sched_ctx->is_init_sched = is_init_sched;
 
 
 	struct starpu_machine_config_s *config = _starpu_get_machine_config();
@@ -535,31 +536,56 @@ void starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *pol
     	  if(!starpu_task_wait_for_all()){
 		/*block the workers until the contex is switched*/
 		set_changing_ctx_flag(STATUS_CHANGING_CTX, nworkerids_in_ctx, workerids_in_ctx);
-		_starpu_create_sched_ctx(sched_ctx, policy_name, workerids_in_ctx, nworkerids_in_ctx);
+		_starpu_create_sched_ctx(sched_ctx, policy_name, workerids_in_ctx, nworkerids_in_ctx, 0);
 		set_changing_ctx_flag(STATUS_UNKNOWN, nworkerids_in_ctx, workerids_in_ctx);
 	  }
 	  return;
 }
 
-void _starpu_delete_sched_ctx(struct starpu_sched_ctx *sched_ctx)
+int worker_belongs_to_ctx(struct starpu_worker_s *workerarg, struct starpu_sched_ctx *sched_ctx){
+	unsigned i;
+	for(i = 0; i < workerarg->nctxs; i++)
+		if(sched_ctx != NULL && workerarg->sched_ctx[i] == sched_ctx 
+		   && workerarg->status != STATUS_JOINED)
+		  return 1;
+	return 0;
+
+}
+void starpu_delete_sched_ctx(struct starpu_sched_ctx *sched_ctx)
 {
 	struct starpu_machine_config_s *config = _starpu_get_machine_config();
 	int nworkers = config->topology.nworkers;
        
-	unsigned used_sched_ctx = 0;
 	int i;
 	int workerid = -1;
 	for(i = 0; i < nworkers; i++){
 		struct starpu_worker_s *workerarg = &config->workers[i];
-		workerid = starpu_get_ctx_id(sched_ctx, workerarg);
-		
-		if(sched_ctx != NULL && workerid != -1 && workerarg->status != STATUS_JOINED)
-			used_sched_ctx++;
+		if(worker_belongs_to_ctx(workerarg, sched_ctx))
+			workerarg->nctxs--;
+
 	}
 
-	if(used_sched_ctx < 2  && sched_ctx != NULL){
-		free(sched_ctx->sched_policy);
-		sched_ctx->sched_policy = NULL;
-		sched_ctx = NULL;
+	free(sched_ctx->sched_policy);
+	sched_ctx->sched_policy = NULL;
+	sched_ctx = NULL;
+}
+
+void _starpu_delete_all_sched_ctxs(){
+  	struct starpu_machine_config_s *config = _starpu_get_machine_config();
+	int nworkers = config->topology.nworkers;
+
+	unsigned i, j;
+	struct starpu_sched_ctx *sched_ctx = NULL;
+	struct starpu_worker_s *workerarg = NULL;
+	for(i = 0; i < nworkers; i++){
+		workerarg = &config->workers[i];
+		for(j = 0; j < workerarg->nctxs; j++){
+			sched_ctx = workerarg->sched_ctx[j];
+			if(sched_ctx != NULL && !sched_ctx->is_init_sched){
+				free(sched_ctx->sched_policy);
+				sched_ctx->sched_policy = NULL;
+				sched_ctx = NULL;
+			}
+		}
 	}
 }

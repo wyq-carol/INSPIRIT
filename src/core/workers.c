@@ -351,9 +351,9 @@ int starpu_init(struct starpu_conf *user_conf)
 	/* initialize the scheduling policy */
 
 	if(user_conf == NULL)
-	  _starpu_create_sched_ctx(&sched_ctx, NULL, NULL, -1);
+	  _starpu_create_sched_ctx(&sched_ctx, NULL, NULL, -1, 1);
 	else
-	  _starpu_create_sched_ctx(&sched_ctx, user_conf->sched_policy_name, NULL, -1);
+	  _starpu_create_sched_ctx(&sched_ctx, user_conf->sched_policy_name, NULL, -1, 1);
 
 	//_starpu_init_sched_policy(&config, &sched_ctx);
 
@@ -487,8 +487,7 @@ void starpu_shutdown(void)
 	/* wait for their termination */
 	_starpu_terminate_workers(&config);
 
-	//	_starpu_deinit_sched_policy(&config);
-	
+	_starpu_delete_all_sched_ctxs();
 
 	_starpu_destroy_topology(&config);
 

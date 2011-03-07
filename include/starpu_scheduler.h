@@ -104,8 +104,10 @@ struct starpu_sched_ctx {
 	struct starpu_sched_policy_s *sched_policy;
 	int workerid[STARPU_NMAXWORKERS];
 	int nworkers_in_ctx;
+	unsigned is_init_sched; /*we keep an init sched which we never delete*/
 };
 
+void starpu_delete_sched_ctx(struct starpu_sched_ctx *sched_ctx);
 
 /* When there is no available task for a worker, StarPU blocks this worker on a
 condition variable. This function specifies which condition variable (and the
