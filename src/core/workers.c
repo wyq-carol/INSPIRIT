@@ -154,7 +154,7 @@ static void _starpu_launch_drivers(struct starpu_machine_config_s *config)
 
 		workerarg->worker_size = 1;
 		workerarg->combined_workerid = workerarg->workerid;
-		workerarg->current_rank = 0;
+		workerarg->current_rank = 1;
 
 		/* if some codelet's termination cannot be handled directly :
 		 * for instance in the Gordon driver, Gordon tasks' callbacks
@@ -351,9 +351,9 @@ int starpu_init(struct starpu_conf *user_conf)
 	/* initialize the scheduling policy */
 
 	if(user_conf == NULL)
-	  _starpu_create_sched_ctx(&sched_ctx, NULL, NULL, -1, 1);
+	  _starpu_create_sched_ctx(&sched_ctx, NULL, NULL, -1);
 	else
-	  _starpu_create_sched_ctx(&sched_ctx, user_conf->sched_policy_name, NULL, -1, 1);
+	  _starpu_create_sched_ctx(&sched_ctx, user_conf->sched_policy_name, NULL, -1);
 
 	//_starpu_init_sched_policy(&config, &sched_ctx);
 

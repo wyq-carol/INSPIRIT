@@ -159,7 +159,7 @@ void *_starpu_cpu_worker(void *arg)
 		/*when contex is changing block the threads belonging to it*/
 		PTHREAD_MUTEX_LOCK(changing_ctx_mutex);
 		if(cpu_arg->status == STATUS_CHANGING_CTX){
-			_starpu_increment_nblocked_ths(cpu_arg->sched_ctx->nworkers_of_next_ctx);
+			_starpu_increment_nblocked_ths(cpu_arg->nworkers_of_next_ctx);
 			_starpu_block_worker(workerid, changing_ctx_cond, changing_ctx_mutex);
 		}
 		PTHREAD_MUTEX_UNLOCK(changing_ctx_mutex);

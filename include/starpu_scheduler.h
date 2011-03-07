@@ -104,7 +104,6 @@ struct starpu_sched_ctx {
 	struct starpu_sched_policy_s *sched_policy;
 	int workerid[STARPU_NMAXWORKERS];
 	int nworkers_in_ctx;
-	int nworkers_of_next_ctx;
 };
 
 

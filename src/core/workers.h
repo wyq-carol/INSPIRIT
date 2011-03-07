@@ -77,10 +77,14 @@ struct starpu_worker_s {
 	unsigned worker_is_initialized;
 	starpu_worker_status status; /* what is the worker doing now ? (eg. CALLBACK) */
 	char name[32];
-	struct starpu_sched_ctx *sched_ctx;
+
+	struct starpu_sched_ctx *sched_ctx[STARPU_NMAXSCHEDCTXS];
+	unsigned nctxs; /* the no of contexts a worker belongs to*/
 	unsigned changing_ctx;
 	pthread_mutex_t changing_ctx_mutex;
 	pthread_cond_t changing_ctx_cond;
+	int nworkers_of_next_ctx;
+
 #ifdef __GLIBC__
 	cpu_set_t initial_cpu_set;
 	cpu_set_t current_cpu_set;

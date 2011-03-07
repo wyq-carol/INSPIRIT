@@ -76,14 +76,14 @@ int main(int argc, char **argv)
   starpu_task_submit_to_ctx(task, &sched_ctx);
 
   struct starpu_sched_ctx sched_ctx2;
-  int procs2[]={4, 5, 6, 7};
+  int procs2[]={3, 4, 5, 6, 7};
   starpu_create_sched_ctx(&sched_ctx2, "random", procs2, 4);
 
   struct starpu_task *task3 = starpu_task_create();
   task3->cl = &cl;
   task3->buffers[0].handle = starpu_data_get_sub_data(dataA, 0);
   task3->buffers[0].mode = STARPU_R;
-  task3->name = "third 4 5 6 7";
+  task3->name = "third 3 4 5 6 7";
   starpu_task_submit_to_ctx(task3, &sched_ctx2);
 
 
@@ -91,7 +91,7 @@ int main(int argc, char **argv)
   task2->cl = &cl;
   task2->buffers[0].handle = starpu_data_get_sub_data(dataA, 0);
   task2->buffers[0].mode = STARPU_R;
-  task2->name = "second > 7";
+  task2->name = "anything";
   starpu_task_submit(task2);
 
   
