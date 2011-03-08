@@ -557,12 +557,10 @@ void starpu_delete_sched_ctx(struct starpu_sched_ctx *sched_ctx)
 	int nworkers = config->topology.nworkers;
        
 	int i;
-	int workerid = -1;
 	for(i = 0; i < nworkers; i++){
 		struct starpu_worker_s *workerarg = &config->workers[i];
 		if(worker_belongs_to_ctx(workerarg, sched_ctx))
 			workerarg->nctxs--;
-
 	}
 
 	free(sched_ctx->sched_policy);
@@ -583,6 +581,7 @@ void _starpu_delete_all_sched_ctxs(){
 			if(sched_ctx != NULL && !sched_ctx->is_init_sched){
 				free(sched_ctx->sched_policy);
 				sched_ctx->sched_policy = NULL;
+				workerarg->nctxs--;
 			}
 		}
 	}
