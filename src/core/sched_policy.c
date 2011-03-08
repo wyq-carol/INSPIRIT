@@ -567,7 +567,6 @@ void starpu_delete_sched_ctx(struct starpu_sched_ctx *sched_ctx)
 
 	free(sched_ctx->sched_policy);
 	sched_ctx->sched_policy = NULL;
-	sched_ctx = NULL;
 }
 
 void _starpu_delete_all_sched_ctxs(){
@@ -584,7 +583,6 @@ void _starpu_delete_all_sched_ctxs(){
 			if(sched_ctx != NULL && !sched_ctx->is_init_sched){
 				free(sched_ctx->sched_policy);
 				sched_ctx->sched_policy = NULL;
-				sched_ctx = NULL;
 			}
 		}
 	}
