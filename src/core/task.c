@@ -198,8 +198,9 @@ int _starpu_submit_job(starpu_job_t j, unsigned do_not_increment_nsubmitted)
 
 	j->terminated = 0;
 
-	if (!do_not_increment_nsubmitted)
+	if (!do_not_increment_nsubmitted){
 		_starpu_increment_nsubmitted_tasks();
+	}
 
 	PTHREAD_MUTEX_LOCK(&j->sync_mutex);
 	
@@ -285,7 +286,7 @@ int starpu_task_submit_to_ctx(struct starpu_task *task, struct starpu_sched_ctx 
 }
 
 int starpu_task_submit(struct starpu_task *task){
-  starpu_task_submit_to_ctx(task, _starpu_get_initial_sched_ctx());
+  return starpu_task_submit_to_ctx(task, _starpu_get_initial_sched_ctx());
 }
 
 void starpu_display_codelet_stats(struct starpu_codelet_t *cl)

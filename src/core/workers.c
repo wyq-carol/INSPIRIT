@@ -149,6 +149,11 @@ static void _starpu_launch_drivers(struct starpu_machine_config_s *config)
 		PTHREAD_MUTEX_INIT(&workerarg->changing_ctx_mutex, NULL);
 		PTHREAD_COND_INIT(&workerarg->changing_ctx_cond, NULL);
 
+		workerarg->nsubmitted = 0;
+		PTHREAD_COND_INIT(&workerarg->submitted_cond, NULL);
+		PTHREAD_MUTEX_INIT(&workerarg->submitted_mutex, NULL);
+
+
 		PTHREAD_MUTEX_INIT(&workerarg->mutex, NULL);
 		PTHREAD_COND_INIT(&workerarg->ready_cond, NULL);
 

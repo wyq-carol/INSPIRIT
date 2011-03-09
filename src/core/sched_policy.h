@@ -42,5 +42,10 @@ void _starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *po
 void _starpu_delete_all_sched_ctxs();
 
 void _starpu_increment_nblocked_ths(int nworkers);
+void _starpu_decrement_nblocked_ths(void);
+
+/* Keeps track of the number of tasks currently submitted to a worker */
+void _starpu_decrement_nsubmitted_tasks_of_worker(int workerid);
+void _starpu_increment_nsubmitted_tasks_of_worker(int workerid);
 
 #endif // __SCHED_POLICY_H__

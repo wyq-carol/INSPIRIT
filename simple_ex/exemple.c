@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 
   struct starpu_sched_ctx sched_ctx2;
   int procs2[]={3, 4, 5, 6, 7};
-  starpu_create_sched_ctx(&sched_ctx2, "random", procs2, 4);
+  starpu_create_sched_ctx(&sched_ctx2, "random", procs2, 5);
 
   struct starpu_task *task3 = starpu_task_create();
   task3->cl = &cl;

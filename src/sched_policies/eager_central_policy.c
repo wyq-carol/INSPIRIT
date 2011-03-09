@@ -57,6 +57,13 @@ static void deinitialize_eager_center_policy(struct starpu_sched_ctx *sched_ctx)
 
 static int push_task_eager_policy(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
 {
+	int i;
+	int workerid;
+	for(i = 0; i < sched_ctx->nworkers_in_ctx; i++){
+		workerid = sched_ctx->workerid[i]; 
+		_starpu_increment_nsubmitted_tasks_of_worker(workerid);
+	}
+
 	return _starpu_fifo_push_task(fifo, &sched_mutex, &sched_cond, task);
 }
 
@@ -67,14 +74,27 @@ static int push_prio_task_eager_policy(struct starpu_task *task, struct starpu_s
 
 static struct starpu_task *pop_every_task_eager_policy(void)
 {
-        int workerid = starpu_worker_get_id();
-        struct starpu_worker_s *worker = _starpu_get_worker_struct(workerid);
-	return _starpu_fifo_pop_every_task(fifo, &sched_mutex, workerid);
+	return _starpu_fifo_pop_every_task(fifo, &sched_mutex, starpu_worker_get_id());
 }
 
 static struct starpu_task *pop_task_eager_policy(void)
 {
-	return _starpu_fifo_pop_task(fifo, starpu_worker_get_id());
+        unsigned workerid = starpu_worker_get_id();
+	struct starpu_task *task =  _starpu_fifo_pop_task(fifo, workerid);
+
+	if(task)
+	  {
+		struct starpu_sched_ctx *sched_ctx = task->sched_ctx;
+
+		int i;
+		for(i = 0; i <sched_ctx->nworkers_in_ctx; i++)
+		  {
+			workerid = sched_ctx->workerid[i]; 
+			_starpu_decrement_nsubmitted_tasks_of_worker(workerid);
+		  }
+	  }
+
+	return task;
 }
 
 struct starpu_sched_policy_s _starpu_sched_eager_policy = {

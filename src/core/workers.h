@@ -85,6 +85,11 @@ struct starpu_worker_s {
 	pthread_cond_t changing_ctx_cond;
 	int nworkers_of_next_ctx;
 
+	long int nsubmitted; /* submitted tasks to worker */
+	pthread_cond_t submitted_cond; /* cond for nsubmitted */
+	pthread_mutex_t submitted_mutex; /* mutex for nsubmitted */
+
+
 #ifdef __GLIBC__
 	cpu_set_t initial_cpu_set;
 	cpu_set_t current_cpu_set;

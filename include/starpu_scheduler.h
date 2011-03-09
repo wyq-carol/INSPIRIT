@@ -101,10 +101,10 @@ struct starpu_sched_policy_s {
 };
 
 struct starpu_sched_ctx {
-	struct starpu_sched_policy_s *sched_policy;
-	int workerid[STARPU_NMAXWORKERS];
-	int nworkers_in_ctx;
-	unsigned is_init_sched; /*we keep an init sched which we never delete*/
+	struct starpu_sched_policy_s *sched_policy; /*policy of the contex */
+	int workerid[STARPU_NMAXWORKERS]; /*list of indices of workers */
+	int nworkers_in_ctx; /*number of threads in contex */
+	unsigned is_init_sched; /*we keep an init sched which we never delete */
 };
 
 void starpu_delete_sched_ctx(struct starpu_sched_ctx *sched_ctx);
@@ -184,5 +184,11 @@ double starpu_task_expected_data_transfer_time(uint32_t memory_node, struct star
 double starpu_data_expected_transfer_time(starpu_data_handle handle, unsigned memory_node, starpu_access_mode mode);
 /* Returns expected power consumption in J */
 double starpu_task_expected_power(struct starpu_task *task, enum starpu_perf_archtype arch);
+
+/* Waits until all the tasks of a worker, already submitted, have been executed */
+int starpu_wait_for_all_tasks_of_worker(int workerid);
+
+/* Waits until all the tasks of a bunch of workers have been executed */
+int starpu_wait_for_all_tasks_of_workers(int *workerids_in_ctx, int nworkerids_in_ctx);
 
 #endif // __STARPU_SCHEDULER_H__
