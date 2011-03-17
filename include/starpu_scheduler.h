@@ -107,11 +107,6 @@ struct starpu_sched_ctx {
 	unsigned is_init_sched; /*we keep an init sched which we never delete */
 };
 
-struct starpu_device {
-	int id;
-	uint32_t type; /* what is the type of worker ? */
-};
-
 void starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int *workerids_in_ctx, int nworkerids_in_ctx);
 
 void starpu_delete_sched_ctx(struct starpu_sched_ctx *sched_ctx);
