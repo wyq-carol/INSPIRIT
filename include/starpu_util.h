@@ -192,4 +192,6 @@ void starpu_pack_cl_args(char **arg_buffer, size_t *arg_buffer_size, ...);
 }
 #endif
 
+#define STARPU_NMAXSCHEDCTXS 32
+
 #endif // __STARPU_UTIL_H__

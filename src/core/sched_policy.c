@@ -334,21 +334,25 @@ struct starpu_task *_starpu_pop_task(struct starpu_worker_s *worker)
 	/* perhaps there is some local task to be executed first */
 	task = _starpu_pop_local_task(worker);
 
-	if(!task){
+	if(!task)
+	  {
 		struct starpu_sched_ctx *sched_ctx;
 		unsigned i;
-		for(i = 0; i < worker->nctxs; i++){
+		for(i = 0; i < worker->nctxs; i++)
+		  {
 			sched_ctx = worker->sched_ctx[i];
-			if (sched_ctx->sched_policy->pop_task){
+			if (sched_ctx->sched_policy->pop_task)
+			  {
 				task = sched_ctx->sched_policy->pop_task();
 				break;
-			}
-		}
-	}
+			  }
+		  }
+	  }
 
-	if(task){
-	  printf("task %s poped by th %d with strateg %s\n", task->name, worker->workerid, task->sched_ctx->sched_policy->policy_name);
-	}
+	if(task)
+	  {
+		printf("task %s poped by th %d for %d  with strateg %s\n", task->name, worker->workerid, worker->arch, task->sched_ctx->sched_policy->policy_name);
+	  }
 
 	/* Note that we may get a NULL task in case the scheduler was unlocked
 	 * for some reason. */
@@ -440,6 +444,7 @@ void _starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *po
 			for(j = 0; j < nworkers; j++){
 				if(sched_ctx->workerid[i] == j){
 					struct starpu_worker_s *workerarg = _starpu_get_worker_struct(j);
+
 					workerarg->sched_ctx[workerarg->nctxs++] = sched_ctx;
 				}
 			}

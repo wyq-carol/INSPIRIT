@@ -175,6 +175,7 @@ static int execute_job_on_cuda(starpu_job_t j, struct starpu_worker_s *args)
 		calibrate_model = 1;
 
 	ret = _starpu_fetch_task_input(task, mask);
+
 	if (ret != 0) {
 		/* there was not enough memory, so the input of
 		 * the codelet cannot be fetched ... put the 
@@ -271,27 +272,44 @@ void *_starpu_cuda_worker(void *arg)
 	struct starpu_task *task;
 	int res;
 
+	pthread_cond_t *sched_cond = args->sched_cond;
+        pthread_mutex_t *sched_mutex = args->sched_mutex;
+        pthread_cond_t *changing_ctx_cond = &args->changing_ctx_cond;
+        pthread_mutex_t *changing_ctx_mutex = &args->changing_ctx_mutex;
+
 	while (_starpu_machine_is_running())
 	{
 		STARPU_TRACE_START_PROGRESS(memnode);
 		_starpu_datawizard_progress(memnode, 1);
 		STARPU_TRACE_END_PROGRESS(memnode);
 
-		PTHREAD_MUTEX_LOCK(args->sched_mutex);
+		/*when contex is changing block the threads belonging to it*/
+                PTHREAD_MUTEX_LOCK(changing_ctx_mutex);
+
+                if(args->status == STATUS_CHANGING_CTX){
+			_starpu_increment_nblocked_ths(args->nworkers_of_next_ctx);
+			_starpu_block_worker(workerid, changing_ctx_cond, changing_ctx_mutex);
+			_starpu_decrement_nblocked_ths();
+                }
+
+                PTHREAD_MUTEX_UNLOCK(changing_ctx_mutex);
+
+		PTHREAD_MUTEX_LOCK(sched_mutex);
 
 		task = _starpu_pop_task(args);
-	
+
+		if(task) printf("gpu is poping \n");
                 if (task == NULL) 
 		{
 			if (_starpu_worker_can_block(memnode))
-				_starpu_block_worker(workerid, args->sched_cond, args->sched_mutex);
+				_starpu_block_worker(workerid, sched_cond, sched_mutex);
 
-			PTHREAD_MUTEX_UNLOCK(args->sched_mutex);
+			PTHREAD_MUTEX_UNLOCK(sched_mutex);
 
 			continue;
 		};
 
-		PTHREAD_MUTEX_UNLOCK(args->sched_mutex);
+		PTHREAD_MUTEX_UNLOCK(sched_mutex);
 
 		STARPU_ASSERT(task);
 		j = _starpu_get_job_associated_to_task(task);

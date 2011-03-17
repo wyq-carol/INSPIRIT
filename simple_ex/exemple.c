@@ -1,39 +1,44 @@
-#include <starpu.h>
 #include <stdio.h>
-#include <time.h>
 #include <malloc.h>
+#include <starpu.h>
 
-static inline void my_codelet(void *descr[], void *_args)
+static inline void my_codelet_cpu(void *descr[], void *_args)
 {
   unsigned nx = STARPU_VECTOR_GET_NX(descr[0]);
   float *sub = (float *)STARPU_VECTOR_GET_PTR(descr[0]);
 
   unsigned i;
+
   for(i = 0; i < nx; i++){
     sub[i] *= 5;
   }
 }
 
+extern void my_codelet_gpu(void *descr[], __attribute__ ((unused)) void *_args);
+
+
 static starpu_codelet cl = 
   {
-    .where = STARPU_CPU,
-    .cpu_func = my_codelet,
+    .where = STARPU_CPU|STARPU_CUDA,
+    .cpu_func = my_codelet_cpu,
+    .cuda_func = my_codelet_gpu,
     .nbuffers = 1
   };
 
-void print_vect(float *vect, int size){
+void print_vect(int *vect, int size){
   unsigned i;
   for(i = 0; i < size; i++)
-    printf("%4.1f ", vect[i]);
+    printf("%d ", vect[i]);
   printf("\n");
   
 }
+
 int main(int argc, char **argv)
 {
   srand(time(NULL));
-  float *mat;
+  int *mat;
   unsigned size = 20, children = 5;
-  mat = malloc(size*sizeof(float));
+  mat = (int *)malloc(size*sizeof(int));
 
   unsigned i;
   for(i = 0; i < size; i++)
@@ -50,57 +55,70 @@ int main(int argc, char **argv)
   starpu_init(NULL);
 
   starpu_data_handle dataA;
-  starpu_vector_data_register(&dataA, 0, (uintptr_t)mat, size, sizeof(float));
+  starpu_vector_data_register(&dataA, 0, (uintptr_t)mat, size, sizeof(mat[00]));
 
-  starpu_data_set_sequential_consistency_flag(dataA, 0);
-  struct starpu_data_filter f;
-  f.filter_func = starpu_vector_list_filter_func;
-  f.nchildren = children;
-  f.get_nchildren = NULL;
-  f.get_child_ops = NULL;
-  int len[] = {4, 4, 4, 4, 4};
-  f.filter_arg_ptr = len;
-  
+  struct starpu_data_filter f =
+    {
+      .filter_func = starpu_block_filter_func_vector,
+      .nchildren = children,
+      .get_nchildren = NULL,
+      .get_child_ops = NULL
+    };
   starpu_data_partition(dataA, &f);
-  starpu_data_map_filters(dataA, 1, &f);
 
   struct starpu_sched_ctx sched_ctx;
-  int procs[]={1, 2, 3};
+  int procs[] = {1, 2, 3};
   starpu_create_sched_ctx(&sched_ctx, "random", procs, 3);
 
-  struct starpu_task *task = starpu_task_create();
-  task->cl = &cl;
-  task->buffers[0].handle = starpu_data_get_sub_data(dataA, 0);
-  task->buffers[0].mode = STARPU_R;
-  task->name = "first 1 2 3";
-  starpu_task_submit_to_ctx(task, &sched_ctx);
+  unsigned block_id[children];  
+  unsigned j;
+  for(j = 0; j < children; j++){
+    block_id[j] = j;
+    struct starpu_task *task = starpu_task_create();
+    task->cl = &cl;
+    task->synchronous = 1;
+    task->callback_func = NULL;
+    task->buffers[0].handle = starpu_data_get_sub_data(dataA, 1, j);
+    task->buffers[0].mode = STARPU_RW;
+    task->name = "first 1 2 3";  
+    starpu_task_submit_to_ctx(task, &sched_ctx);
+  }
+
 
   struct starpu_sched_ctx sched_ctx2;
   int procs2[]={3, 4, 5, 6, 7};
   starpu_create_sched_ctx(&sched_ctx2, "random", procs2, 5);
 
-  struct starpu_task *task3 = starpu_task_create();
-  task3->cl = &cl;
-  task3->buffers[0].handle = starpu_data_get_sub_data(dataA, 0);
-  task3->buffers[0].mode = STARPU_R;
-  task3->name = "third 3 4 5 6 7";
-  starpu_task_submit_to_ctx(task3, &sched_ctx2);
+  for(j = 0; j < children; j++){
+    struct starpu_task *task3 = starpu_task_create();
+    task3->cl = &cl;
+    task3->synchronous = 1;
+    task3->callback_func = NULL;
+    task3->buffers[0].handle = starpu_data_get_sub_data(dataA, 1, j);
+    task3->buffers[0].mode = STARPU_RW;
+    task3->name = "third 3 4 5 6 7";
+    starpu_task_submit_to_ctx(task3, &sched_ctx2);
+  }
 
-
-  struct starpu_task *task2 = starpu_task_create();
-  task2->cl = &cl;
-  task2->buffers[0].handle = starpu_data_get_sub_data(dataA, 0);
-  task2->buffers[0].mode = STARPU_R;
-  task2->name = "anything";
-  starpu_task_submit(task2);
-
+  for(j = 0; j < children; j++){
+    struct starpu_task *task2 = starpu_task_create();
+    task2->cl = &cl;
+    task2->synchronous = 1;
+    task2->callback_func = NULL;
+    task2->buffers[0].handle = starpu_data_get_sub_data(dataA, 1, j);
+    task2->buffers[0].mode = STARPU_RW;
+    task2->name = "anything";
+    starpu_task_submit(task2);
+  }
   
+  printf("wait for all \n");
   starpu_task_wait_for_all();
- 
   starpu_data_unpartition(dataA, 0);
-  
+
+  printf("data unregister  \n");
   starpu_data_unregister(dataA);
   
+  printf("the end \n");
   starpu_shutdown();
 
   print_vect(mat, size);

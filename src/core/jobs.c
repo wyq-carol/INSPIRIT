@@ -371,7 +371,6 @@ int _starpu_push_local_task(struct starpu_worker_s *worker, struct starpu_task *
 		return -ENODEV;
 
 	PTHREAD_MUTEX_LOCK(worker->sched_mutex);
-
 	if (back)
 		starpu_task_list_push_back(&worker->local_tasks, task);
 	else

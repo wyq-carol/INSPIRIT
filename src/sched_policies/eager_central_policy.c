@@ -64,6 +64,7 @@ static int push_task_eager_policy(struct starpu_task *task, struct starpu_sched_
 		_starpu_increment_nsubmitted_tasks_of_worker(workerid);
 	}
 
+	printf("task %s pushed on central fifo\n", task->name);
 	return _starpu_fifo_push_task(fifo, &sched_mutex, &sched_cond, task);
 }
 

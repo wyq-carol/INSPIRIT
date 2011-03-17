@@ -286,7 +286,7 @@ int starpu_task_submit_to_ctx(struct starpu_task *task, struct starpu_sched_ctx 
 }
 
 int starpu_task_submit(struct starpu_task *task){
-  return starpu_task_submit_to_ctx(task, _starpu_get_initial_sched_ctx());
+   return  starpu_task_submit_to_ctx(task, _starpu_get_initial_sched_ctx());
 }
 
 void starpu_display_codelet_stats(struct starpu_codelet_t *cl)

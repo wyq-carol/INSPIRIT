@@ -164,6 +164,7 @@ void *_starpu_cpu_worker(void *arg)
 			_starpu_block_worker(workerid, changing_ctx_cond, changing_ctx_mutex);
 			_starpu_decrement_nblocked_ths();
 		}
+
 		PTHREAD_MUTEX_UNLOCK(changing_ctx_mutex);
   
 		PTHREAD_MUTEX_LOCK(sched_mutex);
