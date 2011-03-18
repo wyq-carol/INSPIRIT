@@ -59,6 +59,7 @@ noinst_HEADERS = 						\
 	core/dependencies/htable.h				\
 	core/dependencies/implicit_data_deps.h			\
 	core/sched_policy.h					\
+	core/sched_ctx.h					\
 	core/perfmodel/perfmodel.h				\
 	core/perfmodel/regression.h				\
 	core/jobs.h						\
@@ -135,6 +136,7 @@ libstarpu_la_SOURCES = 						\
 	core/perfmodel/perfmodel.c				\
 	core/perfmodel/regression.c				\
 	core/sched_policy.c					\
+	core/sched_ctx.c					\
 	core/priorities.c					\
 	core/parallel_task.c					\
 	sched_policies/eager_central_policy.c			\
