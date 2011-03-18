@@ -25,7 +25,9 @@
 struct starpu_machine_config_s;
 struct starpu_sched_policy_s *_starpu_get_sched_policy( struct starpu_sched_ctx *sched_ctx);
 
-//void _starpu_init_sched_policy(struct starpu_machine_config_s *config, struct starpu_sched_ctx *sched_ctx);
+void _starpu_init_sched_policy(struct starpu_machine_config_s *config, 
+			       struct starpu_sched_ctx *sched_ctx, const char *policy_name);
+
 void _starpu_deinit_sched_policy(struct starpu_machine_config_s *config, struct starpu_sched_ctx *sched_ctx);
 
 int _starpu_push_task(starpu_job_t task, unsigned job_is_already_locked);
@@ -36,16 +38,5 @@ struct starpu_task *_starpu_pop_every_task(struct starpu_sched_ctx *sched_ctx);
 void _starpu_sched_post_exec_hook(struct starpu_task *task);
 
 void _starpu_wait_on_sched_event(void);
-
-void _starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int *workerid, int nworkerids, unsigned is_init_sched);
-
-void _starpu_delete_all_sched_ctxs();
-
-void _starpu_increment_nblocked_ths(int nworkers);
-void _starpu_decrement_nblocked_ths(void);
-
-/* Keeps track of the number of tasks currently submitted to a worker */
-void _starpu_decrement_nsubmitted_tasks_of_worker(int workerid);
-void _starpu_increment_nsubmitted_tasks_of_worker(int workerid);
 
 #endif // __SCHED_POLICY_H__

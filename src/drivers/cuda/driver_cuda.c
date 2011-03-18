@@ -25,6 +25,7 @@
 #include <drivers/driver_common/driver_common.h>
 #include "driver_cuda.h"
 #include <core/sched_policy.h>
+#include <core/sched_ctx.h>
 #include <profiling/profiling.h>
 
 /* the number of CUDA devices */

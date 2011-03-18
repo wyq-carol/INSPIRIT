@@ -25,6 +25,7 @@
 #include <core/debug.h>
 #include "driver_cpu.h"
 #include <core/sched_policy.h>
+#include <core/sched_ctx.h>
 
 static int execute_job_on_cpu(starpu_job_t j, struct starpu_worker_s *cpu_args, int is_parallel_task, int rank, enum starpu_perf_archtype perf_arch)
 {
