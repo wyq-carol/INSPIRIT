@@ -14,6 +14,8 @@
 #
 # See the GNU Lesser General Public License in COPYING.LGPL for more details.
 
+AUTOMAKE_OPTIONS = subdir-objects
+
 AM_CFLAGS = $(HWLOC_CFLAGS) -Wall
 LIBS = $(top_builddir)/src/libstarpu.la $(HWLOC_LIBS) @LIBS@
 AM_CPPFLAGS = -I$(top_srcdir)/include/ -I$(top_srcdir)/examples/ -I$(top_builddir)/include
@@ -47,6 +49,7 @@ EXTRA_DIST = 					\
 	lu/xlu_implicit_pivot.c			\
 	lu/xlu_kernels.c			\
 	lu/lu_example.c				\
+	cholesky_and_lu/cholesky_and_lu.c				\
 	incrementer/incrementer_kernels_opencl_kernel.cl 	\
 	basic_examples/variable_kernels_opencl_kernel.cl	\
 	matvecmult/matvecmult_kernel.cl				\
@@ -423,6 +426,24 @@ lu_lu_implicit_example_double_SOURCES =		\
 
 endif
 
+###########################
+# Cholesky and Lu example #
+###########################
+if !NO_BLAS_LIB
+
+examplebin_PROGRAMS += 				\
+	cholesky_and_lu/cholesky_and_lu
+
+cholesky_and_lu_cholesky_and_lu_SOURCES =			\
+	cholesky_and_lu/cholesky_and_lu.c			\
+	cholesky_and_lu/cholesky/cholesky_tile_tag.c		\
+	cholesky_and_lu/cholesky/cholesky_models.c		\
+	cholesky_and_lu/cholesky/cholesky_kernels.c		\
+	cholesky_and_lu/lu/slu.c				\
+	cholesky_and_lu/lu/slu_pivot.c				\
+	cholesky_and_lu/lu/slu_kernels.c			\
+	common/blas.c
+endif
 
 ################
 # Heat example #
