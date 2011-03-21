@@ -24,6 +24,7 @@
 size_t _starpu_insert_task_get_arg_size(va_list varg_list);
 int _starpu_pack_cl_args(size_t arg_buffer_size, char **arg_buffer, va_list varg_list);
 int _starpu_insert_task_create_and_submit(char *arg_buffer, starpu_codelet *cl, struct starpu_task **task, va_list varg_list);
+int _starpu_insert_task_create_and_submit_to_ctx(char *arg_buffer, starpu_codelet *cl, struct starpu_task **task, va_list varg_list, struct starpu_sched_ctx *sched_ctx);
 
 #endif // __STARPU_INSERT_TASK_UTILS_H__
 

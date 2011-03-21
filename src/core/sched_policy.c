@@ -98,6 +98,7 @@ static void load_sched_policy(struct starpu_sched_policy_s *sched_policy, struct
 	policy->pop_task = sched_policy->pop_task;
         policy->post_exec_hook = sched_policy->post_exec_hook;
 	policy->pop_every_task = sched_policy->pop_every_task;
+	policy->push_task_notify = sched_policy->push_task_notify;
 	policy->policy_name = sched_policy->policy_name;
 }
 
@@ -244,8 +245,9 @@ static int _starpu_push_task_on_specific_worker(struct starpu_task *task, int wo
 
 	unsigned i;
 	for(i = 0; i < worker->nctxs; i++){
-		if (worker->sched_ctx[i]->sched_policy->push_task_notify)
+		if (worker->sched_ctx[i]->sched_policy->push_task_notify){
 			worker->sched_ctx[i]->sched_policy->push_task_notify(task, workerid);
+		}
 	}
 
 	if (is_basic_worker)
@@ -345,10 +347,10 @@ struct starpu_task *_starpu_pop_task(struct starpu_worker_s *worker)
 		  }
 	  }
 
-	if(task)
-	  {
-		printf("task %s poped by th %d for %d  with strateg %s\n", task->name, worker->workerid, worker->arch, task->sched_ctx->sched_policy->policy_name);
-	  }
+ 	/* if(task) */
+	/*   { */
+	/* 	printf("task poped by th %d for %d  with strateg %s\n", worker->workerid, worker->arch, task->sched_ctx->sched_policy->policy_name); */
+	/*   } */
 
 	/* Note that we may get a NULL task in case the scheduler was unlocked
 	 * for some reason. */

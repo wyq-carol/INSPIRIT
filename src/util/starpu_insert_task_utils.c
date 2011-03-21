@@ -131,8 +131,7 @@ int _starpu_pack_cl_args(size_t arg_buffer_size, char **arg_buffer, va_list varg
 	va_end(varg_list);
 	return 0;
 }
-
-int _starpu_insert_task_create_and_submit(char *arg_buffer, starpu_codelet *cl, struct starpu_task **task, va_list varg_list) {
+static void _starpu_prepare_task(char *arg_buffer, starpu_codelet *cl, struct starpu_task **task, va_list varg_list) {
         int arg_type;
 	unsigned current_buffer = 0;
 
@@ -194,7 +193,23 @@ int _starpu_insert_task_create_and_submit(char *arg_buffer, starpu_codelet *cl, 
 	(*task)->callback_func = starpu_task_insert_callback_wrapper;
 	(*task)->callback_arg = cl_arg_wrapper;
 
-	int ret = starpu_task_submit(*task);
+}
+int _starpu_insert_task_create_and_submit(char *arg_buffer, starpu_codelet *cl, struct starpu_task **task, va_list varg_list) {
+	 _starpu_prepare_task(arg_buffer, cl, task, varg_list);
+	
+	 int ret = starpu_task_submit(*task);
+
+	if (STARPU_UNLIKELY(ret == -ENODEV))
+          fprintf(stderr, "No one can execute task %p wih cl %p (symbol %s)\n", *task, (*task)->cl, ((*task)->cl->model && (*task)->cl->model->symbol)?(*task)->cl->model->symbol:"none");
+
+	STARPU_ASSERT(!ret);
+        return ret;
+}
+
+int _starpu_insert_task_create_and_submit_to_ctx(char *arg_buffer, starpu_codelet *cl, struct starpu_task **task, va_list varg_list, struct starpu_sched_ctx *sched_ctx) {
+	 _starpu_prepare_task(arg_buffer, cl, task, varg_list);
+	
+	 int ret = starpu_task_submit_to_ctx(*task, sched_ctx);
 
 	if (STARPU_UNLIKELY(ret == -ENODEV))
           fprintf(stderr, "No one can execute task %p wih cl %p (symbol %s)\n", *task, (*task)->cl, ((*task)->cl->model && (*task)->cl->model->symbol)?(*task)->cl->model->symbol:"none");

@@ -299,11 +299,11 @@ void *_starpu_cuda_worker(void *arg)
 
 		task = _starpu_pop_task(args);
 
-		if(task) printf("gpu is poping \n");
                 if (task == NULL) 
 		{
 			if (_starpu_worker_can_block(memnode))
 				_starpu_block_worker(workerid, sched_cond, sched_mutex);
+		  
 
 			PTHREAD_MUTEX_UNLOCK(sched_mutex);
 

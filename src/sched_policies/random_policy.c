@@ -20,7 +20,7 @@
 #include <core/workers.h>
 #include <sched_policies/fifo_queues.h>
 
-static unsigned nworkers;
+//static unsigned nworkers;
 
 static pthread_cond_t sched_cond[STARPU_NMAXWORKERS];
 static pthread_mutex_t sched_mutex[STARPU_NMAXWORKERS];
@@ -33,6 +33,8 @@ static int _random_push_task(struct starpu_task *task, unsigned prio, struct sta
 	unsigned selected = 0;
 
 	double alpha_sum = 0.0;
+
+	unsigned nworkers = sched_ctx->nworkers_in_ctx;	
 
 	for (worker_in_ctx = 0; worker_in_ctx < nworkers; worker_in_ctx++)
 	{
@@ -82,7 +84,7 @@ static void initialize_random_policy(struct starpu_sched_ctx *sched_ctx)
 {
 	starpu_srand48(time(NULL));
 
-	nworkers = sched_ctx->nworkers_in_ctx;	
+	unsigned nworkers = sched_ctx->nworkers_in_ctx;	
 
 	unsigned workerid, workerid_ctx;
 	for (workerid_ctx = 0; workerid_ctx < nworkers; workerid_ctx++)
@@ -101,6 +103,7 @@ struct starpu_sched_policy_s _starpu_sched_random_policy = {
 	.deinit_sched = NULL,
 	.push_task = random_push_task,
 	.push_prio_task = random_push_prio_task,
+	.push_task_notify = NULL,
 	.pop_task = NULL,
 	.post_exec_hook = NULL,
 	.pop_every_task = NULL,

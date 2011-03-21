@@ -179,6 +179,7 @@ int starpu_data_cpy(starpu_data_handle dst_handle, starpu_data_handle src_handle
 
 /* Wrapper to create a task. */
 void starpu_insert_task(starpu_codelet *cl, ...);
+void starpu_insert_task_to_ctx(struct starpu_sched_ctx *sched_ctx,starpu_codelet *cl, ...);
 
 /* Retrieve the arguments of type STARPU_VALUE associated to a task
  * automatically created using starpu_insert_task. */
