@@ -228,7 +228,7 @@ int run_cholesky_tile_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **a
 	parse_args(argc, argv);
 	assert(nblocks <= NMAXBLOCKS);
 
-	fprintf(stderr, "BLOCK SIZE = %d\n", size / nblocks);
+	//	fprintf(stderr, "BLOCK SIZE = %d\n", size / nblocks);
 
 	//	starpu_init(NULL);
 
@@ -306,11 +306,11 @@ int finish_cholesky_tile_tag(){
 	gettimeofday(&end, NULL);
 
 	double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
-	fprintf(stderr, "Computation took (in ms)\n");
-	printf("%2.2f\n", timing/1000);
+	//	fprintf(stderr, "Computation took (in ms)\n");
+	printf("%2.2f ", timing/1000);
 
 	double flop = (1.0f*size*size*size)/3.0f;
-	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	//	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
 
 	return 0;
 }

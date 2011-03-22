@@ -3,6 +3,10 @@
 
 int main(int argc, char **argv)
 {
+  struct timeval start;
+  struct timeval end;
+  gettimeofday(&start, NULL);
+
   starpu_init(NULL);
 
   struct starpu_sched_ctx sched_ctx;
@@ -22,6 +26,15 @@ int main(int argc, char **argv)
   //starpu_task_wait_for_all();
 
   starpu_shutdown();
+
+  gettimeofday(&end, NULL);
+
+  double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
+  //      fprintf(stderr, "Computation took (in ms)\n");                                          
+  printf("%2.2f\n", timing/1000);
+
+  double flop = (1.0f*size*size*size)/3.0f;
+  //      fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));               
   
   return 0;
 }

@@ -398,12 +398,12 @@ void finish_lu_decomposition_pivot(unsigned nblocks)
 
 	double timing = (double)((&xlu_pivot_end.tv_sec - &xlu_pivot_start.tv_sec)*1000000 + (&xlu_pivot_end.tv_usec - &xlu_pivot_start.tv_usec));
 
-	fprintf(stderr, "Computation took (in ms)\n");
-	fprintf(stderr, "%2.2f\n", timing/1000);
+	//	fprintf(stderr, "Computation took (in ms)\n");
+	fprintf(stderr, "%2.2f ", timing/1000);
 
 	unsigned n = starpu_matrix_get_nx(xlu_pivot_dataA);
 	double flop = (2.0f*n*n*n)/3.0f;
-	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	//	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
 
 	/* gather all the data */
 	starpu_data_unpartition(xlu_pivot_dataA, 0);
@@ -434,12 +434,12 @@ void finish_lu_decomposition_pivot_no_stride(unsigned nblocks)
 
 	double timing = (double)((&xlu_pivot_no_stride_end.tv_sec - &xlu_pivot_no_stride_start.tv_sec)*1000000 + (&xlu_pivot_no_stride_end.tv_usec - &xlu_pivot_no_stride_start.tv_usec));
 
-	fprintf(stderr, "Computation took (in ms)\n");
-	fprintf(stderr, "%2.2f\n", timing/1000);
+	//	fprintf(stderr, "Computation took (in ms)\n");
+	fprintf(stderr, "%2.2f ", timing/1000);
 
 	unsigned n = starpu_matrix_get_nx(xlu_pivot_dataAp[0])*nblocks;
 	double flop = (2.0f*n*n*n)/3.0f;
-	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	//	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
 
 	unsigned bi, bj;
 	for (bj = 0; bj < nblocks; bj++)
