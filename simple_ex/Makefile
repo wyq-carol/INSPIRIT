@@ -9,7 +9,7 @@ all: $(PROG)
 
 CC      := gcc
 NVCC    := /usr/local/cuda/bin/nvcc
-CFLAGS  := $$(pkg-config --cflags libstarpu) -O0 -g #-Wall
+CFLAGS  := $$(pkg-config --cflags libstarpu) -g #-Wall
 LDFLAGS := $$(pkg-config --libs libstarpu)
 CUDADIR=$(CUDA_HOME)
 

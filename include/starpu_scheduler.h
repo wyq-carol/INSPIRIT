@@ -104,12 +104,16 @@ struct starpu_sched_ctx {
 	struct starpu_sched_policy_s *sched_policy; /*policy of the contex */
 	int workerid[STARPU_NMAXWORKERS]; /*list of indices of workers */
 	int nworkers_in_ctx; /*number of threads in contex */
-	unsigned is_init_sched; /*we keep an init sched which we never delete */
+	unsigned is_initial_sched; /*we keep an initial sched which we never delete */
 };
 
 void starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int *workerids_in_ctx, int nworkerids_in_ctx);
 
 void starpu_delete_sched_ctx(struct starpu_sched_ctx *sched_ctx);
+
+void starpu_add_workers_to_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, struct starpu_sched_ctx *sched_ctx);
+
+void starpu_remove_workers_from_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, struct starpu_sched_ctx *sched_ctx);
 
 /* When there is no available task for a worker, StarPU blocks this worker on a
 condition variable. This function specifies which condition variable (and the

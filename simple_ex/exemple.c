@@ -70,10 +70,8 @@ int main(int argc, char **argv)
   int procs[] = {1, 2, 3};
   starpu_create_sched_ctx(&sched_ctx, "random", procs, 3);
 
-  unsigned block_id[children];  
   unsigned j;
   for(j = 0; j < children; j++){
-    block_id[j] = j;
     struct starpu_task *task = starpu_task_create();
     task->cl = &cl;
     task->synchronous = 1;
@@ -81,6 +79,38 @@ int main(int argc, char **argv)
     task->buffers[0].handle = starpu_data_get_sub_data(dataA, 1, j);
     task->buffers[0].mode = STARPU_RW;
     task->name = "first 1 2 3";  
+    starpu_task_submit_to_ctx(task, &sched_ctx);
+  }
+
+  int procs_to_remove[]={1,3};
+  starpu_remove_workers_from_sched_ctx(procs_to_remove, 2, &sched_ctx);
+
+  printf("procs removed \n");
+
+  for(j = 0; j < children; j++){
+    struct starpu_task *task = starpu_task_create();
+    task->cl = &cl;
+    task->synchronous = 1;
+    task->callback_func = NULL;
+    task->buffers[0].handle = starpu_data_get_sub_data(dataA, 1, j);
+    task->buffers[0].mode = STARPU_RW;
+    task->name = "first 2";  
+    starpu_task_submit_to_ctx(task, &sched_ctx);
+  }
+
+  int procs_to_add[]={1, 4, 5};
+  starpu_add_workers_to_sched_ctx(procs_to_add, 2, &sched_ctx);
+
+  printf("procs add \n");
+
+  for(j = 0; j < children; j++){
+    struct starpu_task *task = starpu_task_create();
+    task->cl = &cl;
+    task->synchronous = 1;
+    task->callback_func = NULL;
+    task->buffers[0].handle = starpu_data_get_sub_data(dataA, 1, j);
+    task->buffers[0].mode = STARPU_RW;
+    task->name = "first 1 2 4 5";  
     starpu_task_submit_to_ctx(task, &sched_ctx);
   }
 

@@ -347,10 +347,10 @@ struct starpu_task *_starpu_pop_task(struct starpu_worker_s *worker)
 		  }
 	  }
 
- 	/* if(task) */
-	/*   { */
-	/* 	printf("task poped by th %d for %d  with strateg %s\n", worker->workerid, worker->arch, task->sched_ctx->sched_policy->policy_name); */
-	/*   } */
+ 	if(task)
+	  {
+	    printf("task %s poped by th %d for %d  with strateg %s\n", task->name, worker->workerid, worker->arch, task->sched_ctx->sched_policy->policy_name);
+	  }
 
 	/* Note that we may get a NULL task in case the scheduler was unlocked
 	 * for some reason. */

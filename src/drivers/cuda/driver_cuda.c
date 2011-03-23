@@ -342,6 +342,8 @@ void *_starpu_cuda_worker(void *arg)
 		}
 
 		_starpu_handle_job_termination(j, 0);
+		_starpu_decrement_nsubmitted_tasks_of_worker(args->workerid);
+
 	}
 
 	STARPU_TRACE_WORKER_DEINIT_START
