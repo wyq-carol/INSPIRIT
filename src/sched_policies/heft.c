@@ -24,7 +24,7 @@
 #include <starpu_parameters.h>
 #include <starpu_task_bundle.h>
 
-static unsigned nworkers;
+//static unsigned nworkers;
 
 static pthread_cond_t sched_cond[STARPU_NMAXWORKERS];
 static pthread_mutex_t sched_mutex[STARPU_NMAXWORKERS];
@@ -41,7 +41,7 @@ static double ntasks[STARPU_NMAXWORKERS];
 
 static void heft_init(struct starpu_sched_ctx *sched_ctx)
 {
-	nworkers = sched_ctx->nworkers_in_ctx;
+	unsigned nworkers = sched_ctx->nworkers_in_ctx;
 
 	const char *strval_alpha = getenv("STARPU_SCHED_ALPHA");
 	if (strval_alpha)
@@ -143,7 +143,8 @@ static void compute_all_performance_predictions(struct starpu_task *task,
 						double *max_exp_endp, double *best_exp_endp,
 						double *local_data_penalty,
 						double *local_power, int *forced_best,
-						struct starpu_task_bundle *bundle)
+						struct starpu_task_bundle *bundle,
+						struct starpu_sched_ctx *sched_ctx)
 {
   int calibrating = 0;
   double max_exp_end = DBL_MIN;
@@ -154,9 +155,12 @@ static void compute_all_performance_predictions(struct starpu_task *task,
   /* A priori, we know all estimations */
   int unknown = 0;
 
-  unsigned worker;
-  for (worker = 0; worker < nworkers; worker++)
+  unsigned nworkers = sched_ctx->nworkers_in_ctx;
+
+  unsigned worker, worker_in_ctx;
+  for (worker_in_ctx = 0; worker_in_ctx < nworkers; worker_in_ctx++)
     {
+      worker = sched_ctx->workerid[worker_in_ctx];
       /* Sometimes workers didn't take the tasks as early as we expected */
       exp_start[worker] = STARPU_MAX(exp_start[worker], starpu_timing_now());
       exp_end[worker] = exp_start[worker] + exp_len[worker];
@@ -236,6 +240,7 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio, struct starp
 	   there is no performance prediction available yet */
 	int forced_best;
 
+	unsigned nworkers = sched_ctx->nworkers_in_ctx;
 	double local_task_length[nworkers];
 	double local_data_penalty[nworkers];
 	double local_power[nworkers];
@@ -254,7 +259,7 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio, struct starp
 	compute_all_performance_predictions(task, local_task_length, exp_end,
 					&max_exp_end, &best_exp_end,
 					local_data_penalty,
-					local_power, &forced_best, bundle);
+					    local_power, &forced_best, bundle, sched_ctx);
 
 	/* If there is no prediction available for that task with that arch we
 	 * want to speed-up calibration time so we force this measurement */
@@ -346,7 +351,7 @@ static void heft_deinit(struct starpu_sched_ctx *sched_ctx)
 {
         unsigned workerid;
 	int workerid_in_ctx;
-	int nworkers = sched_ctx->nworkers_in_ctx;
+	unsigned nworkers = sched_ctx->nworkers_in_ctx;
 	for (workerid_in_ctx = 0; workerid_in_ctx < nworkers; workerid_in_ctx++){
 	        workerid = sched_ctx->workerid[workerid_in_ctx];
 		PTHREAD_MUTEX_DESTROY(&sched_mutex[workerid]);
