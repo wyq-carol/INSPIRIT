@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 
   struct starpu_sched_ctx sched_ctx;
   int procs[] = {1, 2, 3};
-  starpu_create_sched_ctx(&sched_ctx, "random", procs, 3);
+  starpu_create_sched_ctx(&sched_ctx, "heft", procs, 3);
 
   unsigned j;
   for(j = 0; j < children; j++){
