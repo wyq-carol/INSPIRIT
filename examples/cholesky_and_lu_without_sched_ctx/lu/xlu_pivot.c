@@ -1,4 +1,4 @@
-/* StarPU --- Runtime system for heterogeneous multicore architectures.
+/* StarPUf --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2009, 2010  Université de Bordeaux 1
  * Copyright (C) 2010  Centre National de la Recherche Scientifique
@@ -32,10 +32,10 @@
 static unsigned no_prio = 0;
 starpu_data_handle xlu_pivot_dataA;
 starpu_data_handle *xlu_pivot_dataAp;
-struct timeval xlu_pivot_start;
-struct timeval xlu_pivot_end;
-struct timeval xlu_pivot_no_stride_start;
-struct timeval xlu_pivot_no_stride_end;
+/* struct timeval xlu_pivot_start; */
+/* struct timeval xlu_pivot_end; */
+/* struct timeval xlu_pivot_no_stride_start; */
+/* struct timeval xlu_pivot_no_stride_end; */
 
 
 /*
@@ -267,7 +267,8 @@ static double dw_codelet_facto_pivot(starpu_data_handle *dataAp,
 	}
 
 	/* schedule the codelet */
-	gettimeofday(start, NULL);
+	if(start != NULL)
+	  gettimeofday(start, NULL);
 	int ret = starpu_task_submit(entry_task);
 	if (STARPU_UNLIKELY(ret == -ENODEV))
 	{
@@ -286,7 +287,7 @@ starpu_data_handle get_block_with_striding(starpu_data_handle *dataAp,
 }
 
 
-void STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks)
+void STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct timeval *start)
 {
 
 	/* monitor and partition the A matrix into blocks :
@@ -328,7 +329,7 @@ void STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size
 	}
 #endif
 
-	dw_codelet_facto_pivot(&xlu_pivot_dataA, piv_description, nblocks, get_block_with_striding, &xlu_pivot_start);
+	dw_codelet_facto_pivot(&xlu_pivot_dataA, piv_description, nblocks, get_block_with_striding, start);
 }
 
 
@@ -338,7 +339,7 @@ starpu_data_handle get_block_with_no_striding(starpu_data_handle *dataAp, unsign
 	return dataAp[i+j*nblocks];
 }
 
-void STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks)
+void STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct timeval *start)
 {
 	xlu_pivot_dataAp = malloc(nblocks*nblocks*sizeof(starpu_data_handle));
 
@@ -369,10 +370,10 @@ void STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, un
 		piv_description[block].last = (block + 1) * (size / nblocks);
 	}
 
-	dw_codelet_facto_pivot(xlu_pivot_dataAp, piv_description, nblocks, get_block_with_no_striding, &xlu_pivot_no_stride_start);
+	dw_codelet_facto_pivot(xlu_pivot_dataAp, piv_description, nblocks, get_block_with_no_striding, start);
 }
 
-void finish_lu_decomposition_pivot(unsigned nblocks)
+void finish_lu_decomposition_pivot(unsigned nblocks, struct timeval *end)
 {
 	/* we wait the last task (TAG11(nblocks - 1)) and all the pivot tasks */
 	starpu_tag_t *tags = malloc(nblocks*nblocks*sizeof(starpu_tag_t));
@@ -393,22 +394,14 @@ void finish_lu_decomposition_pivot(unsigned nblocks)
 	starpu_tag_wait_array(ndeps, tags);
 //	starpu_task_wait_for_all();
 
-	gettimeofday(&xlu_pivot_end, NULL);
-
-	double timing = (double)((&xlu_pivot_end.tv_sec - &xlu_pivot_start.tv_sec)*1000000 + (&xlu_pivot_end.tv_usec - &xlu_pivot_start.tv_usec));
-
-	//	fprintf(stderr, "Computation took (in ms)\n");
-	fprintf(stderr, "%2.2f ", timing/1000);
-
-	unsigned n = starpu_matrix_get_nx(xlu_pivot_dataA);
-	double flop = (2.0f*n*n*n)/3.0f;
-	//	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	if(end != NULL)
+	  gettimeofday(end, NULL);
 
 	/* gather all the data */
 	starpu_data_unpartition(xlu_pivot_dataA, 0);
 }
 
-void finish_lu_decomposition_pivot_no_stride(unsigned nblocks)
+void finish_lu_decomposition_pivot_no_stride(unsigned nblocks, struct timeval *end)
 {
 	/* we wait the last task (TAG11(nblocks - 1)) and all the pivot tasks */
 	starpu_tag_t *tags = malloc(nblocks*nblocks*sizeof(starpu_tag_t));
@@ -429,16 +422,8 @@ void finish_lu_decomposition_pivot_no_stride(unsigned nblocks)
 	starpu_tag_wait_array(ndeps, tags);
 //	starpu_task_wait_for_all();
 
-	gettimeofday(&xlu_pivot_no_stride_end, NULL);
-
-	double timing = (double)((&xlu_pivot_no_stride_end.tv_sec - &xlu_pivot_no_stride_start.tv_sec)*1000000 + (&xlu_pivot_no_stride_end.tv_usec - &xlu_pivot_no_stride_start.tv_usec));
-
-	//	fprintf(stderr, "Computation took (in ms)\n");
-	fprintf(stderr, "%2.2f ", timing/1000);
-
-	unsigned n = starpu_matrix_get_nx(xlu_pivot_dataAp[0])*nblocks;
-	double flop = (2.0f*n*n*n)/3.0f;
-	//	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	if(end != NULL)
+	  gettimeofday(end, NULL);
 
 	unsigned bi, bj;
 	for (bj = 0; bj < nblocks; bj++)

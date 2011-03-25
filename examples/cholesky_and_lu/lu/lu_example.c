@@ -35,8 +35,8 @@ static unsigned profile = 0;
 static unsigned bound = 0;
 static unsigned bounddeps = 0;
 static unsigned boundprio = 0;
-struct timeval lu_start;
-struct timeval lu_end;
+//struct timeval lu_start;
+//struct timeval lu_end;
 unsigned *ipiv;
 
 TYPE *A, *A_saved;
@@ -265,7 +265,7 @@ static void check_result(void)
 		exit(-1);
 }
 
-int run_lu(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
+int run_lu(struct starpu_sched_ctx *sched_ctx, int argc, char **argv, struct timeval *start)
 {
 	lu_parse_args(argc, argv);
 
@@ -296,21 +296,19 @@ int run_lu(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
 			A_blocks = malloc(lu_nblocks*lu_nblocks*sizeof(TYPE **));
 			copy_matrix_into_blocks();
 
-			STARPU_LU(lu_decomposition_pivot_no_stride)(A_blocks, ipiv, lu_size, lu_size, lu_nblocks, sched_ctx);
+			STARPU_LU(lu_decomposition_pivot_no_stride)(A_blocks, ipiv, lu_size, lu_size, lu_nblocks, sched_ctx, start);
 
 			copy_blocks_into_matrix();
 			free(A_blocks);
 		}
 		else 
 		{
-			gettimeofday(&lu_start, NULL);
-
-			STARPU_LU(lu_decomposition_pivot)(A, ipiv, lu_size, lu_size, lu_nblocks, sched_ctx);
+			STARPU_LU(lu_decomposition_pivot)(A, ipiv, lu_size, lu_size, lu_nblocks, sched_ctx, start);
 		}
 	}
 	else
 	{
-	  STARPU_LU(lu_decomposition)(A, lu_size, lu_size, lu_nblocks, sched_ctx);
+	  STARPU_LU(lu_decomposition)(A, lu_size, lu_size, lu_nblocks, sched_ctx, start);
 	}
 
 
@@ -319,32 +317,23 @@ int run_lu(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
 	return 0;
 }
 
-int finish_lu()
+int finish_lu(struct timeval *end)
 {
 
 	if (pivot)
 	{
 		if (no_stride)
 		{
-			finish_lu_decomposition_pivot_no_stride(lu_nblocks);
+		  finish_lu_decomposition_pivot_no_stride(lu_nblocks, end);
 		}
 		else 
 		{
-			finish_lu_decomposition_pivot(lu_nblocks);
-			gettimeofday(&lu_end, NULL);
-			
-			double timing = (double)((lu_end.tv_sec - lu_start.tv_sec)*1000000 + (lu_end.tv_usec - lu_start.tv_usec));
-			
-			unsigned n = lu_size;
-			double flop = (2.0f*n*n*n)/3.0f;
-			fprintf(stderr, "Synthetic GFlops (TOTAL) : \n");
-			fprintf(stdout, "%d	%6.2f\n", n, (flop/timing/1000.0f));
-
+		  finish_lu_decomposition_pivot(lu_nblocks, end);
 		}
 	}
 	else
 	{
-	  finish_lu_decomposition(lu_nblocks);
+	  finish_lu_decomposition(lu_nblocks, end);
 	}
 
   

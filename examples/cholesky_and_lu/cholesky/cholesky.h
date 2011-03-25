@@ -74,8 +74,9 @@ void chol_cublas_codelet_update_u22(void *descr[], void *_args);
 int run_cholesky_grain_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **argv);
 int run_cholesky_implicit(struct starpu_sched_ctx *sched_ctx, int argc, char **argv);
 int run_cholesky_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **argv);
-int run_cholesky_tile_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **argv);
-int finish_cholesky_tile_tag();
+int run_cholesky_tile_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **argv, 
+			  struct timeval *start);
+int finish_cholesky_tile_tag(struct timeval *end);
 
 extern struct starpu_perfmodel_t chol_model_11;
 extern struct starpu_perfmodel_t chol_model_21;

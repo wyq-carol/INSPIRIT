@@ -29,8 +29,8 @@
 					| (unsigned long long)(j))))
 
 static unsigned no_prio = 0;
-struct timeval xlu_start;
-struct timeval xlu_end;
+//struct timeval xlu_start;
+//struct timeval xlu_end;
 starpu_data_handle xlu_dataA;
 
 
@@ -165,7 +165,7 @@ static void create_task_22(starpu_data_handle dataA, unsigned k, unsigned i, uns
  *	code to bootstrap the factorization 
  */
 
-static void dw_codelet_facto_v3(starpu_data_handle dataA, unsigned nblocks)
+static void dw_codelet_facto_v3(starpu_data_handle dataA, unsigned nblocks, struct timeval *start)
 {
 	struct starpu_task *entry_task = NULL;
 
@@ -200,7 +200,8 @@ static void dw_codelet_facto_v3(starpu_data_handle dataA, unsigned nblocks)
 	}
 
 	/* schedule the codelet */
-	gettimeofday(&xlu_start, NULL);
+	if(start != NULL)
+	  gettimeofday(start, NULL);
 	int ret = starpu_task_submit(entry_task);
 	if (STARPU_UNLIKELY(ret == -ENODEV))
 	{
@@ -210,7 +211,7 @@ static void dw_codelet_facto_v3(starpu_data_handle dataA, unsigned nblocks)
 
 }
 
-void STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigned nblocks)
+void STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigned nblocks, struct timeval *start)
 {
 	/* monitor and partition the A matrix into blocks :
 	 * one block is now determined by 2 unsigned (i,j) */
@@ -233,23 +234,16 @@ void STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigne
 
 	starpu_data_map_filters(xlu_dataA, 2, &f, &f2);
 
-	dw_codelet_facto_v3(xlu_dataA, nblocks);
+	dw_codelet_facto_v3(xlu_dataA, nblocks, start);
 }
 
-void finish_lu_decomposition(unsigned nblocks)
+void finish_lu_decomposition(unsigned nblocks, struct timeval *end)
 {
 	/* stall the application until the end of computations */
 	starpu_tag_wait(TAG11(nblocks-1));
 
-	gettimeofday(&xlu_end, NULL);
-
-	double timing = (double)((xlu_end.tv_sec - xlu_start.tv_sec)*1000000 + (xlu_end.tv_usec - xlu_start.tv_usec));
-	//	fprintf(stderr, "Computation took (in ms)\n");
-	printf("%2.2f ", timing/1000);
-
-	unsigned n = starpu_matrix_get_nx(xlu_dataA);
-	double flop = (2.0f*n*n*n)/3.0f;
-	//	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	if(end != NULL)
+	  gettimeofday(end, NULL);
 
 	/* gather all the data */
 	starpu_data_unpartition(xlu_dataA, 0);

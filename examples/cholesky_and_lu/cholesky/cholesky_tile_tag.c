@@ -20,9 +20,8 @@
 /* A [ y ] [ x ] */
 float *A[NMAXBLOCKS][NMAXBLOCKS];
 starpu_data_handle A_state[NMAXBLOCKS][NMAXBLOCKS];
-struct timeval start;
-struct timeval end;
-
+//struct timeval start;
+//struct timeval end;
 
 /*
  *	Some useful functions
@@ -184,7 +183,7 @@ static void create_task_22(unsigned k, unsigned i, unsigned j, struct starpu_sch
  *	and construct the DAG
  */
 
-static void cholesky_no_stride(struct starpu_sched_ctx *sched_ctx)
+static void cholesky_no_stride(struct starpu_sched_ctx *sched_ctx, struct timeval *start)
 {
 	struct starpu_task *entry_task = NULL;
 
@@ -215,12 +214,14 @@ static void cholesky_no_stride(struct starpu_sched_ctx *sched_ctx)
 	}
 
 	/* schedule the codelet */
-	gettimeofday(&start, NULL);
+	if(start != NULL){
+		gettimeofday(start, NULL);
+	}
 	starpu_task_submit_to_ctx(entry_task, sched_ctx);
 
 }
 
-int run_cholesky_tile_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
+int run_cholesky_tile_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **argv, struct timeval *start)
 {
 	unsigned x, y;
 	unsigned i, j;
@@ -290,27 +291,22 @@ int run_cholesky_tile_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **a
 		}
 	}
 
-	cholesky_no_stride(sched_ctx);
+	cholesky_no_stride(sched_ctx, start);
 
 	//	starpu_shutdown();
 	return 0;
 }
 
 
-int finish_cholesky_tile_tag(){	
+int finish_cholesky_tile_tag(struct timeval *end){	
   //	starpu_helper_cublas_shutdown();
 
 	/* stall the application until the end of computations */
 	starpu_tag_wait(TAG11(nblocks-1));
 
-	gettimeofday(&end, NULL);
-
-	double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
-	//	fprintf(stderr, "Computation took (in ms)\n");
-	printf("%2.2f ", timing/1000);
-
-	double flop = (1.0f*size*size*size)/3.0f;
-	//	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	if(end != NULL){
+	  gettimeofday(end, NULL);
+	}
 
 	return 0;
 }

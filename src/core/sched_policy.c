@@ -173,7 +173,8 @@ static struct starpu_sched_policy_s *select_sched_policy(struct starpu_machine_c
 		return selected_policy;
 
 	/* If no policy was specified, we use the greedy policy as a default */
-	return &_starpu_sched_eager_policy;
+	//	return &_starpu_sched_eager_policy;
+	return &heft_policy;
 }
 
 void _starpu_init_sched_policy(struct starpu_machine_config_s *config, struct starpu_sched_ctx *sched_ctx, const char *policy_name)
@@ -347,10 +348,10 @@ struct starpu_task *_starpu_pop_task(struct starpu_worker_s *worker)
 		  }
 	  }
 
- 	if(task)
-	  {
-	    printf("task %s poped by th %d for %d  with strateg %s\n", task->name, worker->workerid, worker->arch, task->sched_ctx->sched_policy->policy_name);
-	  }
+ 	/* if(task) */
+	/*   { */
+	/*     printf("task %s poped by th %d for %d  with strateg %s\n", task->name, worker->workerid, worker->arch, task->sched_ctx->sched_policy->policy_name); */
+	/*   } */
 
 	/* Note that we may get a NULL task in case the scheduler was unlocked
 	 * for some reason. */

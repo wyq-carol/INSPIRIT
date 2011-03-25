@@ -219,6 +219,6 @@ void _starpu_worker_set_status(int workerid, starpu_worker_status status);
 /* TODO move */
 unsigned _starpu_execute_registered_progression_hooks(void);
 
-/* We keep an initial sched ctx which might be used in care no other ctx is available */
+/* We keep an initial sched ctx which might be used in case no other ctx is available */
 struct starpu_sched_ctx* _starpu_get_initial_sched_ctx(void);
 #endif // __WORKERS_H__

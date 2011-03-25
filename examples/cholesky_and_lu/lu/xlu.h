@@ -110,12 +110,12 @@ struct piv_s {
 	unsigned last; /* last element */
 };
 
-void STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigned nblocks, struct starpu_sched_ctx *sched_ctx);
-void STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct starpu_sched_ctx *sched_ctx);
-void STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct starpu_sched_ctx *sched_ctx);
+void STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigned nblocks, struct starpu_sched_ctx *sched_ctx, struct timeval *start);
+void STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct starpu_sched_ctx *sched_ctx, struct timeval *start);
+void STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct starpu_sched_ctx *sched_ctx, struct timeval *start);
 
-void finish_lu_decomposition(unsigned nblocks);
-void finish_lu_decomposition_pivot_no_stride(unsigned nblocks);
-void finish_lu_decomposition_pivot(unsigned nblocks);
+void finish_lu_decomposition(unsigned nblocks, struct timeval *end);
+void finish_lu_decomposition_pivot_no_stride(unsigned nblocks, struct timeval *end);
+void finish_lu_decomposition_pivot(unsigned nblocks, struct timeval *end);
 
 #endif // __XLU_H__

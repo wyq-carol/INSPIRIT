@@ -54,6 +54,9 @@ int main(int argc, char **argv)
   // printf("got here \n");
   starpu_init(NULL);
 
+  for(i = 0; i < 12; i++)
+    printf("%d: arch is %d\n", starpu_worker_get_type(i));
+
   starpu_data_handle dataA;
   starpu_vector_data_register(&dataA, 0, (uintptr_t)mat, size, sizeof(mat[00]));
 
