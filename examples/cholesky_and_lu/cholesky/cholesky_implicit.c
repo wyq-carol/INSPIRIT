@@ -69,7 +69,7 @@ static void callback_turn_spmd_on(void *arg __attribute__ ((unused)))
 	cl22.type = STARPU_SPMD;
 }
 
-static void _cholesky(starpu_data_handle dataA, unsigned nblocks, struct starpu_sched_ctx *sched_ctx)
+static double _cholesky(starpu_data_handle dataA, unsigned nblocks, struct starpu_sched_ctx *sched_ctx)
 {
 	struct timeval start;
 	struct timeval end;
@@ -119,23 +119,22 @@ static void _cholesky(starpu_data_handle dataA, unsigned nblocks, struct starpu_
 		}
 	}
 
-	starpu_task_wait_for_all();
+	//		starpu_task_wait_for_all();
+	starpu_wait_for_all_tasks_of_sched_ctx(sched_ctx);
 
 	starpu_data_unpartition(dataA, 0);
 
 	gettimeofday(&end, NULL);
 
 	double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
-	fprintf(stderr, "Computation took (in ms)\n");
-	printf("%2.2f\n", timing/1000);
-
 	unsigned long n = starpu_matrix_get_nx(dataA);
 
 	double flop = (1.0f*n*n*n)/3.0f;
-	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	
+	return (flop/timing/1000.0f);
 }
 
-static void cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks, struct starpu_sched_ctx *sched_ctx)
+static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks, struct starpu_sched_ctx *sched_ctx)
 {
 	starpu_data_handle dataA;
 
@@ -157,10 +156,10 @@ static void cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks, 
 
 	starpu_data_map_filters(dataA, 2, &f, &f2);
 
-	_cholesky(dataA, nblocks, sched_ctx);
+	return _cholesky(dataA, nblocks, sched_ctx);
 }
 
-int run_cholesky_implicit(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
+double run_cholesky_implicit(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
 {
 	/* create a simple definite positive symetric matrix example
 	 *
@@ -171,7 +170,7 @@ int run_cholesky_implicit(struct starpu_sched_ctx *sched_ctx, int argc, char **a
 
 	//	starpu_init(NULL);
 
-	starpu_helper_cublas_init();
+	//	starpu_helper_cublas_init();
 
 	float *mat;
 	starpu_data_malloc_pinned_if_possible((void **)&mat, (size_t)size*size*sizeof(float));
@@ -205,7 +204,7 @@ int run_cholesky_implicit(struct starpu_sched_ctx *sched_ctx, int argc, char **a
 	}
 #endif
 
-	cholesky(mat, size, size, nblocks);
+	double gflops = cholesky(mat, size, size, nblocks, sched_ctx);
 
 #ifdef PRINT_OUTPUT
 	printf("Results :\n");
@@ -276,8 +275,8 @@ int run_cholesky_implicit(struct starpu_sched_ctx *sched_ctx, int argc, char **a
 	        }
 	}
 
-	starpu_helper_cublas_shutdown();
+	//	starpu_helper_cublas_shutdown();
 	//	starpu_shutdown();
 
-	return 0;
+	return gflops;
 }

@@ -55,6 +55,14 @@ static inline void STARPU_LU(common_u22)(void *descr[],
 
 #ifdef STARPU_USE_CUDA
 		case 1:
+			status = cublasGetError();
+			if (STARPU_UNLIKELY(status != CUBLAS_STATUS_SUCCESS))
+				STARPU_ABORT();
+
+			if (STARPU_UNLIKELY((cures = cudaThreadSynchronize()) != cudaSuccess))
+				STARPU_CUDA_REPORT_ERROR(cures);
+
+
 			CUBLAS_GEMM('n', 'n', dx, dy, dz,
 				(TYPE)-1.0, right, ld21, left, ld12,
 				(TYPE)1.0f, center, ld22);
@@ -287,6 +295,11 @@ static inline void STARPU_LU(common_u11)(void *descr[],
 
 	unsigned long z;
 
+#ifdef STARPU_USE_CUDA
+	cublasStatus status;
+	cudaError_t cures;
+#endif
+
 	switch (s) {
 		case 0:
 			for (z = 0; z < nx; z++)
@@ -320,6 +333,14 @@ static inline void STARPU_LU(common_u11)(void *descr[],
 						&sub11[z+(z+1)*ld], ld,
 						&sub11[(z+1) + (z+1)*ld],ld);
 			}
+
+			status = cublasGetError();
+			if (STARPU_UNLIKELY(status != CUBLAS_STATUS_SUCCESS))
+				STARPU_ABORT();
+
+			if (STARPU_UNLIKELY((cures = cudaThreadSynchronize()) != cudaSuccess))
+				STARPU_CUDA_REPORT_ERROR(cures);
+
 			
 			cudaThreadSynchronize();
 

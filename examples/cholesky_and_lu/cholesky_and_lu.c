@@ -1,33 +1,80 @@
 #include "cholesky/cholesky.h"
 #include "lu/lu_example_float.c"
+#include <pthread.h>
+
+typedef struct {
+  int argc;
+  char **argv;
+} params;
+
+#define NSAMPLES 10
+struct starpu_sched_ctx sched_ctx;
+struct starpu_sched_ctx sched_ctx2;
+
+void* func_cholesky(void *val){
+  params *p = (params*)val;
+
+  int procs[] = {1, 2, 3};
+  starpu_create_sched_ctx(&sched_ctx, "heft", procs, 3, "cholesky");
+
+  int i;
+  double *flops = (double*)malloc(sizeof(double));
+  (*flops) = 0;
+  for(i = 0; i < NSAMPLES; i++)
+    {
+      (*flops) += run_cholesky_implicit(&sched_ctx, p->argc, p->argv);
+    }
+
+  (*flops) /= NSAMPLES;
+  return (void*)flops;
+}
+
+void* func_lu(void *val){
+  params *p = (params*)val;
+
+  int procs2[] = {0, 4, 5, 6, 7, 8, 9, 10, 11};
+  starpu_create_sched_ctx(&sched_ctx2, "heft", procs2, 9, "lu");
+
+  int i;
+  double *flops = (double*)malloc(sizeof(double));
+  (*flops) = 0;
+  for(i = 0; i < NSAMPLES; i++)
+    {
+      printf("%d ", i);
+      (*flops) += run_lu(&sched_ctx2, p->argc, p->argv);
+    }
+
+  (*flops) /= NSAMPLES;
+  return (void*)flops;
+}
 
 int main(int argc, char **argv)
 {
-  struct timeval start;
-  struct timeval end;
-
   starpu_init(NULL);
+  starpu_helper_cublas_init();
 
-  struct starpu_sched_ctx sched_ctx;
-  int procs[] = {1, 2, 3};
-  starpu_create_sched_ctx(&sched_ctx, "heft", procs, 3);
+  pthread_t tid[2];
 
-  run_cholesky_tile_tag(&sched_ctx, argc, argv, &start);
+  params p;
+  p.argc = argc;
+  p.argv = argv;
 
-  struct starpu_sched_ctx sched_ctx2;
-  int procs2[] = {0, 4, 5, 6, 7, 8, 9, 10, 11};
-  starpu_create_sched_ctx(&sched_ctx2, "heft", procs2, 5);
+  pthread_create(&tid[0], NULL, (void*)func_cholesky, (void*)&p);
+  pthread_create(&tid[1], NULL, (void*)func_cholesky, (void*)&p);
 
-  run_lu(&sched_ctx2, argc, argv, NULL);
+  void *gflops_cholesky1;
+  void *gflops_cholesky2;
+  //  void *gflops_lu = func_lu(&p);
+ 
+  pthread_join(tid[0], &gflops_cholesky1);
+  pthread_join(tid[1], &gflops_cholesky2);
 
-  finish_cholesky_tile_tag(NULL);
-  finish_lu(&end);
-  //starpu_task_wait_for_all();
+  void *gflops_cholesky3 = func_cholesky(&p);
 
+  printf("%2.2f %2.2f %2.2f\n", *((double*)gflops_cholesky1), *((double*)gflops_cholesky2), *((double*)gflops_cholesky3));
+
+  starpu_helper_cublas_shutdown();
   starpu_shutdown();
-
-  double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
-  printf("%2.2f\n", timing/1000);
 
   return 0;
 }

@@ -17,15 +17,13 @@
 
 #include "cholesky.h"
 
-/* A [ y ] [ x ] */
-float *A[NMAXBLOCKS][NMAXBLOCKS];
-starpu_data_handle A_state[NMAXBLOCKS][NMAXBLOCKS];
-//struct timeval start;
-//struct timeval end;
-
 /*
  *	Some useful functions
  */
+
+/* A [ y ] [ x ] */
+float *ch_A[NMAXBLOCKS][NMAXBLOCKS];
+starpu_data_handle ch_A_state[NMAXBLOCKS][NMAXBLOCKS];
 
 static struct starpu_task *create_task(starpu_tag_t id)
 {
@@ -68,7 +66,7 @@ static struct starpu_task * create_task_11(unsigned k, unsigned nblocks)
 	task->cl = &cl11;
 
 	/* which sub-data is manipulated ? */
-	task->buffers[0].handle = A_state[k][k];
+	task->buffers[0].handle = ch_A_state[k][k];
 	task->buffers[0].mode = STARPU_RW;
 
 	/* this is an important task */
@@ -107,9 +105,9 @@ static void create_task_21(unsigned k, unsigned j, struct starpu_sched_ctx *sche
 	task->cl = &cl21;	
 
 	/* which sub-data is manipulated ? */
-	task->buffers[0].handle = A_state[k][k]; 
+	task->buffers[0].handle = ch_A_state[k][k]; 
 	task->buffers[0].mode = STARPU_R;
-	task->buffers[1].handle = A_state[j][k]; 
+	task->buffers[1].handle = ch_A_state[j][k]; 
 	task->buffers[1].mode = STARPU_RW;
 
 	if (j == k+1) {
@@ -154,11 +152,11 @@ static void create_task_22(unsigned k, unsigned i, unsigned j, struct starpu_sch
 	task->cl = &cl22;
 
 	/* which sub-data is manipulated ? */
-	task->buffers[0].handle = A_state[i][k]; 
+	task->buffers[0].handle = ch_A_state[i][k]; 
 	task->buffers[0].mode = STARPU_R;
-	task->buffers[1].handle = A_state[j][k]; 
+	task->buffers[1].handle = ch_A_state[j][k]; 
 	task->buffers[1].mode = STARPU_R;
-	task->buffers[2].handle = A_state[j][i]; 
+	task->buffers[2].handle = ch_A_state[j][i]; 
 	task->buffers[2].mode = STARPU_RW;
 
 	if ( (i == k + 1) && (j == k +1) ) {
@@ -183,8 +181,11 @@ static void create_task_22(unsigned k, unsigned i, unsigned j, struct starpu_sch
  *	and construct the DAG
  */
 
-static void cholesky_no_stride(struct starpu_sched_ctx *sched_ctx, struct timeval *start)
+static double cholesky_no_stride(struct starpu_sched_ctx *sched_ctx)
 {
+	struct timeval start;
+	struct timeval end;
+
 	struct starpu_task *entry_task = NULL;
 
 	/* create all the DAG nodes */
@@ -192,7 +193,7 @@ static void cholesky_no_stride(struct starpu_sched_ctx *sched_ctx, struct timeva
 
 	for (k = 0; k < nblocks; k++)
 	{
-		struct starpu_task *task = create_task_11(k, nblocks);
+	  struct starpu_task *task = create_task_11(k, nblocks);
 		/* we defer the launch of the first task */
 		if (k == 0) {
 			entry_task = task;
@@ -214,14 +215,22 @@ static void cholesky_no_stride(struct starpu_sched_ctx *sched_ctx, struct timeva
 	}
 
 	/* schedule the codelet */
-	if(start != NULL){
-		gettimeofday(start, NULL);
-	}
+	gettimeofday(&start, NULL);
+		
 	starpu_task_submit_to_ctx(entry_task, sched_ctx);
 
+	/* stall the application until the end of computations */
+	starpu_tag_wait(TAG11(nblocks-1));
+	printf("cholesky finish wait for %d blocks \n", nblocks - 1);
+
+        gettimeofday(&end, NULL);
+
+        double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
+        double flop = (1.0f*size*size*size)/3.0f;
+	return flop/timing/1000.0f;
 }
 
-int run_cholesky_tile_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **argv, struct timeval *start)
+double run_cholesky_tile_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
 {
 	unsigned x, y;
 	unsigned i, j;
@@ -236,14 +245,14 @@ int run_cholesky_tile_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **a
 	/* Disable sequential consistency */
 	starpu_data_set_default_sequential_consistency_flag(0);
 
-	starpu_helper_cublas_init();
+	//	starpu_helper_cublas_init();
 
 	for (y = 0; y < nblocks; y++)
 	for (x = 0; x < nblocks; x++)
 	{
 		if (x <= y) {
-			A[y][x] = malloc(BLOCKSIZE*BLOCKSIZE*sizeof(float));
-			assert(A[y][x]);
+			ch_A[y][x] = malloc(BLOCKSIZE*BLOCKSIZE*sizeof(float));
+			assert(ch_A[y][x]);
 		}
 	}
 
@@ -253,11 +262,11 @@ int run_cholesky_tile_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **a
 	{
 		if (x <= y) {
 #ifdef STARPU_HAVE_POSIX_MEMALIGN
-			posix_memalign((void **)&A[y][x], 128, BLOCKSIZE*BLOCKSIZE*sizeof(float));
+			posix_memalign((void **)&ch_A[y][x], 128, BLOCKSIZE*BLOCKSIZE*sizeof(float));
 #else
-			A[y][x] = malloc(BLOCKSIZE*BLOCKSIZE*sizeof(float));
+			ch_A[y][x] = malloc(BLOCKSIZE*BLOCKSIZE*sizeof(float));
 #endif
-			assert(A[y][x]);
+			assert(ch_A[y][x]);
 		}
 	}
 
@@ -271,12 +280,12 @@ int run_cholesky_tile_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **a
 		for (i = 0; i < BLOCKSIZE; i++)
 		for (j = 0; j < BLOCKSIZE; j++)
 		{
-			A[y][x][i*BLOCKSIZE + j] =
+			ch_A[y][x][i*BLOCKSIZE + j] =
 				(float)(1.0f/((float) (1.0+(x*BLOCKSIZE+i)+(y*BLOCKSIZE+j))));
 
 			/* make it a little more numerically stable ... ;) */
 			if ((x == y) && (i == j))
-				A[y][x][i*BLOCKSIZE + j] += (float)(2*size);
+				ch_A[y][x][i*BLOCKSIZE + j] += (float)(2*size);
 		}
 	}
 
@@ -286,27 +295,13 @@ int run_cholesky_tile_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **a
 	for (x = 0; x < nblocks; x++)
 	{
 		if (x <= y) {
-			starpu_matrix_data_register(&A_state[y][x], 0, (uintptr_t)A[y][x], 
+			starpu_matrix_data_register(&ch_A_state[y][x], 0, (uintptr_t)ch_A[y][x], 
 				BLOCKSIZE, BLOCKSIZE, BLOCKSIZE, sizeof(float));
 		}
 	}
 
-	cholesky_no_stride(sched_ctx, start);
+	return cholesky_no_stride(sched_ctx);
 
 	//	starpu_shutdown();
-	return 0;
-}
-
-
-int finish_cholesky_tile_tag(struct timeval *end){	
-  //	starpu_helper_cublas_shutdown();
-
-	/* stall the application until the end of computations */
-	starpu_tag_wait(TAG11(nblocks-1));
-
-	if(end != NULL){
-	  gettimeofday(end, NULL);
-	}
-
-	return 0;
+	//	return 0;
 }

@@ -46,17 +46,18 @@ static struct starpu_task *create_task(starpu_tag_t id)
 	return task;
 }
 
-static void create_task_pivot(starpu_data_handle *dataAp, unsigned nblocks,
+static void create_task_pivot(starpu_data_handle *dataAp, unsigned lu_nblocks,
 					struct piv_s *piv_description,
 					unsigned k, unsigned i,
-					starpu_data_handle (* get_block)(starpu_data_handle *, unsigned, unsigned, unsigned))
+			      starpu_data_handle (* get_block)(starpu_data_handle *, unsigned, unsigned, unsigned),
+			      struct starpu_sched_ctx *sched_ctx)
 {
 	struct starpu_task *task = create_task(PIVOT(k, i));
 
 	task->cl = &cl_pivot;
 
 	/* which sub-data is manipulated ? */
-	task->buffers[0].handle = get_block(dataAp, nblocks, k, i);
+	task->buffers[0].handle = get_block(dataAp, lu_nblocks, k, i);
 	task->buffers[0].mode = STARPU_RW;
 
 	task->cl_arg = &piv_description[k];
@@ -75,24 +76,24 @@ static void create_task_pivot(starpu_data_handle *dataAp, unsigned nblocks,
 			starpu_tag_declare_deps(PIVOT(k, i), 2, TAG11(k), TAG22(k-1, i, k));
 		}
 		else {
-			starpu_tag_t *tags = malloc((nblocks - k)*sizeof(starpu_tag_t));
+			starpu_tag_t *tags = malloc((lu_nblocks - k)*sizeof(starpu_tag_t));
 			
 			tags[0] = TAG11(k);
 			unsigned ind, ind2;
-			for (ind = k + 1, ind2 = 0; ind < nblocks; ind++, ind2++)
+			for (ind = k + 1, ind2 = 0; ind < lu_nblocks; ind++, ind2++)
 			{
 				tags[1 + ind2] = TAG22(k-1, ind, k);
 			}
 
 			/* perhaps we could do better ... :/  */
-			starpu_tag_declare_deps_array(PIVOT(k, i), (nblocks-k), tags);
+			starpu_tag_declare_deps_array(PIVOT(k, i), (lu_nblocks-k), tags);
 		}
 	}
 
-	starpu_task_submit(task);
+	starpu_task_submit_to_ctx(task, sched_ctx);
 }
 
-static struct starpu_task *create_task_11_pivot(starpu_data_handle *dataAp, unsigned nblocks,
+static struct starpu_task *create_task_11_pivot(starpu_data_handle *dataAp, unsigned lu_nblocks,
 					unsigned k, struct piv_s *piv_description,
 					starpu_data_handle (* get_block)(starpu_data_handle *, unsigned, unsigned, unsigned))
 {
@@ -103,7 +104,7 @@ static struct starpu_task *create_task_11_pivot(starpu_data_handle *dataAp, unsi
 	task->cl_arg = &piv_description[k];
 
 	/* which sub-data is manipulated ? */
-	task->buffers[0].handle = get_block(dataAp, nblocks, k, k);
+	task->buffers[0].handle = get_block(dataAp, lu_nblocks, k, k);
 	task->buffers[0].mode = STARPU_RW;
 
 	/* this is an important task */
@@ -118,8 +119,9 @@ static struct starpu_task *create_task_11_pivot(starpu_data_handle *dataAp, unsi
 	return task;
 }
 
-static void create_task_12(starpu_data_handle *dataAp, unsigned nblocks, unsigned k, unsigned j,
-		starpu_data_handle (* get_block)(starpu_data_handle *, unsigned, unsigned, unsigned))
+static void create_task_12(starpu_data_handle *dataAp, unsigned lu_nblocks, unsigned k, unsigned j,
+			   starpu_data_handle (* get_block)(starpu_data_handle *, unsigned, unsigned, unsigned),
+			   struct starpu_sched_ctx *sched_ctx)
 {
 //	printf("task 12 k,i = %d,%d TAG = %llx\n", k,i, TAG12(k,i));
 
@@ -130,9 +132,9 @@ static void create_task_12(starpu_data_handle *dataAp, unsigned nblocks, unsigne
 	task->cl_arg = (void *)(task->tag_id);
 
 	/* which sub-data is manipulated ? */
-	task->buffers[0].handle = get_block(dataAp, nblocks, k, k);
+	task->buffers[0].handle = get_block(dataAp, lu_nblocks, k, k);
 	task->buffers[0].mode = STARPU_R;
-	task->buffers[1].handle = get_block(dataAp, nblocks, j, k);
+	task->buffers[1].handle = get_block(dataAp, lu_nblocks, j, k);
 	task->buffers[1].mode = STARPU_RW;
 
 	if (!no_prio && (j == k+1)) {
@@ -150,20 +152,21 @@ static void create_task_12(starpu_data_handle *dataAp, unsigned nblocks, unsigne
 		starpu_tag_declare_deps(TAG12(k, j), 1, TAG11(k));
 	}
 
-	starpu_task_submit(task);
+	starpu_task_submit_to_ctx(task, sched_ctx);
 }
 
-static void create_task_21(starpu_data_handle *dataAp, unsigned nblocks, unsigned k, unsigned i,
-				starpu_data_handle (* get_block)(starpu_data_handle *, unsigned, unsigned, unsigned))
+static void create_task_21(starpu_data_handle *dataAp, unsigned lu_nblocks, unsigned k, unsigned i,
+			   starpu_data_handle (* get_block)(starpu_data_handle *, unsigned, unsigned, unsigned), 
+			   struct starpu_sched_ctx *sched_ctx)
 {
 	struct starpu_task *task = create_task(TAG21(k, i));
 
 	task->cl = &cl21;
 	
 	/* which sub-data is manipulated ? */
-	task->buffers[0].handle = get_block(dataAp, nblocks, k, k); 
+	task->buffers[0].handle = get_block(dataAp, lu_nblocks, k, k); 
 	task->buffers[0].mode = STARPU_R;
-	task->buffers[1].handle = get_block(dataAp, nblocks, k, i); 
+	task->buffers[1].handle = get_block(dataAp, lu_nblocks, k, i); 
 	task->buffers[1].mode = STARPU_RW;
 
 	if (!no_prio && (i == k+1)) {
@@ -175,11 +178,12 @@ static void create_task_21(starpu_data_handle *dataAp, unsigned nblocks, unsigne
 	/* enforce dependencies ... */
 	starpu_tag_declare_deps(TAG21(k, i), 1, PIVOT(k, i));
 
-	starpu_task_submit(task);
+	starpu_task_submit_to_ctx(task, sched_ctx);
 }
 
-static void create_task_22(starpu_data_handle *dataAp, unsigned nblocks, unsigned k, unsigned i, unsigned j,
-				starpu_data_handle (* get_block)(starpu_data_handle *, unsigned, unsigned, unsigned))
+static void create_task_22(starpu_data_handle *dataAp, unsigned lu_nblocks, unsigned k, unsigned i, unsigned j,
+			   starpu_data_handle (* get_block)(starpu_data_handle *, unsigned, unsigned, unsigned),
+			   struct starpu_sched_ctx *sched_ctx)
 {
 //	printf("task 22 k,i,j = %d,%d,%d TAG = %llx\n", k,i,j, TAG22(k,i,j));
 
@@ -190,11 +194,11 @@ static void create_task_22(starpu_data_handle *dataAp, unsigned nblocks, unsigne
 	task->cl_arg = (void *)(task->tag_id);
 
 	/* which sub-data is manipulated ? */
-	task->buffers[0].handle = get_block(dataAp, nblocks, k, i); /* produced by TAG21(k, i) */
+	task->buffers[0].handle = get_block(dataAp, lu_nblocks, k, i); /* produced by TAG21(k, i) */
 	task->buffers[0].mode = STARPU_R;
-	task->buffers[1].handle = get_block(dataAp, nblocks, j, k); /* produced by TAG12(k, j) */ 
+	task->buffers[1].handle = get_block(dataAp, lu_nblocks, j, k); /* produced by TAG12(k, j) */ 
 	task->buffers[1].mode = STARPU_R;
-	task->buffers[2].handle = get_block(dataAp, nblocks, j, i);  /* produced by TAG22(k-1, i, j) */
+	task->buffers[2].handle = get_block(dataAp, lu_nblocks, j, i);  /* produced by TAG22(k-1, i, j) */
 	task->buffers[2].mode = STARPU_RW;
 
 	if (!no_prio &&  (i == k + 1) && (j == k +1) ) {
@@ -209,7 +213,7 @@ static void create_task_22(starpu_data_handle *dataAp, unsigned nblocks, unsigne
 		starpu_tag_declare_deps(TAG22(k, i, j), 2, TAG12(k, j), TAG21(k, i));
 	}
 
-	starpu_task_submit(task);
+	starpu_task_submit_to_ctx(task, sched_ctx);
 }
 
 /*
@@ -218,8 +222,9 @@ static void create_task_22(starpu_data_handle *dataAp, unsigned nblocks, unsigne
 
 static double dw_codelet_facto_pivot(starpu_data_handle *dataAp,
 					struct piv_s *piv_description,
-					unsigned nblocks,
-					starpu_data_handle (* get_block)(starpu_data_handle *, unsigned, unsigned, unsigned))
+					unsigned lu_nblocks,
+				     starpu_data_handle (* get_block)(starpu_data_handle *, unsigned, unsigned, unsigned), 
+				     struct starpu_sched_ctx *sched_ctx)
 {
 	struct timeval start;
 	struct timeval end;
@@ -229,46 +234,46 @@ static double dw_codelet_facto_pivot(starpu_data_handle *dataAp,
 	/* create all the DAG nodes */
 	unsigned i,j,k;
 
-	for (k = 0; k < nblocks; k++)
+	for (k = 0; k < lu_nblocks; k++)
 	{
-		struct starpu_task *task = create_task_11_pivot(dataAp, nblocks, k, piv_description, get_block);
+		struct starpu_task *task = create_task_11_pivot(dataAp, lu_nblocks, k, piv_description, get_block);
 
 		/* we defer the launch of the first task */
 		if (k == 0) {
 			entry_task = task;
 		}
 		else {
-			starpu_task_submit(task);
+		  starpu_task_submit_to_ctx(task, sched_ctx);
 		}
 
-		for (i = 0; i < nblocks; i++)
+		for (i = 0; i < lu_nblocks; i++)
 		{
 			if (i != k)
-				create_task_pivot(dataAp, nblocks, piv_description, k, i, get_block);
+			  create_task_pivot(dataAp, lu_nblocks, piv_description, k, i, get_block, sched_ctx);
 		}
 	
-		for (i = k+1; i<nblocks; i++)
+		for (i = k+1; i<lu_nblocks; i++)
 		{
-			create_task_12(dataAp, nblocks, k, i, get_block);
-			create_task_21(dataAp, nblocks, k, i, get_block);
+		  create_task_12(dataAp, lu_nblocks, k, i, get_block, sched_ctx);
+		  create_task_21(dataAp, lu_nblocks, k, i, get_block, sched_ctx);
 		}
 
-		for (i = k+1; i<nblocks; i++)
+		for (i = k+1; i<lu_nblocks; i++)
 		{
-			for (j = k+1; j<nblocks; j++)
+			for (j = k+1; j<lu_nblocks; j++)
 			{
-				create_task_22(dataAp, nblocks, k, i, j, get_block);
+			  create_task_22(dataAp, lu_nblocks, k, i, j, get_block, sched_ctx);
 			}
 		}
 	}
 
-	/* we wait the last task (TAG11(nblocks - 1)) and all the pivot tasks */
-	starpu_tag_t *tags = malloc(nblocks*nblocks*sizeof(starpu_tag_t));
+	/* we wait the last task (TAG11(lu_nblocks - 1)) and all the pivot tasks */
+	starpu_tag_t *tags = malloc(lu_nblocks*lu_nblocks*sizeof(starpu_tag_t));
 	unsigned ndeps = 0;
 
-	tags[ndeps++] = TAG11(nblocks - 1);
+	tags[ndeps++] = TAG11(lu_nblocks - 1);
 
-	for (j = 0; j < nblocks; j++)
+	for (j = 0; j < lu_nblocks; j++)
 	{
 		for (i = 0; i < j; i++)
 		{
@@ -278,7 +283,7 @@ static double dw_codelet_facto_pivot(starpu_data_handle *dataAp,
 
 	/* schedule the codelet */
 	gettimeofday(&start, NULL);
-	int ret = starpu_task_submit(entry_task);
+	int ret = starpu_task_submit_to_ctx(entry_task, sched_ctx);
 	if (STARPU_UNLIKELY(ret == -ENODEV))
 	{
 		fprintf(stderr, "No worker may execute this task\n");
@@ -287,6 +292,7 @@ static double dw_codelet_facto_pivot(starpu_data_handle *dataAp,
 
 	/* stall the application until the end of computations */
 	starpu_tag_wait_array(ndeps, tags);
+	printf("lu pivot  finish waiting for %d blocks \n", lu_nblocks);
 //	starpu_task_wait_for_all();
 
 	gettimeofday(&end, NULL);
@@ -296,14 +302,14 @@ static double dw_codelet_facto_pivot(starpu_data_handle *dataAp,
 }
 
 starpu_data_handle get_block_with_striding(starpu_data_handle *dataAp,
-			unsigned nblocks __attribute__((unused)), unsigned j, unsigned i)
+			unsigned lu_nblocks __attribute__((unused)), unsigned j, unsigned i)
 {
 	/* we use filters */
 	return starpu_data_get_sub_data(*dataAp, 2, j, i);
 }
 
 
-void STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks)
+double STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned lu_nblocks, struct starpu_sched_ctx *sched_ctx)
 {
 	starpu_data_handle dataA;
 
@@ -316,11 +322,11 @@ void STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size
 
 	struct starpu_data_filter f;
 		f.filter_func = starpu_vertical_block_filter_func;
-		f.nchildren = nblocks;
+		f.nchildren = lu_nblocks;
 
 	struct starpu_data_filter f2;
 		f2.filter_func = starpu_block_filter_func;
-		f2.nchildren = nblocks;
+		f2.nchildren = lu_nblocks;
 
 	starpu_data_map_filters(dataA, 2, &f, &f2);
 
@@ -328,89 +334,88 @@ void STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size
 	for (i = 0; i < size; i++)
 		ipiv[i] = i;
 
-	struct piv_s *piv_description = malloc(nblocks*sizeof(struct piv_s));
+	struct piv_s *piv_description = malloc(lu_nblocks*sizeof(struct piv_s));
 	unsigned block;
-	for (block = 0; block < nblocks; block++)
+	for (block = 0; block < lu_nblocks; block++)
 	{
 		piv_description[block].piv = ipiv;
-		piv_description[block].first = block * (size / nblocks);
-		piv_description[block].last = (block + 1) * (size / nblocks);
+		piv_description[block].first = block * (size / lu_nblocks);
+		piv_description[block].last = (block + 1) * (size / lu_nblocks);
 	}
 
 #if 0
 	unsigned j;
-	for (j = 0; j < nblocks; j++)
-	for (i = 0; i < nblocks; i++)
+	for (j = 0; j < lu_nblocks; j++)
+	for (i = 0; i < lu_nblocks; i++)
 	{
-		printf("BLOCK %d %d	%p\n", i, j, &matA[i*(size/nblocks) + j * (size/nblocks)*ld]);
+		printf("BLOCK %d %d	%p\n", i, j, &matA[i*(size/lu_nblocks) + j * (size/lu_nblocks)*ld]);
 	}
 #endif
 
 	double timing;
-	timing = dw_codelet_facto_pivot(&dataA, piv_description, nblocks, get_block_with_striding);
+	timing = dw_codelet_facto_pivot(&dataA, piv_description, lu_nblocks, get_block_with_striding, sched_ctx);
 
 	fprintf(stderr, "Computation took (in ms)\n");
 	fprintf(stderr, "%2.2f\n", timing/1000);
 
 	unsigned n = starpu_matrix_get_nx(dataA);
 	double flop = (2.0f*n*n*n)/3.0f;
-	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	double gflops = flop/timing/1000.0f;
 
 	/* gather all the data */
 	starpu_data_unpartition(dataA, 0);
+	return gflops;
 }
 
 
-starpu_data_handle get_block_with_no_striding(starpu_data_handle *dataAp, unsigned nblocks, unsigned j, unsigned i)
+starpu_data_handle get_block_with_no_striding(starpu_data_handle *dataAp, unsigned lu_nblocks, unsigned j, unsigned i)
 {
 	/* dataAp is an array of data handle */
-	return dataAp[i+j*nblocks];
+	return dataAp[i+j*lu_nblocks];
 }
 
-void STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks)
+double STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned lu_nblocks, struct starpu_sched_ctx *sched_ctx)
 {
-	starpu_data_handle *dataAp = malloc(nblocks*nblocks*sizeof(starpu_data_handle));
+	starpu_data_handle *dataAp = malloc(lu_nblocks*lu_nblocks*sizeof(starpu_data_handle));
 
 	/* monitor and partition the A matrix into blocks :
 	 * one block is now determined by 2 unsigned (i,j) */
 	unsigned bi, bj;
-	for (bj = 0; bj < nblocks; bj++)
-	for (bi = 0; bi < nblocks; bi++)
+	for (bj = 0; bj < lu_nblocks; bj++)
+	for (bi = 0; bi < lu_nblocks; bi++)
 	{
-		starpu_matrix_data_register(&dataAp[bi+nblocks*bj], 0,
-			(uintptr_t)matA[bi+nblocks*bj], size/nblocks,
-			size/nblocks, size/nblocks, sizeof(TYPE));
+		starpu_matrix_data_register(&dataAp[bi+lu_nblocks*bj], 0,
+			(uintptr_t)matA[bi+lu_nblocks*bj], size/lu_nblocks,
+			size/lu_nblocks, size/lu_nblocks, sizeof(TYPE));
 
 		/* We already enforce deps by hand */
-		starpu_data_set_sequential_consistency_flag(dataAp[bi+nblocks*bj], 0);
+		starpu_data_set_sequential_consistency_flag(dataAp[bi+lu_nblocks*bj], 0);
 	}
 
 	unsigned i;
 	for (i = 0; i < size; i++)
 		ipiv[i] = i;
 
-	struct piv_s *piv_description = malloc(nblocks*sizeof(struct piv_s));
+	struct piv_s *piv_description = malloc(lu_nblocks*sizeof(struct piv_s));
 	unsigned block;
-	for (block = 0; block < nblocks; block++)
+	for (block = 0; block < lu_nblocks; block++)
 	{
 		piv_description[block].piv = ipiv;
-		piv_description[block].first = block * (size / nblocks);
-		piv_description[block].last = (block + 1) * (size / nblocks);
+		piv_description[block].first = block * (size / lu_nblocks);
+		piv_description[block].last = (block + 1) * (size / lu_nblocks);
 	}
 
 	double timing;
-	timing = dw_codelet_facto_pivot(dataAp, piv_description, nblocks, get_block_with_no_striding);
+	timing = dw_codelet_facto_pivot(dataAp, piv_description, lu_nblocks, get_block_with_no_striding, sched_ctx);
 
-	fprintf(stderr, "Computation took (in ms)\n");
-	fprintf(stderr, "%2.2f\n", timing/1000);
-
-	unsigned n = starpu_matrix_get_nx(dataAp[0])*nblocks;
+	unsigned n = starpu_matrix_get_nx(dataAp[0])*lu_nblocks;
 	double flop = (2.0f*n*n*n)/3.0f;
-	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	double gflops = flop/timing/1000.0f;
 
-	for (bj = 0; bj < nblocks; bj++)
-	for (bi = 0; bi < nblocks; bi++)
+	for (bj = 0; bj < lu_nblocks; bj++)
+	for (bi = 0; bi < lu_nblocks; bi++)
 	{
-		starpu_data_unregister(dataAp[bi+nblocks*bj]);
+		starpu_data_unregister(dataAp[bi+lu_nblocks*bj]);
 	}
+	return gflops;
 }

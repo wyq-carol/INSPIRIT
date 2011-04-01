@@ -110,12 +110,8 @@ struct piv_s {
 	unsigned last; /* last element */
 };
 
-void STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigned nblocks, struct timeval *start);
-void STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct timeval *start);
-void STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct timeval *start);
-
-void finish_lu_decomposition(unsigned nblocks, struct timeval *end);
-void finish_lu_decomposition_pivot_no_stride(unsigned nblocks, struct timeval *end);
-void finish_lu_decomposition_pivot(unsigned nblocks, struct timeval *end);
+double STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigned nblocks);
+double STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks);
+double STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks);
 
 #endif // __XLU_H__

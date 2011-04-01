@@ -35,8 +35,6 @@ static unsigned profile = 0;
 static unsigned bound = 0;
 static unsigned bounddeps = 0;
 static unsigned boundprio = 0;
-/* struct timeval lu_start; */
-/* struct timeval lu_end; */
 unsigned *ipiv;
 
 TYPE *A, *A_saved;
@@ -265,13 +263,13 @@ static void check_result(void)
 		exit(-1);
 }
 
-int run_lu(int argc, char **argv, struct timeval *start)
+double run_lu(int argc, char **argv)
 {
 	lu_parse_args(argc, argv);
 
 	starpu_init(NULL);
 
-	//	starpu_helper_cublas_init();
+	starpu_helper_cublas_init();
 
 	init_matrix();
 
@@ -286,6 +284,7 @@ int run_lu(int argc, char **argv, struct timeval *start)
 	if (profile)
 		starpu_profiling_status_set(STARPU_PROFILING_ENABLE);
 
+	double gflops = -1;
 	/* Factorize the matrix (in place) */
 	if (pivot)
 	{
@@ -296,7 +295,7 @@ int run_lu(int argc, char **argv, struct timeval *start)
 			A_blocks = malloc(lu_nblocks*lu_nblocks*sizeof(TYPE **));
 			copy_matrix_into_blocks();
 
-			STARPU_LU(lu_decomposition_pivot_no_stride)(A_blocks, ipiv, lu_size, lu_size, lu_nblocks, start);
+			gflops = STARPU_LU(lu_decomposition_pivot_no_stride)(A_blocks, ipiv, lu_size, lu_size, lu_nblocks);
 
 			copy_blocks_into_matrix();
 			free(A_blocks);
@@ -304,41 +303,14 @@ int run_lu(int argc, char **argv, struct timeval *start)
 		else 
 		{
 
-		  STARPU_LU(lu_decomposition_pivot)(A, ipiv, lu_size, lu_size, lu_nblocks, start);
+		  gflops = STARPU_LU(lu_decomposition_pivot)(A, ipiv, lu_size, lu_size, lu_nblocks);
 		}
 	}
 	else
 	{
-	  STARPU_LU(lu_decomposition)(A, lu_size, lu_size, lu_nblocks, start);
+	  gflops = STARPU_LU(lu_decomposition)(A, lu_size, lu_size, lu_nblocks);
 	}
 
-
-	//	starpu_shutdown();
-
-	return 0;
-}
-
-int finish_lu(struct timeval *end)
-{
-
-	if (pivot)
-	{
-		if (no_stride)
-		{
-		  finish_lu_decomposition_pivot_no_stride(lu_nblocks, end);
-		}
-		else 
-		{
-		  finish_lu_decomposition_pivot(lu_nblocks, end);
-		}
-	}
-	else
-	{
-	  finish_lu_decomposition(lu_nblocks, end);
-	}
-
-  
-  
 	if (profile)
 	{
 		starpu_profiling_status_set(STARPU_PROFILING_DISABLE);
@@ -369,5 +341,6 @@ int finish_lu(struct timeval *end)
 
 	starpu_helper_cublas_shutdown();
 	starpu_shutdown();
-	return 0;
+
+	return gflops;
 }

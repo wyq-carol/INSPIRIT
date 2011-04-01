@@ -437,18 +437,18 @@ examplebin_PROGRAMS += 				\
 
 cholesky_and_lu_cholesky_and_lu_SOURCES =			\
 	cholesky_and_lu/cholesky_and_lu.c			\
-	cholesky_and_lu/cholesky/cholesky_tile_tag.c		\
+	cholesky_and_lu/cholesky/cholesky_implicit.c		\
 	cholesky_and_lu/cholesky/cholesky_models.c		\
 	cholesky_and_lu/cholesky/cholesky_kernels.c		\
-	cholesky_and_lu/lu/slu.c				\
-	cholesky_and_lu/lu/slu_pivot.c				\
+	cholesky_and_lu/lu/slu_implicit.c				\
+	cholesky_and_lu/lu/slu_implicit_pivot.c				\
 	cholesky_and_lu/lu/slu_kernels.c			\
 	common/blas.c
 endif
 
-###########################
+#############################################
 # Cholesky and Lu without sched ctx example #
-###########################
+#############################################
 if !NO_BLAS_LIB
 
 examplebin_PROGRAMS += 				\
@@ -464,6 +464,8 @@ cholesky_and_lu_without_sched_ctx_cholesky_and_lu_without_sched_ctx_SOURCES =			
 	cholesky_and_lu_without_sched_ctx/lu/slu_kernels.c			\
 	common/blas.c
 endif
+
+
 
 ################
 # Heat example #

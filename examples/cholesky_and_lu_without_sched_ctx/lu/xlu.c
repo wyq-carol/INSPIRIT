@@ -29,11 +29,6 @@
 					| (unsigned long long)(j))))
 
 static unsigned no_prio = 0;
-//struct timeval xlu_start;
-//struct timeval xlu_end;
-starpu_data_handle xlu_dataA;
-
-
 
 /*
  *	Construct the DAG
@@ -165,8 +160,11 @@ static void create_task_22(starpu_data_handle dataA, unsigned k, unsigned i, uns
  *	code to bootstrap the factorization 
  */
 
-static void dw_codelet_facto_v3(starpu_data_handle dataA, unsigned nblocks, struct timeval *start)
+static double dw_codelet_facto_v3(starpu_data_handle dataA, unsigned nblocks)
 {
+	struct timeval start;
+	struct timeval end;
+
 	struct starpu_task *entry_task = NULL;
 
 	/* create all the DAG nodes */
@@ -200,8 +198,7 @@ static void dw_codelet_facto_v3(starpu_data_handle dataA, unsigned nblocks, stru
 	}
 
 	/* schedule the codelet */
-	if(start != NULL)
-	  gettimeofday(start, NULL);
+	gettimeofday(&start, NULL);
 	int ret = starpu_task_submit(entry_task);
 	if (STARPU_UNLIKELY(ret == -ENODEV))
 	{
@@ -209,16 +206,28 @@ static void dw_codelet_facto_v3(starpu_data_handle dataA, unsigned nblocks, stru
 		exit(-1);
 	}
 
+	/* stall the application until the end of computations */
+        starpu_tag_wait(TAG11(nblocks-1));
+
+        gettimeofday(&end, NULL);
+
+        double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
+
+        unsigned n = starpu_matrix_get_nx(dataA);
+        double flop = (2.0f*n*n*n)/3.0f;
+        return (flop/timing/1000.0f);
 }
 
-void STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigned nblocks, struct timeval *start)
+double STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigned nblocks)
 {
+	starpu_data_handle dataA;
+
 	/* monitor and partition the A matrix into blocks :
 	 * one block is now determined by 2 unsigned (i,j) */
-	starpu_matrix_data_register(&xlu_dataA, 0, (uintptr_t)matA, ld, size, size, sizeof(TYPE));
+	starpu_matrix_data_register(&dataA, 0, (uintptr_t)matA, ld, size, size, sizeof(TYPE));
 
 	/* We already enforce deps by hand */
-	starpu_data_set_sequential_consistency_flag(xlu_dataA, 0);
+	starpu_data_set_sequential_consistency_flag(dataA, 0);
 
 	struct starpu_data_filter f;
 		f.filter_func = starpu_vertical_block_filter_func;
@@ -232,19 +241,11 @@ void STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigne
 		f2.get_nchildren = NULL;
 		f2.get_child_ops = NULL;
 
-	starpu_data_map_filters(xlu_dataA, 2, &f, &f2);
+	starpu_data_map_filters(dataA, 2, &f, &f2);
 
-	dw_codelet_facto_v3(xlu_dataA, nblocks, start);
-}
+	double gflops = dw_codelet_facto_v3(dataA, nblocks);
 
-void finish_lu_decomposition(unsigned nblocks, struct timeval *end)
-{
-	/* stall the application until the end of computations */
-	starpu_tag_wait(TAG11(nblocks-1));
-
-	if(end != NULL)
-	  gettimeofday(end, NULL);
-
-	/* gather all the data */
-	starpu_data_unpartition(xlu_dataA, 0);
+        /* gather all the data */
+        starpu_data_unpartition(dataA, 0);
+        return gflops;
 }

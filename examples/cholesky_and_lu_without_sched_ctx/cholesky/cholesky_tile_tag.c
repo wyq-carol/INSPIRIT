@@ -184,8 +184,11 @@ static void create_task_22(unsigned k, unsigned i, unsigned j)
  *	and construct the DAG
  */
 
-static void cholesky_no_stride(struct timeval *start)
+static double cholesky_no_stride()
 {
+	struct timeval start;
+	struct timeval end;
+
 	struct starpu_task *entry_task = NULL;
 
 	/* create all the DAG nodes */
@@ -215,13 +218,20 @@ static void cholesky_no_stride(struct timeval *start)
 	}
 
 	/* schedule the codelet */
-	if(start != NULL)
-	  gettimeofday(start, NULL);
+	gettimeofday(&start, NULL);
 	starpu_task_submit(entry_task);
 
+	/* stall the application until the end of computations */
+	starpu_tag_wait(TAG11(nblocks-1));
+
+	gettimeofday(&end, NULL);
+
+        double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
+        double flop = (1.0f*size*size*size)/3.0f;
+        return flop/timing/1000.0f;
 }
 
-int run_cholesky_tile_tag(int argc, char **argv, struct timeval *start)
+double run_cholesky_tile_tag(int argc, char **argv)
 {
 	unsigned x, y;
 	unsigned i, j;
@@ -291,22 +301,8 @@ int run_cholesky_tile_tag(int argc, char **argv, struct timeval *start)
 		}
 	}
 
-	cholesky_no_stride(start);
+	double gflops = cholesky_no_stride();
 
-	//	starpu_shutdown();
-	return 0;
-}
-
-
-int finish_cholesky_tile_tag(struct timeval *end){	
-  //	starpu_helper_cublas_shutdown();
-
-	/* stall the application until the end of computations */
-	starpu_tag_wait(TAG11(nblocks-1));
 	starpu_shutdown();
-
-	if(end != NULL)
-	  gettimeofday(end, NULL);
-
-	return 0;
+	return gflops;
 }

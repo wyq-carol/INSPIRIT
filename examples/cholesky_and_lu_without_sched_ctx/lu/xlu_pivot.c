@@ -226,8 +226,11 @@ static void create_task_22(starpu_data_handle *dataAp, unsigned nblocks, unsigne
 static double dw_codelet_facto_pivot(starpu_data_handle *dataAp,
 				     struct piv_s *piv_description,
 				     unsigned nblocks,
-				     starpu_data_handle (* get_block)(starpu_data_handle *, unsigned, unsigned, unsigned), struct timeval *start)
+				     starpu_data_handle (* get_block)(starpu_data_handle *, unsigned, unsigned, unsigned))
 {
+	struct timeval start;
+	struct timeval end;
+
 	struct starpu_task *entry_task = NULL;
 
 	/* create all the DAG nodes */
@@ -266,9 +269,25 @@ static double dw_codelet_facto_pivot(starpu_data_handle *dataAp,
 		}
 	}
 
+
+	/* we wait the last task (TAG11(nblocks - 1)) and all the pivot \
+	   tasks */
+        starpu_tag_t *tags = malloc(nblocks*nblocks*sizeof(starpu_tag_t)\
+				    );
+        unsigned ndeps = 0;
+
+        tags[ndeps++] = TAG11(nblocks - 1);
+
+        for (j = 0; j < nblocks; j++)
+          {
+            for (i = 0; i < j; i++)
+              {
+                tags[ndeps++] = PIVOT(j, i);
+              }
+          }
+
 	/* schedule the codelet */
-	if(start != NULL)
-	  gettimeofday(start, NULL);
+	gettimeofday(&start, NULL);
 	int ret = starpu_task_submit(entry_task);
 	if (STARPU_UNLIKELY(ret == -ENODEV))
 	{
@@ -276,7 +295,15 @@ static double dw_codelet_facto_pivot(starpu_data_handle *dataAp,
 		exit(-1);
 	}
 
-	return 0;
+	/* stall the application until the end of computations */
+        starpu_tag_wait_array(ndeps, tags);
+	//      starpu_task_wait_for_all();   
+
+        gettimeofday(&end, NULL);
+
+        double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
+
+        return timing;
 }
 
 starpu_data_handle get_block_with_striding(starpu_data_handle *dataAp,
@@ -287,15 +314,15 @@ starpu_data_handle get_block_with_striding(starpu_data_handle *dataAp,
 }
 
 
-void STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct timeval *start)
+double STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks)
 {
-
+	starpu_data_handle dataA;
 	/* monitor and partition the A matrix into blocks :
 	 * one block is now determined by 2 unsigned (i,j) */
-	starpu_matrix_data_register(&xlu_pivot_dataA, 0, (uintptr_t)matA, ld, size, size, sizeof(TYPE));
+	starpu_matrix_data_register(&dataA, 0, (uintptr_t)matA, ld, size, size, sizeof(TYPE));
 
 	/* We already enforce deps by hand */
-	starpu_data_set_sequential_consistency_flag(xlu_pivot_dataA, 0);
+	starpu_data_set_sequential_consistency_flag(dataA, 0);
 
 	struct starpu_data_filter f;
 		f.filter_func = starpu_vertical_block_filter_func;
@@ -305,7 +332,7 @@ void STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size
 		f2.filter_func = starpu_block_filter_func;
 		f2.nchildren = nblocks;
 
-	starpu_data_map_filters(xlu_pivot_dataA, 2, &f, &f2);
+	starpu_data_map_filters(dataA, 2, &f, &f2);
 
 	unsigned i;
 	for (i = 0; i < size; i++)
@@ -329,7 +356,15 @@ void STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size
 	}
 #endif
 
-	dw_codelet_facto_pivot(&xlu_pivot_dataA, piv_description, nblocks, get_block_with_striding, start);
+	double timing;
+        timing = dw_codelet_facto_pivot(&dataA, piv_description, nblocks, get_block_with_striding);
+	unsigned n = starpu_matrix_get_nx(dataA);
+        double flop = (2.0f*n*n*n)/3.0f;
+        double gflops = flop/timing/1000.0f;
+
+        /* gather all the data */
+        starpu_data_unpartition(dataA, 0);
+        return gflops;
 }
 
 
@@ -339,9 +374,9 @@ starpu_data_handle get_block_with_no_striding(starpu_data_handle *dataAp, unsign
 	return dataAp[i+j*nblocks];
 }
 
-void STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct timeval *start)
+double STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks)
 {
-	xlu_pivot_dataAp = malloc(nblocks*nblocks*sizeof(starpu_data_handle));
+	starpu_data_handle *dataAp = malloc(nblocks*nblocks*sizeof(starpu_data_handle));
 
 	/* monitor and partition the A matrix into blocks :
 	 * one block is now determined by 2 unsigned (i,j) */
@@ -349,12 +384,12 @@ void STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, un
 	for (bj = 0; bj < nblocks; bj++)
 	for (bi = 0; bi < nblocks; bi++)
 	{
-		starpu_matrix_data_register(&xlu_pivot_dataAp[bi+nblocks*bj], 0,
+		starpu_matrix_data_register(&dataAp[bi+nblocks*bj], 0,
 			(uintptr_t)matA[bi+nblocks*bj], size/nblocks,
 			size/nblocks, size/nblocks, sizeof(TYPE));
 
 		/* We already enforce deps by hand */
-		starpu_data_set_sequential_consistency_flag(xlu_pivot_dataAp[bi+nblocks*bj], 0);
+		starpu_data_set_sequential_consistency_flag(dataAp[bi+nblocks*bj], 0);
 	}
 
 	unsigned i;
@@ -370,65 +405,19 @@ void STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, un
 		piv_description[block].last = (block + 1) * (size / nblocks);
 	}
 
-	dw_codelet_facto_pivot(xlu_pivot_dataAp, piv_description, nblocks, get_block_with_no_striding, start);
+	double timing;
+        timing = dw_codelet_facto_pivot(dataAp, piv_description, nblocks, get_block_with_no_striding);
+
+	unsigned n = starpu_matrix_get_nx(dataAp[0])*nblocks;
+        double flop = (2.0f*n*n*n)/3.0f;
+        double gflops = flop/timing/1000.0f;
+
+        for (bj = 0; bj < nblocks; bj++)
+	  for (bi = 0; bi < nblocks; bi++)
+            {
+              starpu_data_unregister(dataAp[bi+nblocks*bj]);
+            }
+        return gflops;
+
 }
 
-void finish_lu_decomposition_pivot(unsigned nblocks, struct timeval *end)
-{
-	/* we wait the last task (TAG11(nblocks - 1)) and all the pivot tasks */
-	starpu_tag_t *tags = malloc(nblocks*nblocks*sizeof(starpu_tag_t));
-	unsigned ndeps = 0;
-
-	tags[ndeps++] = TAG11(nblocks - 1);
-
-	unsigned i, j;
-	for (j = 0; j < nblocks; j++)
-	{
-		for (i = 0; i < j; i++)
-		{
-			tags[ndeps++] = PIVOT(j, i);
-		}
-	}
-
-	/* stall the application until the end of computations */
-	starpu_tag_wait_array(ndeps, tags);
-//	starpu_task_wait_for_all();
-
-	if(end != NULL)
-	  gettimeofday(end, NULL);
-
-	/* gather all the data */
-	starpu_data_unpartition(xlu_pivot_dataA, 0);
-}
-
-void finish_lu_decomposition_pivot_no_stride(unsigned nblocks, struct timeval *end)
-{
-	/* we wait the last task (TAG11(nblocks - 1)) and all the pivot tasks */
-	starpu_tag_t *tags = malloc(nblocks*nblocks*sizeof(starpu_tag_t));
-	unsigned ndeps = 0;
-
-	tags[ndeps++] = TAG11(nblocks - 1);
-
-	unsigned i, j;
-	for (j = 0; j < nblocks; j++)
-	{
-		for (i = 0; i < j; i++)
-		{
-			tags[ndeps++] = PIVOT(j, i);
-		}
-	}
-
-	/* stall the application until the end of computations */
-	starpu_tag_wait_array(ndeps, tags);
-//	starpu_task_wait_for_all();
-
-	if(end != NULL)
-	  gettimeofday(end, NULL);
-
-	unsigned bi, bj;
-	for (bj = 0; bj < nblocks; bj++)
-	for (bi = 0; bi < nblocks; bi++)
-	{
-		starpu_data_unregister(xlu_pivot_dataAp[bi+nblocks*bj]);
-	}
-}

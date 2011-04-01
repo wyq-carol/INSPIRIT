@@ -72,7 +72,7 @@ static struct starpu_task *create_task_11(starpu_data_handle dataA, unsigned k)
 	return task;
 }
 
-static void create_task_12(starpu_data_handle dataA, unsigned k, unsigned j)
+static void create_task_12(starpu_data_handle dataA, unsigned k, unsigned j, struct starpu_sched_ctx *sched_ctx)
 {
 //	printf("task 12 k,i = %d,%d TAG = %llx\n", k,i, TAG12(k,i));
 
@@ -98,10 +98,10 @@ static void create_task_12(starpu_data_handle dataA, unsigned k, unsigned j)
 		starpu_tag_declare_deps(TAG12(k, j), 1, TAG11(k));
 	}
 
-	starpu_task_submit(task);
+	starpu_task_submit_to_ctx(task, sched_ctx);
 }
 
-static void create_task_21(starpu_data_handle dataA, unsigned k, unsigned i)
+static void create_task_21(starpu_data_handle dataA, unsigned k, unsigned i, struct starpu_sched_ctx *sched_ctx)
 {
 	struct starpu_task *task = create_task(TAG21(k, i));
 
@@ -125,10 +125,10 @@ static void create_task_21(starpu_data_handle dataA, unsigned k, unsigned i)
 		starpu_tag_declare_deps(TAG21(k, i), 1, TAG11(k));
 	}
 
-	starpu_task_submit(task);
+	starpu_task_submit_to_ctx(task, sched_ctx);
 }
 
-static void create_task_22(starpu_data_handle dataA, unsigned k, unsigned i, unsigned j)
+static void create_task_22(starpu_data_handle dataA, unsigned k, unsigned i, unsigned j, struct starpu_sched_ctx *sched_ctx)
 {
 //	printf("task 22 k,i,j = %d,%d,%d TAG = %llx\n", k,i,j, TAG22(k,i,j));
 
@@ -156,14 +156,14 @@ static void create_task_22(starpu_data_handle dataA, unsigned k, unsigned i, uns
 		starpu_tag_declare_deps(TAG22(k, i, j), 2, TAG12(k, j), TAG21(k, i));
 	}
 
-	starpu_task_submit(task);
+	starpu_task_submit_to_ctx(task, sched_ctx);
 }
 
 /*
  *	code to bootstrap the factorization 
  */
 
-static void dw_codelet_facto_v3(starpu_data_handle dataA, unsigned nblocks)
+static double dw_codelet_facto_v3(starpu_data_handle dataA, unsigned lu_nblocks, struct starpu_sched_ctx *sched_ctx)
 {
 	struct timeval start;
 	struct timeval end;
@@ -173,7 +173,7 @@ static void dw_codelet_facto_v3(starpu_data_handle dataA, unsigned nblocks)
 	/* create all the DAG nodes */
 	unsigned i,j,k;
 
-	for (k = 0; k < nblocks; k++)
+	for (k = 0; k < lu_nblocks; k++)
 	{
 		struct starpu_task *task = create_task_11(dataA, k);
 
@@ -182,27 +182,27 @@ static void dw_codelet_facto_v3(starpu_data_handle dataA, unsigned nblocks)
 			entry_task = task;
 		}
 		else {
-			starpu_task_submit(task);
+		  starpu_task_submit_to_ctx(task, sched_ctx);
 		}
 		
-		for (i = k+1; i<nblocks; i++)
+		for (i = k+1; i<lu_nblocks; i++)
 		{
-			create_task_12(dataA, k, i);
-			create_task_21(dataA, k, i);
+		  create_task_12(dataA, k, i, sched_ctx);
+		  create_task_21(dataA, k, i, sched_ctx);
 		}
 
-		for (i = k+1; i<nblocks; i++)
+		for (i = k+1; i<lu_nblocks; i++)
 		{
-			for (j = k+1; j<nblocks; j++)
+			for (j = k+1; j<lu_nblocks; j++)
 			{
-				create_task_22(dataA, k, i, j);
+			  create_task_22(dataA, k, i, j, sched_ctx);
 			}
 		}
 	}
 
 	/* schedule the codelet */
 	gettimeofday(&start, NULL);
-	int ret = starpu_task_submit(entry_task);
+	int ret = starpu_task_submit_to_ctx(entry_task, sched_ctx);
 	if (STARPU_UNLIKELY(ret == -ENODEV))
 	{
 		fprintf(stderr, "No worker may execute this task\n");
@@ -212,20 +212,19 @@ static void dw_codelet_facto_v3(starpu_data_handle dataA, unsigned nblocks)
 
 
 	/* stall the application until the end of computations */
-	starpu_tag_wait(TAG11(nblocks-1));
+	starpu_tag_wait(TAG11(lu_nblocks-1));
+	printf("lu finish waiting for %d nblocks\n", lu_nblocks-1);
 
 	gettimeofday(&end, NULL);
 
 	double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
-	fprintf(stderr, "Computation took (in ms)\n");
-	printf("%2.2f\n", timing/1000);
 
 	unsigned n = starpu_matrix_get_nx(dataA);
 	double flop = (2.0f*n*n*n)/3.0f;
-	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	return (flop/timing/1000.0f);
 }
 
-void STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigned nblocks)
+double STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigned lu_nblocks, struct starpu_sched_ctx *sched_ctx)
 {
 	starpu_data_handle dataA;
 
@@ -238,20 +237,21 @@ void STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigne
 
 	struct starpu_data_filter f;
 		f.filter_func = starpu_vertical_block_filter_func;
-		f.nchildren = nblocks;
+		f.nchildren = lu_nblocks;
 		f.get_nchildren = NULL;
 		f.get_child_ops = NULL;
 
 	struct starpu_data_filter f2;
 		f2.filter_func = starpu_block_filter_func;
-		f2.nchildren = nblocks;
+		f2.nchildren = lu_nblocks;
 		f2.get_nchildren = NULL;
 		f2.get_child_ops = NULL;
 
 	starpu_data_map_filters(dataA, 2, &f, &f2);
 
-	dw_codelet_facto_v3(dataA, nblocks);
+	double gflops = dw_codelet_facto_v3(dataA, lu_nblocks, sched_ctx);
 
 	/* gather all the data */
 	starpu_data_unpartition(dataA, 0);
+	return gflops;
 }
