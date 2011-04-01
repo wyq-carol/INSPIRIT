@@ -32,48 +32,17 @@ do
     
     echo "size : $size"
     
-    nsamples=0
-    sampleList=""
-
-    sum=0
-
     OPTIONS="-pin -nblocks $blocks -size $size"
 
     echo "$ROOTDIR/examples/$BENCH_NAME/$BENCH_NAME $OPTIONS"
 
-    for s in `seq 1 $ns`
-    do
-	val=`$ROOTDIR/examples/$BENCH_NAME/$BENCH_NAME $OPTIONS`
-	echo "val = $val"
-	if [ "$val" != "" ];
-	then
-	    nsamples=$(echo "$nsamples + 1"|bc -l)
-	fi
-
-	echo "$nsamples"
-
-	sampleList="$sampleList $val"
-    done
-
-    for val in $sampleList
-    do
-	sum=$(echo "$sum + $val"|bc -l)
-    done
-    
-    if [ "nsamples" != "0" ];
+    val=`$ROOTDIR/examples/$BENCH_NAME/$BENCH_NAME $OPTIONS`
+    if [ "$val" != "" ];
     then
-        avg=$(echo "$sum / $nsamples"|bc -l)
-	
-        orderedsampleList=$(echo "$sampleList"|tr " " "\n" |sort -n)
-	
-        ylow=$(echo $orderedsampleList | awk '{print $1}')
-        yhigh=$(echo "$orderedsampleList"|tail -1)
-		
-	echo "ylow = $ylow"
-	echo "yhigh = $yhigh"
-	
-        echo "$size $avg $ylow $yhigh" >> $filename
+	echo "$size $val"
+	echo "$size $val" >> $filename
     fi
+
 done
 
 
