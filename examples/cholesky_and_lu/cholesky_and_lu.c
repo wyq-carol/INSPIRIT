@@ -29,6 +29,40 @@ void* func_cholesky(void *val){
   return (void*)flops;
 }
 
+void* func_cholesky2(void *val){
+  params *p = (params*)val;
+
+  int procs[] = {0, 4, 5, 6, 7, 8, 9, 10, 11};
+  starpu_create_sched_ctx(&sched_ctx2, "heft", procs, 9, "cholesky");
+
+  int i;
+  double *flops = (double*)malloc(sizeof(double));
+  (*flops) = 0;
+  for(i = 0; i < NSAMPLES; i++)
+    {
+      (*flops) += run_cholesky_implicit(&sched_ctx2, p->argc, p->argv);
+    }
+
+  (*flops) /= NSAMPLES;
+  return (void*)flops;
+}
+
+void* func_cholesky3(void *val){
+  params *p = (params*)val;
+
+  int i;
+  double *flops = (double*)malloc(sizeof(double));
+  (*flops) = 0;
+  for(i = 0; i < NSAMPLES; i++)
+    {
+      (*flops) += run_cholesky_implicit_all_machine(p->argc, p->argv);
+    }
+
+  (*flops) /= NSAMPLES;
+  return (void*)flops;
+}
+
+
 void* func_lu(void *val){
   params *p = (params*)val;
 
@@ -50,17 +84,17 @@ void* func_lu(void *val){
 
 int main(int argc, char **argv)
 {
+  params p;
+  p.argc = argc;
+  p.argv = argv;
+
   starpu_init(NULL);
   starpu_helper_cublas_init();
 
   pthread_t tid[2];
 
-  params p;
-  p.argc = argc;
-  p.argv = argv;
-
   pthread_create(&tid[0], NULL, (void*)func_cholesky, (void*)&p);
-  pthread_create(&tid[1], NULL, (void*)func_cholesky, (void*)&p);
+  pthread_create(&tid[1], NULL, (void*)func_cholesky2, (void*)&p);
 
   void *gflops_cholesky1;
   void *gflops_cholesky2;
@@ -69,12 +103,18 @@ int main(int argc, char **argv)
   pthread_join(tid[0], &gflops_cholesky1);
   pthread_join(tid[1], &gflops_cholesky2);
 
-  void *gflops_cholesky3 = func_cholesky(&p);
+  starpu_helper_cublas_shutdown();
+  starpu_shutdown();
 
-  printf("%2.2f %2.2f %2.2f\n", *((double*)gflops_cholesky1), *((double*)gflops_cholesky2), *((double*)gflops_cholesky3));
+  starpu_init(NULL);
+  starpu_helper_cublas_init();
+
+  void *gflops_cholesky3 = func_cholesky3(&p);
 
   starpu_helper_cublas_shutdown();
   starpu_shutdown();
+
+  printf("%2.2f %2.2f %2.2f\n", *((double*)gflops_cholesky1), *((double*)gflops_cholesky2), *((double*)gflops_cholesky3));
 
   return 0;
 }
