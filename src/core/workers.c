@@ -356,9 +356,9 @@ int starpu_init(struct starpu_conf *user_conf)
 	/* initialize the scheduling policy */
 
 	if(user_conf == NULL)
-	  _starpu_create_sched_ctx(&sched_ctx, NULL, NULL, -1, 1);
+	  _starpu_create_sched_ctx(&sched_ctx, NULL, NULL, -1, 1, "init");
 	else
-	  _starpu_create_sched_ctx(&sched_ctx, user_conf->sched_policy_name, NULL, -1, 1);
+	  _starpu_create_sched_ctx(&sched_ctx, user_conf->sched_policy_name, NULL, -1, 1, "init");
 
 	//_starpu_init_sched_policy(&config, &sched_ctx);
 

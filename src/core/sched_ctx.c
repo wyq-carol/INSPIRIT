@@ -1,9 +1,6 @@
-#include <pthread.h>
-
-#include <starpu.h>
+#include <core/sched_ctx.h>
 #include <common/config.h>
 #include <common/utils.h>
-#include <core/sched_ctx.h>
 #include <core/sched_policy.h>
 #include <profiling/profiling.h>
 
@@ -13,7 +10,8 @@ static pthread_mutex_t blocking_ths_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int nblocked_ths = 0;
 
 void _starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int
-			      *workerids_in_ctx, int nworkerids_in_ctx, unsigned is_initial_sched)
+			      *workerids_in_ctx, int nworkerids_in_ctx, unsigned is_initial_sched,
+			      const char *sched_name)
 {
 	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
 	int nworkers = config->topology.nworkers;
@@ -23,7 +21,11 @@ void _starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *po
 	sched_ctx->nworkers_in_ctx = nworkerids_in_ctx;
 	sched_ctx->sched_policy = malloc(sizeof(struct starpu_sched_policy_s));
 	sched_ctx->is_initial_sched = is_initial_sched;
+	sched_ctx->sched_name = sched_name;
 
+	PTHREAD_COND_INIT(&sched_ctx->submitted_cond, NULL);
+	PTHREAD_MUTEX_INIT(&sched_ctx->submitted_mutex, NULL);
+	sched_ctx->nsubmitted = 0;
 
 	int j;
 	/*all the workers are in this contex*/
@@ -153,7 +155,7 @@ static int set_changing_ctx_flag(starpu_worker_status changing_ctx, int nworkeri
 }
 
 void starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int
-			     *workerids_in_ctx, int nworkerids_in_ctx)
+			     *workerids_in_ctx, int nworkerids_in_ctx, const char *sched_name)
 {
 	  /* wait for the workers concerned by the change of contex                              
 	   * to finish their work in the previous context */
@@ -161,7 +163,7 @@ void starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *pol
 	  {
 		/* block the workers until the contex is switched */
 		set_changing_ctx_flag(STATUS_CHANGING_CTX, nworkerids_in_ctx, workerids_in_ctx);
-		_starpu_create_sched_ctx(sched_ctx, policy_name, workerids_in_ctx, nworkerids_in_ctx, 0);
+		_starpu_create_sched_ctx(sched_ctx, policy_name, workerids_in_ctx, nworkerids_in_ctx, 0, sched_name);
 		/* also wait the workers to wake up before using the context */
 		set_changing_ctx_flag(STATUS_UNKNOWN, nworkerids_in_ctx, workerids_in_ctx);
 	  }
@@ -230,14 +232,15 @@ void _starpu_delete_all_sched_ctxs()
 		for(j = 0; j < workerarg->nctxs; j++)
 		  {
 			sched_ctx = workerarg->sched_ctx[j];
-			if(sched_ctx != NULL && !sched_ctx->is_initial_sched)
+			if(sched_ctx != NULL)
 			  {
 				free(sched_ctx->sched_policy);
 				sched_ctx->sched_policy = NULL;
-				workerarg->nctxs--;
+				sched_ctx = NULL;
 				
 			  }
 		  }
+		workerarg->nctxs = 0;
 	  }
 	return;
 }
@@ -272,7 +275,7 @@ int starpu_wait_for_all_tasks_of_workers(int *workerids_in_ctx, int nworkerids_i
 	  {
 		workerid = workerids_in_ctx == NULL ? i : workerids_in_ctx[i];
 		n = starpu_wait_for_all_tasks_of_worker(workerid);
-		ret_val = ret_val && n;
+		ret_val = (ret_val && n);
 	  }
 	
 	return ret_val;
@@ -283,7 +286,7 @@ void _starpu_decrement_nsubmitted_tasks_of_worker(int workerid)
 	struct starpu_worker_s *worker = _starpu_get_worker_struct(workerid);
 	
 	PTHREAD_MUTEX_LOCK(&worker->submitted_mutex);
-	
+
 	if (--worker->nsubmitted == 0)
 		PTHREAD_COND_BROADCAST(&worker->submitted_cond);
 
@@ -296,7 +299,7 @@ void _starpu_increment_nsubmitted_tasks_of_worker(int workerid)
 	struct starpu_worker_s *worker = _starpu_get_worker_struct(workerid);
 
 	PTHREAD_MUTEX_LOCK(&worker->submitted_mutex);
-       
+
 	worker->nsubmitted++;
 	
 	PTHREAD_MUTEX_UNLOCK(&worker->submitted_mutex);
@@ -468,3 +471,37 @@ void starpu_remove_workers_from_sched_ctx(int *workerids_in_ctx, int nworkerids_
 
 }
 
+int starpu_wait_for_all_tasks_of_sched_ctx(struct starpu_sched_ctx *sched_ctx)
+{
+  if (STARPU_UNLIKELY(!_starpu_worker_may_perform_blocking_calls()))
+    return -EDEADLK;
+
+  PTHREAD_MUTEX_LOCK(&sched_ctx->submitted_mutex);
+
+
+  while (sched_ctx->nsubmitted > 0)
+    PTHREAD_COND_WAIT(&sched_ctx->submitted_cond, &sched_ctx->submitted_mutex);
+
+  PTHREAD_MUTEX_UNLOCK(&sched_ctx->submitted_mutex);
+
+  return 0;
+}
+
+void _starpu_decrement_nsubmitted_tasks_of_sched_ctx(struct starpu_sched_ctx *sched_ctx)
+{
+  PTHREAD_MUTEX_LOCK(&sched_ctx->submitted_mutex);
+
+  if (--sched_ctx->nsubmitted == 0)
+    PTHREAD_COND_BROADCAST(&sched_ctx->submitted_cond);
+
+  PTHREAD_MUTEX_UNLOCK(&sched_ctx->submitted_mutex);
+}
+
+void _starpu_increment_nsubmitted_tasks_of_sched_ctx(struct starpu_sched_ctx *sched_ctx)
+{
+  PTHREAD_MUTEX_LOCK(&sched_ctx->submitted_mutex);
+
+  sched_ctx->nsubmitted++;
+
+  PTHREAD_MUTEX_UNLOCK(&sched_ctx->submitted_mutex);
+}

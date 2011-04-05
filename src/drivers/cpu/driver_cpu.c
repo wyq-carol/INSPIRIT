@@ -228,6 +228,8 @@ void *_starpu_cpu_worker(void *arg)
 
 		_starpu_set_current_task(j->task);
 
+		struct starpu_sched_ctx *local_sched_ctx = j->task->sched_ctx;
+
                 res = execute_job_on_cpu(j, cpu_arg, is_parallel_task, rank, perf_arch);
 
 		_starpu_set_current_task(NULL);
@@ -245,6 +247,7 @@ void *_starpu_cpu_worker(void *arg)
 		if (rank == 0){
 			_starpu_handle_job_termination(j, 0);
 			_starpu_decrement_nsubmitted_tasks_of_worker(cpu_arg->workerid);
+			_starpu_decrement_nsubmitted_tasks_of_sched_ctx(local_sched_ctx);
 		}
         }
 

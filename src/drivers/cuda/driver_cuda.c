@@ -178,7 +178,7 @@ static int execute_job_on_cuda(starpu_job_t j, struct starpu_worker_s *args)
 	ret = _starpu_fetch_task_input(task, mask);
 
 	if (ret != 0) {
-		/* there was not enough memory, so the input of
+		/* there was not enough memory, so th input of
 		 * the codelet cannot be fetched ... put the 
 		 * codelet back, and try it later */
 		return -EAGAIN;
@@ -211,6 +211,7 @@ static int execute_job_on_cuda(starpu_job_t j, struct starpu_worker_s *args)
 	func(task->interface, task->cl_arg);
 
 	cl->per_worker_stats[workerid]++;
+
 
 	if ((profiling && profiling_info) || calibrate_model)
 		starpu_clock_gettime(&codelet_end);
@@ -325,6 +326,8 @@ void *_starpu_cuda_worker(void *arg)
 
 		_starpu_set_current_task(task);
 
+		struct starpu_sched_ctx *local_sched_ctx = j->task->sched_ctx;
+
 		res = execute_job_on_cuda(j, args);
 
 		_starpu_set_current_task(NULL);
@@ -343,6 +346,7 @@ void *_starpu_cuda_worker(void *arg)
 
 		_starpu_handle_job_termination(j, 0);
 		_starpu_decrement_nsubmitted_tasks_of_worker(args->workerid);
+		_starpu_decrement_nsubmitted_tasks_of_sched_ctx(local_sched_ctx);
 
 	}
 

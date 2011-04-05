@@ -305,6 +305,7 @@ int _starpu_push_task(starpu_job_t j, unsigned job_is_already_locked)
         int ret;
 	if (STARPU_UNLIKELY(task->execute_on_a_specific_worker))
 	{
+		_starpu_increment_nsubmitted_tasks_of_worker(task->workerid);
 		ret = _starpu_push_task_on_specific_worker(task, task->workerid);
 	}
 	else {
@@ -314,6 +315,11 @@ int _starpu_push_task(starpu_job_t j, unsigned job_is_already_locked)
 	}
 
 	_starpu_profiling_set_task_push_end_time(task);
+
+ 	/* if(task) */
+	/*   { */
+	/*     printf("task %s pushed with strateg %s\n", task->name, task->sched_ctx->sched_policy->policy_name); */
+	/*   } */
 
         _STARPU_LOG_OUT();
         return ret;

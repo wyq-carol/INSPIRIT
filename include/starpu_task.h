@@ -259,6 +259,10 @@ int starpu_task_wait(struct starpu_task *task);
  * been executed. */
 int starpu_task_wait_for_all(void);
 
+/* This function waits until all the tasks that were already submitted to a specific
+ * context have been executed. */
+int starpu_wait_for_all_tasks_of_sched_ctx(struct starpu_sched_ctx *sched_ctx);
+
 void starpu_display_codelet_stats(struct starpu_codelet_t *cl);
 
 /* Return the task currently executed by the worker, or NULL if this is called

@@ -200,6 +200,7 @@ int _starpu_submit_job(starpu_job_t j, unsigned do_not_increment_nsubmitted)
 
 	if (!do_not_increment_nsubmitted){
 		_starpu_increment_nsubmitted_tasks();
+		_starpu_increment_nsubmitted_tasks_of_sched_ctx(j->task->sched_ctx);
 	}
 
 	PTHREAD_MUTEX_LOCK(&j->sync_mutex);

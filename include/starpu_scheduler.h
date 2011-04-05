@@ -101,13 +101,17 @@ struct starpu_sched_policy_s {
 };
 
 struct starpu_sched_ctx {
-	struct starpu_sched_policy_s *sched_policy; /*policy of the contex */
-	int workerid[STARPU_NMAXWORKERS]; /*list of indices of workers */
-	int nworkers_in_ctx; /*number of threads in contex */
-	unsigned is_initial_sched; /*we keep an initial sched which we never delete */
+	struct starpu_sched_policy_s *sched_policy; /* policy of the contex */
+	int workerid[STARPU_NMAXWORKERS]; /* list of indices of workers */
+	int nworkers_in_ctx; /* number of threads in contex */
+	unsigned is_initial_sched; /* we keep an initial sched which we never delete */
+	pthread_cond_t submitted_cond; /* cond used for no of submitted tasks to a sched_ctx */
+	pthread_mutex_t submitted_mutex; /* mut used for no of submitted tasks to a sched_ctx */
+	int nsubmitted;	 /* counter used for no of submitted tasks to a sched_ctx */
+	const char *sched_name;
 };
 
-void starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int *workerids_in_ctx, int nworkerids_in_ctx);
+void starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int *workerids_in_ctx, int nworkerids_in_ctx, const char *sched_name);
 
 void starpu_delete_sched_ctx(struct starpu_sched_ctx *sched_ctx);
 

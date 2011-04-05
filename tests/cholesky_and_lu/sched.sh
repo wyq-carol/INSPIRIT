@@ -37,12 +37,9 @@ do
     echo "$ROOTDIR/examples/$BENCH_NAME/$BENCH_NAME $OPTIONS"
 
     val=`$ROOTDIR/examples/$BENCH_NAME/$BENCH_NAME $OPTIONS`
-    if [ "$val" != "" ];
-    then
-	echo "$size $val"
-	echo "$size $val" >> $filename
-    fi
 
+    echo "$size $val"
+    echo "$size $val" >> $filename
 done
 
 

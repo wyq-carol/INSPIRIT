@@ -328,8 +328,10 @@ int starpu_tag_wait_array(unsigned ntags, starpu_tag_t *id)
 
 	PTHREAD_MUTEX_LOCK(&cg->succ.succ_apps.cg_mutex);
 
-	while (!cg->succ.succ_apps.completed)
+	while (!cg->succ.succ_apps.completed){
+	  printf("cond wait\n");
 		PTHREAD_COND_WAIT(&cg->succ.succ_apps.cg_cond, &cg->succ.succ_apps.cg_mutex);
+	}
 
 	PTHREAD_MUTEX_UNLOCK(&cg->succ.succ_apps.cg_mutex);
 

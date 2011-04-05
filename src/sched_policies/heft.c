@@ -263,8 +263,10 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio, struct starp
 
 	/* If there is no prediction available for that task with that arch we
 	 * want to speed-up calibration time so we force this measurement */
-	if (forced_best != -1)
+	if (forced_best != -1){
+		_starpu_increment_nsubmitted_tasks_of_worker(forced_best);
 		return push_task_on_best_worker(task, forced_best, 0.0, prio);
+	}
 
 	/*
 	 *	Determine which worker optimizes the fitness metric which is a
@@ -331,6 +333,7 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio, struct starp
 		model_best = local_task_length[best];
 	}
 
+	_starpu_increment_nsubmitted_tasks_of_worker(best);
 	return push_task_on_best_worker(task, best, model_best, prio);
 }
 
