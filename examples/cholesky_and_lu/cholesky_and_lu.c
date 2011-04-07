@@ -7,15 +7,20 @@ typedef struct {
   char **argv;
 } params;
 
-#define NSAMPLES 1
+#define NSAMPLES 10
 struct starpu_sched_ctx sched_ctx;
 struct starpu_sched_ctx sched_ctx2;
+
+/*conf bonne
+  int procs[] = {0, 2, 3, 4, 11};
+  int procs[] = {1, 5, 6, 7, 8, 9, 10};
+*/
 
 void* func_cholesky(void *val){
   params *p = (params*)val;
 
   int procs[] = {1, 2, 3, 4, 5, 6};
-  starpu_create_sched_ctx(&sched_ctx, "heft", procs, 6, "cholesky");
+  starpu_create_sched_ctx(&sched_ctx, "heft", procs, 6, "cholesky1");
 
   int i;
   double *flops = (double*)malloc(sizeof(double));
@@ -33,7 +38,7 @@ void* func_cholesky2(void *val){
   params *p = (params*)val;
 
   int procs[] = {0, 7, 8, 9, 10, 11};
-  starpu_create_sched_ctx(&sched_ctx2, "heft", procs, 6, "cholesky");
+  starpu_create_sched_ctx(&sched_ctx2, "heft", procs, 6, "cholesky2");
 
   int i;
   double *flops = (double*)malloc(sizeof(double));
@@ -106,15 +111,15 @@ int main(int argc, char **argv)
   starpu_helper_cublas_shutdown();
   starpu_shutdown();
 
-  /* starpu_init(NULL); */
-  /* starpu_helper_cublas_init(); */
+  starpu_init(NULL);
+  starpu_helper_cublas_init();
 
-  /* void *gflops_cholesky3 = func_cholesky3(&p); */
+  void *gflops_cholesky3 = func_cholesky3(&p);
 
-  /* starpu_helper_cublas_shutdown(); */
-  /* starpu_shutdown(); */
+  starpu_helper_cublas_shutdown();
+  starpu_shutdown();
 
-  /* printf("%2.2f %2.2f %2.2f\n", *((double*)gflops_cholesky1), *((double*)gflops_cholesky2), *((double*)gflops_cholesky3)); */
+  printf("%2.2f %2.2f %2.2f\n", *((double*)gflops_cholesky1), *((double*)gflops_cholesky2), *((double*)gflops_cholesky3));
 
   return 0;
 }

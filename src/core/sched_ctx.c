@@ -296,6 +296,7 @@ void _starpu_decrement_nsubmitted_tasks_of_worker(int workerid)
 
 void _starpu_increment_nsubmitted_tasks_of_worker(int workerid)
 {
+  //  printf("task submitted to %d\n", workerid);
 	struct starpu_worker_s *worker = _starpu_get_worker_struct(workerid);
 
 	PTHREAD_MUTEX_LOCK(&worker->submitted_mutex);
