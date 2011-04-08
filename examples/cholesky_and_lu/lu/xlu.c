@@ -54,7 +54,7 @@ static struct starpu_task *create_task_11(starpu_data_handle dataA, unsigned k)
 
 	struct starpu_task *task = create_task(TAG11(k));
 
-	task->cl = &cl11;
+[6~	task->cl = &cl11;
 
 	/* which sub-data is manipulated ? */
 	task->buffers[0].handle = starpu_data_get_sub_data(dataA, 2, k, k);

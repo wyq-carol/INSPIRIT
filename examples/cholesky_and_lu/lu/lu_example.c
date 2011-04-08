@@ -36,11 +36,6 @@ static unsigned bound = 0;
 static unsigned bounddeps = 0;
 static unsigned boundprio = 0;
 
-TYPE *A;
-TYPE *A_saved;
-
-/* in case we use non-strided blocks */
-TYPE **A_blocks;
 
 static void lu_parse_args(int argc, char **argv)
 {
@@ -105,7 +100,7 @@ static void display_matrix(TYPE *m, unsigned n, unsigned ld, char *str)
 #endif
 }
 
-void copy_blocks_into_matrix()
+void copy_blocks_into_matrix(TYPE *A, TYPE **A_blocks)
 {
 	unsigned blocklu_size = (lu_size/lu_nblocks);
 
@@ -127,7 +122,7 @@ void copy_blocks_into_matrix()
 
 
 
-void copy_matrix_into_blocks()
+void copy_matrix_into_blocks(TYPE *A, TYPE **A_blocks)
 {
 	unsigned blocklu_size = (lu_size/lu_nblocks);
 
@@ -147,11 +142,11 @@ void copy_matrix_into_blocks()
 	}
 }
 
-static void init_matrix()
+static void init_matrix(TYPE **A)
 {
 	/* allocate matrix */
-	starpu_data_malloc_pinned_if_possible((void **)&A, (size_t)lu_size*lu_size*sizeof(TYPE));
-	STARPU_ASSERT(A);
+	starpu_data_malloc_pinned_if_possible((void **)A, (size_t)lu_size*lu_size*sizeof(TYPE));
+	STARPU_ASSERT(*A);
 
 	starpu_srand48((long int)time(NULL));
 	//	starpu_srand48(0);
@@ -162,13 +157,13 @@ static void init_matrix()
 	{
 		for (i = 0; i < lu_size; i++)
 		{
-		  A[i + j*lu_size] = (TYPE)starpu_drand48();
+		  (*A)[i + j*lu_size] = (TYPE)starpu_drand48();
 		}
 	}
 
 }
 
-static void save_matrix()
+static void save_matrix(TYPE *A, TYPE *A_saved)
 {
 	A_saved = malloc((size_t)lu_size*lu_size*sizeof(TYPE));
 	STARPU_ASSERT(A_saved);
@@ -193,7 +188,7 @@ static double frobenius_norm(TYPE *v, unsigned n)
 	return sqrt(sum2);
 }
 
-static void pivot_saved_matrix(unsigned *ipiv)
+static void pivot_saved_matrix(unsigned *ipiv, TYPE *A_saved)
 {
 	unsigned k;
 	for (k = 0; k < lu_size; k++)
@@ -206,7 +201,7 @@ static void pivot_saved_matrix(unsigned *ipiv)
 	}
 }
 
-static void lu_check_result()
+static void lu_check_result(TYPE *A, TYPE *A_saved)
 {
 	unsigned i,j;
 	TYPE *L, *U;
@@ -265,18 +260,23 @@ static void lu_check_result()
 
 double run_lu(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
 {
-  printf("enter lu\n");
+	TYPE *A;
+	TYPE *A_saved;
+
+	/* in case we use non-strided blocks */
+	TYPE **A_blocks;
+
 	lu_parse_args(argc, argv);
 
 	//	starpu_init(NULL);
 
 	//	starpu_helper_cublas_init();
 
-	init_matrix();
+	init_matrix(&A);
 
 	unsigned *ipiv;
 	if (lu_check)
-	  save_matrix();
+	  save_matrix(A, A_saved);
 
 	display_matrix(A, lu_size, lu_size, "A");
 
@@ -295,11 +295,11 @@ double run_lu(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
 		{
 			/* in case the LU decomposition uses non-strided blocks, we _copy_ the matrix into smaller blocks */
 			A_blocks = malloc(lu_nblocks*lu_nblocks*sizeof(TYPE **));
-			copy_matrix_into_blocks();
+			copy_matrix_into_blocks(A, A_blocks);
 
 			gflops = STARPU_LU(lu_decomposition_pivot_no_stride)(A_blocks, ipiv, lu_size, lu_size, lu_nblocks, sched_ctx);
 
-			copy_blocks_into_matrix();
+			copy_blocks_into_matrix(A, A_blocks);
 			free(A_blocks);
 		}
 		else 
@@ -322,8 +322,7 @@ double run_lu(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
 	}
 	else
 	{
-	  gflops = STARPU_LU(lu_decomposition)(A, lu_size, lu_size, lu_nblocks, sched_ctx);
-			printf("no pivot \n");
+		gflops = STARPU_LU(lu_decomposition)(A, lu_size, lu_size, lu_nblocks, sched_ctx);
 	}
 
 	if (profile)
@@ -349,9 +348,9 @@ double run_lu(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
 	if (lu_check)
 	{
 		if (pivot)
-		  pivot_saved_matrix(ipiv);
+		  pivot_saved_matrix(ipiv, A_saved);
 
-		lu_check_result();
+		lu_check_result(A, A_saved);
 	}
 
 	//	starpu_helper_cublas_shutdown();
@@ -360,3 +359,5 @@ double run_lu(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
 
 	return gflops;
 }
+
+

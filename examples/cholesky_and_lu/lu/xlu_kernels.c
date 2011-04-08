@@ -61,6 +61,7 @@ static inline void STARPU_LU(common_u22)(void *descr[],
 
 			if (STARPU_UNLIKELY((cures = cudaThreadSynchronize()) != cudaSuccess))
 				STARPU_CUDA_REPORT_ERROR(cures);
+			printf("dx = %d dy = %d dz = %d ld21 = %d ld12= %d ld22 = %d\n");
 
 
 			CUBLAS_GEMM('n', 'n', dx, dy, dz,

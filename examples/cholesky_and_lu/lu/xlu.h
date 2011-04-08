@@ -114,4 +114,8 @@ double STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsig
 double STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct starpu_sched_ctx *sched_ctx);
 double STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct starpu_sched_ctx *sched_ctx);
 
+/* double STARPU_LU(lu_decomposition_all_machine)(TYPE *matA, unsigned size, unsigned ld, unsigned nblocks); */
+/* double STARPU_LU(lu_decomposition_pivot_no_stride_all_machine)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks); */
+/* double STARPU_LU(lu_decomposition_pivot_all_machine)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks); */
+
 #endif // __XLU_H__

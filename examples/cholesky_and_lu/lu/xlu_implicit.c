@@ -34,7 +34,10 @@ static void create_task_11(starpu_data_handle dataA, unsigned k, struct starpu_s
 	if (!no_prio)
 		task->priority = STARPU_MAX_PRIO;
 
-	starpu_task_submit_to_ctx(task, sched_ctx);
+	if(sched_ctx == NULL)
+	  starpu_task_submit(task);
+	else
+	  starpu_task_submit_to_ctx(task, sched_ctx);
 }
 
 static void create_task_12(starpu_data_handle dataA, unsigned k, unsigned j, struct starpu_sched_ctx *sched_ctx)
@@ -51,7 +54,10 @@ static void create_task_12(starpu_data_handle dataA, unsigned k, unsigned j, str
 	if (!no_prio && (j == k+1))
 		task->priority = STARPU_MAX_PRIO;
 
-	starpu_task_submit_to_ctx(task, sched_ctx);
+	if(sched_ctx == NULL)
+	  starpu_task_submit(task);
+	else
+	  starpu_task_submit_to_ctx(task, sched_ctx);
 }
 
 static void create_task_21(starpu_data_handle dataA, unsigned k, unsigned i, struct starpu_sched_ctx *sched_ctx)
@@ -69,7 +75,10 @@ static void create_task_21(starpu_data_handle dataA, unsigned k, unsigned i, str
 	if (!no_prio && (i == k+1))
 		task->priority = STARPU_MAX_PRIO;
 
-	starpu_task_submit_to_ctx(task, sched_ctx);
+	if(sched_ctx == NULL)
+	  starpu_task_submit(task);
+	else
+	  starpu_task_submit_to_ctx(task, sched_ctx);
 }
 
 static void create_task_22(starpu_data_handle dataA, unsigned k, unsigned i, unsigned j, struct starpu_sched_ctx *sched_ctx)
@@ -89,7 +98,10 @@ static void create_task_22(starpu_data_handle dataA, unsigned k, unsigned i, uns
 	if (!no_prio &&  (i == k + 1) && (j == k +1) )
 		task->priority = STARPU_MAX_PRIO;
 
-	starpu_task_submit_to_ctx(task, sched_ctx);
+	if(sched_ctx == NULL)
+	  starpu_task_submit(task);
+	else
+	  starpu_task_submit_to_ctx(task, sched_ctx);
 }
 
 /*
@@ -108,7 +120,7 @@ static double dw_codelet_facto_v3(starpu_data_handle dataA, unsigned lu_nblocks,
 
 	for (k = 0; k < lu_nblocks; k++)
 	{
-	  create_task_11(dataA, k, sched_ctx);
+		create_task_11(dataA, k, sched_ctx);
 		
 		for (i = k+1; i<lu_nblocks; i++)
 		{
@@ -123,8 +135,10 @@ static double dw_codelet_facto_v3(starpu_data_handle dataA, unsigned lu_nblocks,
 	}
 
 	/* stall the application until the end of computations */
-	//starpu_task_wait_for_all();
-	starpu_wait_for_all_tasks_of_sched_ctx(sched_ctx);
+	if(sched_ctx == NULL)
+		starpu_task_wait_for_all();
+	else
+		starpu_wait_for_all_tasks_of_sched_ctx(sched_ctx);
 
 	gettimeofday(&end, NULL);
 
