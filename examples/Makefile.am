@@ -437,12 +437,8 @@ examplebin_PROGRAMS += 				\
 cholesky_and_lu_cholesky_and_lu_SOURCES =			\
 	cholesky_and_lu/cholesky_and_lu.c			\
 	cholesky_and_lu/cholesky/cholesky_implicit.c		\
-	cholesky_and_lu/cholesky/cholesky_implicit_all_machine.c \
 	cholesky_and_lu/cholesky/cholesky_models.c		\
 	cholesky_and_lu/cholesky/cholesky_kernels.c		\
-	cholesky_and_lu/lu/slu_implicit.c			\
-	cholesky_and_lu/lu/slu_implicit_pivot.c			\
-	cholesky_and_lu/lu/slu_kernels.c			\
 	common/blas.c
 endif
 

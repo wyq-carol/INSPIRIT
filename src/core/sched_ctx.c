@@ -157,16 +157,12 @@ static int set_changing_ctx_flag(starpu_worker_status changing_ctx, int nworkeri
 void starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int
 			     *workerids_in_ctx, int nworkerids_in_ctx, const char *sched_name)
 {
-	  /* wait for the workers concerned by the change of contex                              
-	   * to finish their work in the previous context */
-	if(!starpu_wait_for_all_tasks_of_workers(workerids_in_ctx, nworkerids_in_ctx))
-	  {
-		/* block the workers until the contex is switched */
-		set_changing_ctx_flag(STATUS_CHANGING_CTX, nworkerids_in_ctx, workerids_in_ctx);
-		_starpu_create_sched_ctx(sched_ctx, policy_name, workerids_in_ctx, nworkerids_in_ctx, 0, sched_name);
-		/* also wait the workers to wake up before using the context */
-		set_changing_ctx_flag(STATUS_UNKNOWN, nworkerids_in_ctx, workerids_in_ctx);
-	  }
+	/* block the workers until the contex is switched */
+	set_changing_ctx_flag(STATUS_CHANGING_CTX, nworkerids_in_ctx, workerids_in_ctx);
+	_starpu_create_sched_ctx(sched_ctx, policy_name, workerids_in_ctx, nworkerids_in_ctx, 0, sched_name);
+	/* also wait the workers to wake up before using the context */
+	set_changing_ctx_flag(STATUS_UNKNOWN, nworkerids_in_ctx, workerids_in_ctx);
+
 	return;
 }
 
@@ -202,20 +198,24 @@ static void _starpu_remove_sched_ctx_from_worker(struct starpu_worker_s *workera
 
 void starpu_delete_sched_ctx(struct starpu_sched_ctx *sched_ctx)
 {
-	struct starpu_machine_config_s *config = _starpu_get_machine_config();
-	int nworkers = config->topology.nworkers;
-
-	int i;
-	for(i = 0; i < nworkers; i++)
+  if(!starpu_wait_for_all_tasks_of_sched_ctx(sched_ctx))
 	  {
-		struct starpu_worker_s *workerarg = _starpu_get_worker_struct(i);
-		_starpu_remove_sched_ctx_from_worker(workerarg, sched_ctx);
-	  }
-	
-	free(sched_ctx->sched_policy);
-	sched_ctx->sched_policy = NULL;
 
-	return;
+		int nworkers = sched_ctx->nworkers_in_ctx;
+		int workerid;
+
+		int i;
+		for(i = 0; i < nworkers; i++)
+		  {
+			workerid = sched_ctx->workerid[i];
+			struct starpu_worker_s *workerarg = _starpu_get_worker_struct(workerid);
+			_starpu_remove_sched_ctx_from_worker(workerarg, sched_ctx);
+		  }
+	
+		free(sched_ctx->sched_policy);
+		sched_ctx->sched_policy = NULL;
+	  }		
+	return;	
 }
 
 void _starpu_delete_all_sched_ctxs()
@@ -358,18 +358,13 @@ static void _starpu_add_workers_to_sched_ctx(int *workerids_in_ctx, int nworkeri
 void starpu_add_workers_to_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx,
 				     struct starpu_sched_ctx *sched_ctx)
 {
-  	  /* wait for the workers concerned by the change of contex                              
-	   * to finish their work in the previous context */
-	if(!starpu_wait_for_all_tasks_of_workers(workerids_in_ctx, nworkerids_in_ctx))
-	  {
-		/* block the workers until the contex is switched */
-		set_changing_ctx_flag(STATUS_CHANGING_CTX, nworkerids_in_ctx, workerids_in_ctx);
-		_starpu_add_workers_to_sched_ctx(workerids_in_ctx, nworkerids_in_ctx, sched_ctx);
-		/* also wait the workers to wake up before using the context */
-		set_changing_ctx_flag(STATUS_UNKNOWN, nworkerids_in_ctx, workerids_in_ctx);
-	  }
-	return;
+	/* block the workers until the contex is switched */
+	set_changing_ctx_flag(STATUS_CHANGING_CTX, nworkerids_in_ctx, workerids_in_ctx);
+	_starpu_add_workers_to_sched_ctx(workerids_in_ctx, nworkerids_in_ctx, sched_ctx);
+	/* also wait the workers to wake up before using the context */
+	set_changing_ctx_flag(STATUS_UNKNOWN, nworkerids_in_ctx, workerids_in_ctx);
 
+	return;
 }
 
 static int _starpu_get_first_free_space(int *workerids, int old_nworkerids_in_ctx)
@@ -424,7 +419,7 @@ static void _starpu_remove_workers_from_sched_ctx(int *workerids_in_ctx, int nwo
 			workerid = sched_ctx->workerid[i];
 			struct starpu_worker_s *workerarg = _starpu_get_worker_struct(workerid);
 			_starpu_remove_sched_ctx_from_worker(workerarg, sched_ctx);
-sched_ctx->workerid[i] = -1;
+			sched_ctx->workerid[i] = -1;
 		  }
 
 		sched_ctx->nworkers_in_ctx = 0;
@@ -458,7 +453,7 @@ sched_ctx->workerid[i] = -1;
 void starpu_remove_workers_from_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, 
 					  struct starpu_sched_ctx *sched_ctx)
 {
-	  /* wait for the workers concerned by the change of contex                              
+	  /* wait for the workers concerned by the change of contex                       
 	   * to finish their work in the previous context */
 	if(!starpu_wait_for_all_tasks_of_workers(workerids_in_ctx, nworkerids_in_ctx))
 	  {
