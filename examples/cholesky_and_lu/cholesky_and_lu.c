@@ -11,7 +11,7 @@ typedef struct {
   double avg_timing;
 } retvals;
 
-#define NSAMPLES 10
+#define NSAMPLES 1
 
 struct starpu_sched_ctx sched_ctx;
 struct starpu_sched_ctx sched_ctx2;
@@ -21,7 +21,7 @@ struct starpu_sched_ctx sched_ctx4;
 void* func_cholesky(void *val){
   params *p = (params*)val;
 
-  int procs[] = {1, 3, 4, 5, 6, 7};
+  int procs[] = {1, 2, 3, 4, 5, 6};
   starpu_create_sched_ctx(&sched_ctx, "heft", procs, 6, "cholesky1");
 
   int i;
@@ -43,7 +43,7 @@ void* func_cholesky(void *val){
 void* func_cholesky2(void *val){
   params *p = (params*)val;
 
-  int procs[] = {0, 8, 9, 10, 11, 12};
+  int procs[] = {0, 7, 8, 9, 10, 11};
   starpu_create_sched_ctx(&sched_ctx2, "heft", procs, 6, "cholesky2");
 
   int i;
