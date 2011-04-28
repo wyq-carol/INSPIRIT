@@ -101,7 +101,6 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, struct starp
 		for (j = k+1; j<nblocks; j++)
 		{
                         starpu_data_handle sdatakj = starpu_data_get_sub_data(dataA, 2, k, j);
-
 			if(sched_ctx != NULL)
 				starpu_insert_task_to_ctx(sched_ctx, &cl21,
 							  STARPU_PRIORITY, (j == k+1)?prio_level:STARPU_DEFAULT_PRIO,
@@ -179,18 +178,19 @@ static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks
 		f2.get_child_ops = NULL;
 
 	starpu_data_map_filters(dataA, 2, &f, &f2);
-
 	return _cholesky(dataA, nblocks, sched_ctx, timing);
 }
 
-double run_cholesky_implicit(struct starpu_sched_ctx *sched_ctx, int argc, char **argv, double *timing)
+double run_cholesky_implicit(struct starpu_sched_ctx *sched_ctx, int argc, char **argv, double *timing, pthread_barrier_t *barrier)
 {
 	/* create a simple definite positive symetric matrix example
 	 *
 	 *	Hilbert matrix : h(i,j) = 1/(i+j+1)
 	 * */
 
-	parse_args(argc, argv);
+	unsigned size = 4 * 1024;
+	unsigned nblocks = 16;
+	parse_args(argc, argv, &size, &nblocks);
 
 	//	starpu_init(NULL);
 
@@ -198,7 +198,6 @@ double run_cholesky_implicit(struct starpu_sched_ctx *sched_ctx, int argc, char 
 
 	float *mat;
 	starpu_data_malloc_pinned_if_possible((void **)&mat, (size_t)size*size*sizeof(float));
-
 	unsigned i,j;
 	for (i = 0; i < size; i++)
 	{
@@ -227,7 +226,8 @@ double run_cholesky_implicit(struct starpu_sched_ctx *sched_ctx, int argc, char 
 		printf("\n");
 	}
 #endif
-
+	if(barrier != NULL)
+	  pthread_barrier_wait(barrier);
 	double gflops = cholesky(mat, size, size, nblocks, sched_ctx, timing);
 
 #ifdef PRINT_OUTPUT

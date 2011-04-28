@@ -183,7 +183,6 @@ void *_starpu_cpu_worker(void *arg)
 
 		PTHREAD_MUTEX_UNLOCK(sched_mutex);	
 
-
 		STARPU_ASSERT(task);
 		j = _starpu_get_job_associated_to_task(task);
 	

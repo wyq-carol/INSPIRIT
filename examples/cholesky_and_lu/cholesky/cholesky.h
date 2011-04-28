@@ -54,8 +54,8 @@
 #define BLAS3_FLOP(n1,n2,n3)    \
         (2*((uint64_t)n1)*((uint64_t)n2)*((uint64_t)n3))
 
-static unsigned size = 4*1024;
-static unsigned nblocks = 16;
+//static unsigned size = 4*1024;
+//static unsigned nblocks = 16;
 static unsigned nbigblocks = 8;
 static unsigned pinned = 0;
 static unsigned noprio = 0;
@@ -72,7 +72,7 @@ void chol_cublas_codelet_update_u22(void *descr[], void *_args);
 #endif
 
 int run_cholesky_grain_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **argv);
-double run_cholesky_implicit(struct starpu_sched_ctx *sched_ctx, int argc, char **argv, double *timing);
+double run_cholesky_implicit(struct starpu_sched_ctx *sched_ctx, int argc, char **argv, double *timing, pthread_barrier_t *barrier);
 int run_cholesky_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **argv);
 double run_cholesky_tile_tag(struct starpu_sched_ctx *sched_ctx, int argc, char **argv);
 
@@ -80,18 +80,18 @@ extern struct starpu_perfmodel_t chol_model_11;
 extern struct starpu_perfmodel_t chol_model_21;
 extern struct starpu_perfmodel_t chol_model_22;
 
-static void __attribute__((unused)) parse_args(int argc, char **argv)
+static void __attribute__((unused)) parse_args(int argc, char **argv, unsigned *size, unsigned *nblocks)
 {
 	int i;
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-size") == 0) {
 		        char *argptr;
-			size = strtol(argv[++i], &argptr, 10);
+			(*size) = strtol(argv[++i], &argptr, 10);
 		}
 
 		if (strcmp(argv[i], "-nblocks") == 0) {
 		        char *argptr;
-			nblocks = strtol(argv[++i], &argptr, 10);
+			(*nblocks) = strtol(argv[++i], &argptr, 10);
 		}
 
 		if (strcmp(argv[i], "-nbigblocks") == 0) {

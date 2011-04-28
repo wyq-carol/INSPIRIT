@@ -36,7 +36,7 @@ do
 
     echo "$ROOTDIR/examples/$BENCH_NAME/$BENCH_NAME $OPTIONS"
 
-    val=`STARPU_NCUDA=2 $ROOTDIR/examples/$BENCH_NAME/$BENCH_NAME $OPTIONS`
+    val=`$ROOTDIR/examples/$BENCH_NAME/$BENCH_NAME $OPTIONS`
 
     echo "$size $val"
     echo "$size $val" >> $filename

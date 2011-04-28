@@ -316,11 +316,6 @@ int _starpu_push_task(starpu_job_t j, unsigned job_is_already_locked)
 
 	_starpu_profiling_set_task_push_end_time(task);
 
- 	/* if(task) */
-	/*   { */
-	/*     printf("task %s pushed with strateg %s\n", task->name, task->sched_ctx->sched_policy->policy_name); */
-	/*   } */
-
         _STARPU_LOG_OUT();
         return ret;
 }
@@ -353,11 +348,6 @@ struct starpu_task *_starpu_pop_task(struct starpu_worker_s *worker)
 			  }
 		  }
 	  }
-
- 	/* if(task) */
-	/*   { */
-	/*     printf("task %s poped by th %d for %d  with strateg %s\n", task->name, worker->workerid, worker->arch, task->sched_ctx->sched_policy->policy_name); */
-	/*   } */
 
 	/* Note that we may get a NULL task in case the scheduler was unlocked
 	 * for some reason. */
