@@ -280,6 +280,7 @@ static int _starpu_init_machine_config(struct starpu_machine_config_s *config,
 
 	topology->nworkers = 0;
 	topology->ncombinedworkers = 0;
+	topology->nsched_ctxs = 0;
 	_starpu_init_topology(config);
 
 	_starpu_initialize_workers_bindid(config);

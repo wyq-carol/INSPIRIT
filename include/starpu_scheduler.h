@@ -32,6 +32,7 @@ struct starpu_machine_topology_s {
 
 	unsigned ncombinedworkers;
 
+	unsigned nsched_ctxs;
 #ifdef STARPU_HAVE_HWLOC
 	hwloc_topology_t hwtopology;
 #else
@@ -63,13 +64,13 @@ struct starpu_machine_topology_s {
  * field of the starpu_conf structure passed to the starpu_init function. */
 struct starpu_sched_policy_s {
 	/* Initialize the scheduling policy. */
-	void (*init_sched)(struct starpu_sched_ctx *);
+	void (*init_sched)(int);
 
 	/* Cleanup the scheduling policy. */
-	void (*deinit_sched)(struct starpu_sched_ctx *);
+	void (*deinit_sched)(int);
 
 	/* Insert a task into the scheduler. */
-        int (*push_task)(struct starpu_task *, struct starpu_sched_ctx *);
+        int (*push_task)(struct starpu_task *, int);
 	/* Notify the scheduler that a task was pushed on the worker. This
 	 * method is called when a task that was explicitely assigned to a
 	 * worker is scheduled. This method therefore permits to keep the state
@@ -78,7 +79,7 @@ struct starpu_sched_policy_s {
 	void (*push_task_notify)(struct starpu_task *, int workerid);
 
 	/* Insert a priority task into the scheduler. */
-        int (*push_prio_task)(struct starpu_task *, struct starpu_sched_ctx *);
+        int (*push_prio_task)(struct starpu_task *, int);
 
 	/* Get a task from the scheduler. The mutex associated to the worker is
 	 * already taken when this method is called. */
@@ -100,24 +101,13 @@ struct starpu_sched_policy_s {
 	const char *policy_description;
 };
 
-struct starpu_sched_ctx {
-	struct starpu_sched_policy_s *sched_policy; /* policy of the contex */
-	int workerid[STARPU_NMAXWORKERS]; /* list of indices of workers */
-	int nworkers_in_ctx; /* number of threads in contex */
-	unsigned is_initial_sched; /* we keep an initial sched which we never delete */
-	pthread_cond_t submitted_cond; /* cond used for no of submitted tasks to a sched_ctx */
-	pthread_mutex_t submitted_mutex; /* mut used for no of submitted tasks to a sched_ctx */
-	int nsubmitted;	 /* counter used for no of submitted tasks to a sched_ctx */
-	const char *sched_name;
-};
+int starpu_create_sched_ctx(const char *policy_name, int *workerids_in_ctx, int nworkerids_in_ctx, const char *sched_name);
 
-void starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int *workerids_in_ctx, int nworkerids_in_ctx, const char *sched_name);
+void starpu_delete_sched_ctx(int sched_ctx);
 
-void starpu_delete_sched_ctx(struct starpu_sched_ctx *sched_ctx);
+void starpu_add_workers_to_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, int sched_ctx);
 
-void starpu_add_workers_to_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, struct starpu_sched_ctx *sched_ctx);
-
-void starpu_remove_workers_from_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, struct starpu_sched_ctx *sched_ctx);
+void starpu_remove_workers_from_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, int sched_ctx);
 
 /* When there is no available task for a worker, StarPU blocks this worker on a
 condition variable. This function specifies which condition variable (and the
@@ -149,7 +139,7 @@ int starpu_push_local_task(int workerid, struct starpu_task *task, int back);
 /* By convention, the default priority level should be 0 so that we can
  * statically allocate tasks with a default priority. */
 #define STARPU_DEFAULT_PRIO	0
-
+#define STARPU_NMAX_SCHED_CTXS 10
 int starpu_sched_get_min_priority(void);
 int starpu_sched_get_max_priority(void);
 

@@ -326,7 +326,7 @@ void *_starpu_cuda_worker(void *arg)
 
 		_starpu_set_current_task(task);
 
-		struct starpu_sched_ctx *local_sched_ctx = j->task->sched_ctx;
+		struct starpu_sched_ctx *local_sched_ctx = _starpu_get_sched_ctx(j->task->sched_ctx);
 
 		res = execute_job_on_cuda(j, args);
 

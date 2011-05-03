@@ -78,24 +78,4 @@ void starpu_insert_task(starpu_codelet *cl, ...)
 	va_start(varg_list, cl);
         struct starpu_task *task = starpu_task_create();
         _starpu_insert_task_create_and_submit(arg_buffer, cl, &task, varg_list);
-
-}
-
-void starpu_insert_task_to_ctx(struct starpu_sched_ctx *sched_ctx, starpu_codelet *cl, ...)
-{
-	va_list varg_list;
-
-	/* Compute the size */
-	size_t arg_buffer_size = 0;
-	va_start(varg_list, cl);
-        arg_buffer_size = _starpu_insert_task_get_arg_size(varg_list);
-
-	va_start(varg_list, cl);
-	char *arg_buffer;
-	_starpu_pack_cl_args(arg_buffer_size, &arg_buffer, varg_list);
-
-	va_start(varg_list, cl);
-        struct starpu_task *task = starpu_task_create();
-        _starpu_insert_task_create_and_submit_to_ctx(arg_buffer, cl, &task, varg_list, sched_ctx);
-
 }

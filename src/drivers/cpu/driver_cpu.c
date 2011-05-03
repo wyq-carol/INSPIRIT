@@ -227,7 +227,7 @@ void *_starpu_cpu_worker(void *arg)
 
 		_starpu_set_current_task(j->task);
 
-		struct starpu_sched_ctx *local_sched_ctx = j->task->sched_ctx;
+		struct starpu_sched_ctx *local_sched_ctx = _starpu_get_sched_ctx(j->task->sched_ctx);
 
                 res = execute_job_on_cpu(j, cpu_arg, is_parallel_task, rank, perf_arch);
 

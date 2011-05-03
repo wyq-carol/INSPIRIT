@@ -206,14 +206,14 @@ void _starpu_init_sched_policy(struct starpu_machine_config_s *config, struct st
 
 	load_sched_policy(selected_policy, sched_ctx);
 
-	sched_ctx->sched_policy->init_sched(sched_ctx);
+	sched_ctx->sched_policy->init_sched(sched_ctx->sched_ctx_id);
 }
 
 void _starpu_deinit_sched_policy(struct starpu_machine_config_s *config, struct starpu_sched_ctx *sched_ctx)
 {
         struct starpu_sched_policy_s *policy = sched_ctx->sched_policy;
 	if (policy->deinit_sched)
-		policy->deinit_sched(sched_ctx);
+		policy->deinit_sched(sched_ctx->sched_ctx_id);
 }
 
 /* Enqueue a task into the list of tasks explicitely attached to a worker. In
@@ -309,9 +309,9 @@ int _starpu_push_task(starpu_job_t j, unsigned job_is_already_locked)
 		ret = _starpu_push_task_on_specific_worker(task, task->workerid);
 	}
 	else {
-	        struct starpu_sched_ctx *sched_ctx = task->sched_ctx;
+		struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(task->sched_ctx);
 		STARPU_ASSERT(sched_ctx->sched_policy->push_task);
-		ret = sched_ctx->sched_policy->push_task(task, sched_ctx);
+		ret = sched_ctx->sched_policy->push_task(task, sched_ctx->sched_ctx_id);
 	}
 
 	_starpu_profiling_set_task_push_end_time(task);
@@ -380,8 +380,9 @@ struct starpu_task *_starpu_pop_every_task(struct starpu_sched_ctx *sched_ctx)
 
 void _starpu_sched_post_exec_hook(struct starpu_task *task)
 {
-	if (task->sched_ctx->sched_policy->post_exec_hook)
-		task->sched_ctx->sched_policy->post_exec_hook(task);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(task->sched_ctx);
+	if (sched_ctx->sched_policy->post_exec_hook)
+		sched_ctx->sched_policy->post_exec_hook(task);
 }
 
 void _starpu_wait_on_sched_event(void)

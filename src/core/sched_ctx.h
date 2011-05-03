@@ -1,4 +1,4 @@
- /* StarPU --- Runtime system for heterogeneous multicore architectures.
+/* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2010  Université de Bordeaux 1
  *
@@ -18,11 +18,21 @@
 #define __SCHED_CONTEXT_H__
 
 #include <starpu.h>
-#include <core/workers.h>
 #include <starpu_scheduler.h>
 
+struct starpu_sched_ctx {
+	int sched_ctx_id;
+	struct starpu_sched_policy_s *sched_policy; /* policy of the contex */
+	int workerid[STARPU_NMAXWORKERS]; /* list of indices of workers */
+	int nworkers_in_ctx; /* number of threads in contex */
+	unsigned is_initial_sched; /* we keep an initial sched which we never delete */
+	pthread_cond_t submitted_cond; /* cond used for no of submitted tasks to a sched_ctx */
+	pthread_mutex_t submitted_mutex; /* mut used for no of submitted tasks to a sched_ctx */
+	int nsubmitted;	 /* counter used for no of submitted tasks to a sched_ctx */
+	const char *sched_name;
+};
 
-void _starpu_create_sched_ctx(struct starpu_sched_ctx *sched_ctx, const char *policy_name, int *workerid, int nworkerids, unsigned is_init_sched, const char *sched_name);
+int _starpu_create_sched_ctx(const char *policy_name, int *workerid, int nworkerids, unsigned is_init_sched, const char *sched_name);
 
 void _starpu_delete_all_sched_ctxs();
 

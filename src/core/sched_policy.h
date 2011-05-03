@@ -19,7 +19,7 @@
 
 #include <starpu.h>
 #include <core/workers.h>
-
+#include <core/sched_ctx.h>
 #include <starpu_scheduler.h>
 
 struct starpu_machine_config_s;

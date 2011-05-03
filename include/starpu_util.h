@@ -176,10 +176,10 @@ int starpu_data_cpy(starpu_data_handle dst_handle, starpu_data_handle src_handle
 #define STARPU_CALLBACK_ARG	(1<<6)	/* Argument of the callback function (of type void *) */
 #define STARPU_PRIORITY		(1<<7)	/* Priority associated to the task */
 #define STARPU_EXECUTE		(1<<8)	/* Used by MPI to define which task is going to execute the codelet */
+#define STARPU_CTX		(1<<9)	/* Used to define which ctx will execute the */
 
 /* Wrapper to create a task. */
 void starpu_insert_task(starpu_codelet *cl, ...);
-void starpu_insert_task_to_ctx(struct starpu_sched_ctx *sched_ctx,starpu_codelet *cl, ...);
 
 /* Retrieve the arguments of type STARPU_VALUE associated to a task
  * automatically created using starpu_insert_task. */
@@ -193,6 +193,5 @@ void starpu_pack_cl_args(char **arg_buffer, size_t *arg_buffer_size, ...);
 }
 #endif
 
-#define STARPU_NMAXSCHEDCTXS 32
 
 #endif // __STARPU_UTIL_H__

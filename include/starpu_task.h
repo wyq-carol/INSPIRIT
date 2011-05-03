@@ -158,7 +158,7 @@ struct starpu_task {
 	 * NULL. */
 	void *starpu_private;
      
-        struct starpu_sched_ctx *sched_ctx;
+        int sched_ctx;
   
 };
 
@@ -183,7 +183,8 @@ struct starpu_task {
 	.status = STARPU_TASK_INVALID,			\
 	.profiling_info = NULL,				\
 	.predicted = -1.0,				\
-	.starpu_private = NULL				\
+	.starpu_private = NULL,				\
+	.sched_ctx = -1					\
 };
 
 /*
@@ -246,7 +247,7 @@ struct starpu_task *starpu_task_create(void);
  * allocated task results in an undefined behaviour. */
 void starpu_task_destroy(struct starpu_task *task);
 int starpu_task_submit(struct starpu_task *task);
-int starpu_task_submit_to_ctx(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx);
+int starpu_task_submit_to_ctx(struct starpu_task *task, int sched_ctx);
 
 /* This function blocks until the task was executed. It is not possible to
  * synchronize with a task more than once. It is not possible to wait
@@ -261,7 +262,7 @@ int starpu_task_wait_for_all(void);
 
 /* This function waits until all the tasks that were already submitted to a specific
  * context have been executed. */
-int starpu_wait_for_all_tasks_of_sched_ctx(struct starpu_sched_ctx *sched_ctx);
+int starpu_wait_for_all_tasks_of_sched_ctx(int sched_ctx);
 
 void starpu_display_codelet_stats(struct starpu_codelet_t *cl);
 

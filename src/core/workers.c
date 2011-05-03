@@ -40,8 +40,6 @@ static pthread_key_t worker_key;
 
 static struct starpu_machine_config_s config;
 
-static struct starpu_sched_ctx sched_ctx;
-
 struct starpu_machine_config_s *_starpu_get_machine_config(void)
 {
 	return &config;
@@ -356,9 +354,9 @@ int starpu_init(struct starpu_conf *user_conf)
 	/* initialize the scheduling policy */
 
 	if(user_conf == NULL)
-	  _starpu_create_sched_ctx(&sched_ctx, NULL, NULL, -1, 1, "init");
+	  _starpu_create_sched_ctx(NULL, NULL, -1, 1, "init");
 	else
-	  _starpu_create_sched_ctx(&sched_ctx, user_conf->sched_policy_name, NULL, -1, 1, "init");
+	  _starpu_create_sched_ctx(user_conf->sched_policy_name, NULL, -1, 1, "init");
 
 	//_starpu_init_sched_policy(&config, &sched_ctx);
 
@@ -621,6 +619,11 @@ struct starpu_worker_s *_starpu_get_worker_struct(unsigned id)
 	return &config.workers[id];
 }
 
+struct starpu_sched_ctx *_starpu_get_sched_ctx(int id)
+{
+	return &config.sched_ctxs[id];
+}
+
 struct starpu_combined_worker_s *_starpu_get_combined_worker_struct(unsigned id)
 {
 	unsigned basic_worker_count = starpu_worker_get_count();
@@ -661,5 +664,5 @@ void starpu_worker_set_sched_condition(int workerid, pthread_cond_t *sched_cond,
 }
 
 struct starpu_sched_ctx* _starpu_get_initial_sched_ctx(void){
-	return &sched_ctx;
+	return &config.sched_ctxs[0];
 }

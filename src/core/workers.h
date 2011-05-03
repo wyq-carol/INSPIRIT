@@ -29,7 +29,7 @@
 #include <core/sched_policy.h>
 #include <core/topology.h>
 #include <core/errorcheck.h>
-
+#include <core/sched_ctx.h>
 
 #ifdef STARPU_HAVE_HWLOC
 #include <hwloc.h>
@@ -78,7 +78,7 @@ struct starpu_worker_s {
 	starpu_worker_status status; /* what is the worker doing now ? (eg. CALLBACK) */
 	char name[32];
 
-	struct starpu_sched_ctx *sched_ctx[STARPU_NMAXSCHEDCTXS];
+	struct starpu_sched_ctx *sched_ctx[STARPU_NMAX_SCHED_CTXS];
 	unsigned nctxs; /* the no of contexts a worker belongs to*/
 	unsigned changing_ctx;
 	pthread_mutex_t changing_ctx_mutex;
@@ -164,6 +164,9 @@ struct starpu_machine_config_s {
 
 	/* this flag is set until the runtime is stopped */
 	unsigned running;
+	
+	/* all the sched ctx of the current instance of starpu */
+	struct starpu_sched_ctx sched_ctxs[STARPU_NMAX_SCHED_CTXS];
 };
 
 /* Has starpu_shutdown already been called ? */
@@ -202,6 +205,11 @@ struct starpu_worker_s *_starpu_get_local_worker_key(void);
 /* Returns the starpu_worker_s structure that describes the state of the
  * specified worker. */
 struct starpu_worker_s *_starpu_get_worker_struct(unsigned id);
+
+/* Returns the starpu_sched_ctx structure that descriebes the state of the 
+ * specified ctx */
+struct starpu_sched_ctx *_starpu_get_sched_ctx(int id);
+
 
 struct starpu_combined_worker_s *_starpu_get_combined_worker_struct(unsigned id);
 

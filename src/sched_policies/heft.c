@@ -20,6 +20,7 @@
 #include <float.h>
 
 #include <core/workers.h>
+#include <core/sched_ctx.h>
 #include <core/perfmodel/perfmodel.h>
 #include <starpu_parameters.h>
 #include <starpu_task_bundle.h>
@@ -39,8 +40,9 @@ static double exp_end[STARPU_NMAXWORKERS];
 static double exp_len[STARPU_NMAXWORKERS];
 static double ntasks[STARPU_NMAXWORKERS];
 
-static void heft_init(struct starpu_sched_ctx *sched_ctx)
+static void heft_init(int sched_ctx_id)
 {
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	unsigned nworkers = sched_ctx->nworkers_in_ctx;
 
 	const char *strval_alpha = getenv("STARPU_SCHED_ALPHA");
@@ -144,7 +146,7 @@ static void compute_all_performance_predictions(struct starpu_task *task,
 						double *local_data_penalty,
 						double *local_power, int *forced_best,
 						struct starpu_task_bundle *bundle,
-						struct starpu_sched_ctx *sched_ctx)
+						 struct starpu_sched_ctx *sched_ctx )
 {
   int calibrating = 0;
   double max_exp_end = DBL_MIN;
@@ -230,8 +232,9 @@ static void compute_all_performance_predictions(struct starpu_task *task,
   *max_exp_endp = max_exp_end;
 }
 
-static int _heft_push_task(struct starpu_task *task, unsigned prio, struct starpu_sched_ctx *sched_ctx)
+static int _heft_push_task(struct starpu_task *task, unsigned prio, int sched_ctx_id)
 {
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	unsigned worker, worker_in_ctx;
 	int best = -1, best_id_in_ctx = -1;
 	
@@ -341,21 +344,22 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio, struct starp
 	return push_task_on_best_worker(task, best, model_best, prio);
 }
 
-static int heft_push_prio_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
+static int heft_push_prio_task(struct starpu_task *task, int sched_ctx_id)
 {
-        return _heft_push_task(task, 1, sched_ctx);
+        return _heft_push_task(task, 1, sched_ctx_id);
 }
 
-static int heft_push_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
+static int heft_push_task(struct starpu_task *task, int sched_ctx_id)
 {
 	if (task->priority > 0)
-        	  return _heft_push_task(task, 1, sched_ctx);
+        	  return _heft_push_task(task, 1, sched_ctx_id);
 
-	return _heft_push_task(task, 0, sched_ctx);
+	return _heft_push_task(task, 0, sched_ctx_id);
 }
 
-static void heft_deinit(struct starpu_sched_ctx *sched_ctx) 
+static void heft_deinit(int sched_ctx_id) 
 {
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
         unsigned workerid;
 	int workerid_in_ctx;
 	unsigned nworkers = sched_ctx->nworkers_in_ctx;

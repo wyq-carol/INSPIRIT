@@ -4,6 +4,7 @@
 typedef struct {
   int argc;
   char **argv;
+  int ctx;
 } params;
 
 typedef struct {
@@ -13,14 +14,11 @@ typedef struct {
 
 #define NSAMPLES 1
 
-struct starpu_sched_ctx sched_ctx;
-struct starpu_sched_ctx sched_ctx2;
-struct starpu_sched_ctx sched_ctx3;
-struct starpu_sched_ctx sched_ctx4;
 pthread_barrier_t barrier;
 
 void* func_cholesky(void *val){
   params *p = (params*)val;
+  int sched_ctx = p->ctx;
 
   int i;
   retvals *rv  = (retvals*)malloc(sizeof(retvals));
@@ -29,7 +27,7 @@ void* func_cholesky(void *val){
   double timing = 0;
   for(i = 0; i < NSAMPLES; i++)
     {
-      rv->flops += run_cholesky_implicit(&sched_ctx, p->argc, p->argv, &timing, &barrier);
+      rv->flops += run_cholesky_implicit(sched_ctx, p->argc, p->argv, &timing, (sched_ctx == -1 ? NULL : &barrier));
       rv->avg_timing += timing;
     }
 
@@ -38,63 +36,22 @@ void* func_cholesky(void *val){
   return (void*)rv;
 }
 
-void* func_cholesky2(void *val){
-  params *p = (params*)val;
-
-  int i;
-  retvals *rv  = (retvals*)malloc(sizeof(retvals));
-  rv->flops = 0;
-  rv->avg_timing = 0;
-  double timing = 0;
-
-  for(i = 0; i < NSAMPLES; i++)
-    {
-      rv->flops += run_cholesky_implicit(&sched_ctx2, p->argc, p->argv, &timing, &barrier);
-      rv->avg_timing += timing;
-    }
-
-  rv->flops /= NSAMPLES;
-  rv->avg_timing /= NSAMPLES;
-  return (void*)rv;
-}
-
-void* func_cholesky3(void *val){
-  params *p = (params*)val;
-
-  int i;
-  retvals *rv  = (retvals*)malloc(sizeof(retvals));
-  rv->flops = 0;
-  rv->avg_timing = 0;
-  double timing = 0;
-
-  for(i = 0; i < NSAMPLES; i++)
-    {
-      rv->flops += run_cholesky_implicit(NULL, p->argc, p->argv, &timing, NULL);
-      rv->avg_timing += timing;
-    }
-
-  rv->flops /= NSAMPLES;
-  rv->avg_timing /= NSAMPLES;
-
-  return (void*)rv;
-}
-
-void cholesky_vs_cholesky(params *p){
+void cholesky_vs_cholesky(params *p1, params *p2, params *p3){
   /* 2 cholesky in different ctxs */
   starpu_init(NULL);
   starpu_helper_cublas_init();
 
   int procs[] = {1, 2, 3, 4, 5, 6};
-  starpu_create_sched_ctx(&sched_ctx, "heft", procs, 6, "cholesky1");
+  p1->ctx = starpu_create_sched_ctx("heft", procs, 6, "cholesky1");
 
   int procs2[] = {0, 7, 8, 9, 10, 11};
-  starpu_create_sched_ctx(&sched_ctx2, "heft", procs2, 6, "cholesky2");
+  p2->ctx = starpu_create_sched_ctx("heft", procs2, 6, "cholesky2");
 
   pthread_t tid[2];
   pthread_barrier_init(&barrier, NULL, 2);
 
-  pthread_create(&tid[0], NULL, (void*)func_cholesky, (void*)p);
-  pthread_create(&tid[1], NULL, (void*)func_cholesky2, (void*)p);
+  pthread_create(&tid[0], NULL, (void*)func_cholesky, (void*)p1);
+  pthread_create(&tid[1], NULL, (void*)func_cholesky, (void*)p2);
 
   void *gflops_cholesky1;
   void *gflops_cholesky2;
@@ -109,7 +66,7 @@ void cholesky_vs_cholesky(params *p){
   /* starpu_init(NULL); */
   /* starpu_helper_cublas_init(); */
 
-  /* void *gflops_cholesky3 = func_cholesky3(p); */
+  /* void *gflops_cholesky3 = func_cholesky((void*)p3); */
 
   /* starpu_helper_cublas_shutdown(); */
   /* starpu_shutdown(); */
@@ -121,8 +78,8 @@ void cholesky_vs_cholesky(params *p){
 
   /* pthread_t tid2[2]; */
 
-  /* pthread_create(&tid2[0], NULL, (void*)func_cholesky3, (void*)p); */
-  /* pthread_create(&tid2[1], NULL, (void*)func_cholesky3, (void*)p); */
+  /* pthread_create(&tid2[0], NULL, (void*)func_cholesky, (void*)p3); */
+  /* pthread_create(&tid2[1], NULL, (void*)func_cholesky, (void*)p3); */
 
   /* void *gflops_cholesky4; */
   /* void *gflops_cholesky5; */
@@ -146,11 +103,19 @@ void cholesky_vs_cholesky(params *p){
 
 int main(int argc, char **argv)
 {
-  params p;
-  p.argc = argc;
-  p.argv = argv;
+  params p1;
+  p1.argc = argc;
+  p1.argv = argv;
 
-  cholesky_vs_cholesky(&p);
+  params p2;
+  p2.argc = argc;
+  p2.argv = argv;
+
+  params p3;
+  p3.argc = argc;
+  p3.argv = argv;
+  p3.ctx = -1;
+  cholesky_vs_cholesky(&p1, &p2,&p3);
 
   return 0;
 }
