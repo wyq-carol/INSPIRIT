@@ -137,7 +137,7 @@ void copy_matrix_into_blocks(void)
 	for (bj = 0; bj < nblocks; bj++)
 	for (bi = 0; bi < nblocks; bi++)
 	{
-		starpu_malloc((void **)&A_blocks[bi+nblocks*bj], (size_t)blocksize*blocksize*sizeof(TYPE));
+		starpu_data_malloc_pinned_if_possible((void **)&A_blocks[bi+nblocks*bj], (size_t)blocksize*blocksize*sizeof(TYPE));
 
 		for (j = 0; j < blocksize; j++)
 		for (i = 0; i < blocksize; i++)
@@ -151,7 +151,7 @@ void copy_matrix_into_blocks(void)
 static void init_matrix(void)
 {
 	/* allocate matrix */
-	starpu_malloc((void **)&A, (size_t)size*size*sizeof(TYPE));
+	starpu_data_malloc_pinned_if_possible((void **)&A, (size_t)size*size*sizeof(TYPE));
 	STARPU_ASSERT(A);
 
 	starpu_srand48((long int)time(NULL));
@@ -317,7 +317,7 @@ int main(int argc, char **argv)
 			unsigned n = size;
 			double flop = (2.0f*n*n*n)/3.0f;
 			FPRINTF(stderr, "Synthetic GFlops (TOTAL) : \n");
-			FPRINTF(stdout, "%d	%6.2f\n", n, (flop/timing/1000.0f));
+			FPRINTF(stdout, "%u	%6.2f\n", n, (flop/timing/1000.0f));
 		}
 	}
 	else
