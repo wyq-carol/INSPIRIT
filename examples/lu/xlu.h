@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2009, 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2009, 2010-2011  Université de Bordeaux 1
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,6 +26,8 @@
 #include <starpu_cuda.h>
 
 #include <common/blas.h>
+
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
 
 #define BLAS3_FLOP(n1,n2,n3)    \
         (2*((uint64_t)n1)*((uint64_t)n2)*((uint64_t)n3))
@@ -74,9 +76,9 @@ static void __attribute__ ((unused)) compare_A_LU(float *A, float *LU,
 		}
 	}
 
-	printf("max error between A and L*U = %f \n", max_err);
+	FPRINTF(stdout, "max error between A and L*U = %f \n", max_err);
 }
-#endif // CHECK_RESULTS
+#endif /* CHECK_RESULTS */
 
 void dw_cpu_codelet_update_u11(void **, void *);
 void dw_cpu_codelet_update_u12(void **, void *);
@@ -110,8 +112,8 @@ struct piv_s {
 	unsigned last; /* last element */
 };
 
-double STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigned nblocks, struct starpu_sched_ctx *sched_ctx);
-double STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct starpu_sched_ctx *sched_ctx);
-double STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks, struct starpu_sched_ctx *sched_ctx);
+void STARPU_LU(lu_decomposition)(TYPE *matA, unsigned size, unsigned ld, unsigned nblocks);
+void STARPU_LU(lu_decomposition_pivot_no_stride)(TYPE **matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks);
+void STARPU_LU(lu_decomposition_pivot)(TYPE *matA, unsigned *ipiv, unsigned size, unsigned ld, unsigned nblocks);
 
-#endif // __XLU_H__
+#endif /* __XLU_H__ */

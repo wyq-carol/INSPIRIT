@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2009, 2010  Université de Bordeaux 1
+ * Copyright (C) 2009, 2010-2011  Université de Bordeaux 1
  * Copyright (C) 2010  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
@@ -55,14 +55,6 @@ static inline void STARPU_LU(common_u22)(void *descr[],
 
 #ifdef STARPU_USE_CUDA
 		case 1:
-			status = cublasGetError();
-			if (STARPU_UNLIKELY(status != CUBLAS_STATUS_SUCCESS))
-				STARPU_ABORT();
-
-			if (STARPU_UNLIKELY((cures = cudaThreadSynchronize()) != cudaSuccess))
-				STARPU_CUDA_REPORT_ERROR(cures);
-
-
 			CUBLAS_GEMM('n', 'n', dx, dy, dz,
 				(TYPE)-1.0, right, ld21, left, ld12,
 				(TYPE)1.0f, center, ld22);
@@ -92,7 +84,7 @@ void STARPU_LU(cublas_u22)(void *descr[], void *_args)
 {
 	STARPU_LU(common_u22)(descr, 1, _args);
 }
-#endif// STARPU_USE_CUDA
+#endif /* STARPU_USE_CUDA */
 
 static struct starpu_perfmodel_t STARPU_LU(model_22) = {
 	.type = STARPU_HISTORY_BASED,
@@ -175,7 +167,7 @@ void STARPU_LU(cublas_u12)(void *descr[], void *_args)
 {
 	STARPU_LU(common_u12)(descr, 1, _args);
 }
-#endif // STARPU_USE_CUDA
+#endif /* STARPU_USE_CUDA */
 
 static struct starpu_perfmodel_t STARPU_LU(model_12) = {
 	.type = STARPU_HISTORY_BASED,
@@ -295,11 +287,6 @@ static inline void STARPU_LU(common_u11)(void *descr[],
 
 	unsigned long z;
 
-#ifdef STARPU_USE_CUDA
-	cublasStatus status;
-	cudaError_t cures;
-#endif
-
 	switch (s) {
 		case 0:
 			for (z = 0; z < nx; z++)
@@ -333,14 +320,6 @@ static inline void STARPU_LU(common_u11)(void *descr[],
 						&sub11[z+(z+1)*ld], ld,
 						&sub11[(z+1) + (z+1)*ld],ld);
 			}
-
-			status = cublasGetError();
-			if (STARPU_UNLIKELY(status != CUBLAS_STATUS_SUCCESS))
-				STARPU_ABORT();
-
-			if (STARPU_UNLIKELY((cures = cudaThreadSynchronize()) != cudaSuccess))
-				STARPU_CUDA_REPORT_ERROR(cures);
-
 			
 			cudaThreadSynchronize();
 
@@ -362,7 +341,7 @@ void STARPU_LU(cublas_u11)(void *descr[], void *_args)
 {
 	STARPU_LU(common_u11)(descr, 1, _args);
 }
-#endif// STARPU_USE_CUDA
+#endif /* STARPU_USE_CUDA */
 
 static struct starpu_perfmodel_t STARPU_LU(model_11) = {
 	.type = STARPU_HISTORY_BASED,
@@ -496,7 +475,7 @@ void STARPU_LU(cublas_u11_pivot)(void *descr[], void *_args)
 {
 	STARPU_LU(common_u11_pivot)(descr, 1, _args);
 }
-#endif// STARPU_USE_CUDA
+#endif /* STARPU_USE_CUDA */
 
 static struct starpu_perfmodel_t STARPU_LU(model_11_pivot) = {
 	.type = STARPU_HISTORY_BASED,
@@ -581,7 +560,7 @@ void STARPU_LU(cublas_pivot)(void *descr[], void *_args)
 	STARPU_LU(common_pivot)(descr, 1, _args);
 }
 
-#endif// STARPU_USE_CUDA
+#endif /* STARPU_USE_CUDA */
 
 static struct starpu_perfmodel_t STARPU_LU(model_pivot) = {
 	.type = STARPU_HISTORY_BASED,

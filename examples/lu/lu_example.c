@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2009, 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2009, 2010-2011  Université de Bordeaux 1
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -26,9 +26,9 @@
 #include "xlu.h"
 #include "xlu_kernels.h"
 
-static unsigned long lu_size = 10240;//4096;
-static unsigned lu_nblocks = 10;
-static unsigned lu_check = 0;
+static unsigned long size = 4096;
+static unsigned nblocks = 16;
+static unsigned check = 0;
 static unsigned pivot = 0;
 static unsigned no_stride = 0;
 static unsigned profile = 0;
@@ -36,28 +36,29 @@ static unsigned bound = 0;
 static unsigned bounddeps = 0;
 static unsigned boundprio = 0;
 
-TYPE *A;
-TYPE *A_saved;
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
+
+TYPE *A, *A_saved;
 
 /* in case we use non-strided blocks */
 TYPE **A_blocks;
 
-static void lu_parse_args(int argc, char **argv)
+static void parse_args(int argc, char **argv)
 {
 	int i;
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-size") == 0) {
 			char *argptr;
-			lu_size = strtol(argv[++i], &argptr, 10);
+			size = strtol(argv[++i], &argptr, 10);
 		}
 
 		if (strcmp(argv[i], "-nblocks") == 0) {
 			char *argptr;
-			lu_nblocks = strtol(argv[++i], &argptr, 10);
+			nblocks = strtol(argv[++i], &argptr, 10);
 		}
 
 		if (strcmp(argv[i], "-check") == 0) {
-			lu_check = 1;
+			check = 1;
 		}
 
 		if (strcmp(argv[i], "-piv") == 0) {
@@ -90,90 +91,90 @@ static void lu_parse_args(int argc, char **argv)
 static void display_matrix(TYPE *m, unsigned n, unsigned ld, char *str)
 {
 #if 0
-	fprintf(stderr, "***********\n");
-	fprintf(stderr, "Display matrix %s\n", str);
+	FPRINTF(stderr, "***********\n");
+	FPRINTF(stderr, "Display matrix %s\n", str);
 	unsigned i,j;
 	for (j = 0; j < n; j++)
 	{
 		for (i = 0; i < n; i++)
 		{
-			fprintf(stderr, "%2.2f\t", m[i+j*ld]);
+			FPRINTF(stderr, "%2.2f\t", m[i+j*ld]);
 		}
-		fprintf(stderr, "\n");
+		FPRINTF(stderr, "\n");
 	}
-	fprintf(stderr, "***********\n");
+	FPRINTF(stderr, "***********\n");
 #endif
 }
 
-void copy_blocks_into_matrix()
+void copy_blocks_into_matrix(void)
 {
-	unsigned blocklu_size = (lu_size/lu_nblocks);
+	unsigned blocksize = (size/nblocks);
 
 	unsigned i, j;
 	unsigned bi, bj;
-	for (bj = 0; bj < lu_nblocks; bj++)
-	for (bi = 0; bi < lu_nblocks; bi++)
+	for (bj = 0; bj < nblocks; bj++)
+	for (bi = 0; bi < nblocks; bi++)
 	{
-		for (j = 0; j < blocklu_size; j++)
-		for (i = 0; i < blocklu_size; i++)
+		for (j = 0; j < blocksize; j++)
+		for (i = 0; i < blocksize; i++)
 		{
-			A[(i+bi*blocklu_size) + (j + bj*blocklu_size)*lu_size] =
-				A_blocks[bi+lu_nblocks*bj][i + j * blocklu_size];
+			A[(i+bi*blocksize) + (j + bj*blocksize)*size] =
+				A_blocks[bi+nblocks*bj][i + j * blocksize];
 		}
 
-		//free(A_blocks[bi+lu_nblocks*bj]);
+		/* free(A_blocks[bi+nblocks*bj]); */
 	}
 }
 
 
 
-void copy_matrix_into_blocks()
+void copy_matrix_into_blocks(void)
 {
-	unsigned blocklu_size = (lu_size/lu_nblocks);
+	unsigned blocksize = (size/nblocks);
 
 	unsigned i, j;
 	unsigned bi, bj;
-	for (bj = 0; bj < lu_nblocks; bj++)
-	for (bi = 0; bi < lu_nblocks; bi++)
+	for (bj = 0; bj < nblocks; bj++)
+	for (bi = 0; bi < nblocks; bi++)
 	{
-		starpu_data_malloc_pinned_if_possible((void **)&A_blocks[bi+lu_nblocks*bj], (size_t)blocklu_size*blocklu_size*sizeof(TYPE));
+		starpu_malloc((void **)&A_blocks[bi+nblocks*bj], (size_t)blocksize*blocksize*sizeof(TYPE));
 
-		for (j = 0; j < blocklu_size; j++)
-		for (i = 0; i < blocklu_size; i++)
+		for (j = 0; j < blocksize; j++)
+		for (i = 0; i < blocksize; i++)
 		{
-			A_blocks[bi+lu_nblocks*bj][i + j * blocklu_size] =
-			A[(i+bi*blocklu_size) + (j + bj*blocklu_size)*lu_size];
+			A_blocks[bi+nblocks*bj][i + j * blocksize] =
+			A[(i+bi*blocksize) + (j + bj*blocksize)*size];
 		}
 	}
 }
 
-static void init_matrix()
+static void init_matrix(void)
 {
 	/* allocate matrix */
-	starpu_data_malloc_pinned_if_possible((void **)&A, (size_t)lu_size*lu_size*sizeof(TYPE));
+	starpu_malloc((void **)&A, (size_t)size*size*sizeof(TYPE));
 	STARPU_ASSERT(A);
 
 	starpu_srand48((long int)time(NULL));
-	//	starpu_srand48(0);
+	/* starpu_srand48(0); */
 
 	/* initialize matrix content */
 	unsigned long i,j;
-	for (j = 0; j < lu_size; j++)
+	for (j = 0; j < size; j++)
 	{
-		for (i = 0; i < lu_size; i++)
+		for (i = 0; i < size; i++)
 		{
-		  A[i + j*lu_size] = (TYPE)starpu_drand48();
+			A[i + j*size] = (TYPE)starpu_drand48();
 		}
 	}
 
 }
 
-static void save_matrix()
+static void save_matrix(void)
 {
-	A_saved = malloc((size_t)lu_size*lu_size*sizeof(TYPE));
+	A_saved = malloc((size_t)size*size*sizeof(TYPE));
 	STARPU_ASSERT(A_saved);
 
-	memcpy(A_saved, A, (size_t)lu_size*lu_size*sizeof(TYPE));
+	memcpy(A_saved, A, (size_t)size*size*sizeof(TYPE));
 }
 
 static double frobenius_norm(TYPE *v, unsigned n)
@@ -196,89 +197,88 @@ static double frobenius_norm(TYPE *v, unsigned n)
 static void pivot_saved_matrix(unsigned *ipiv)
 {
 	unsigned k;
-	for (k = 0; k < lu_size; k++)
+	for (k = 0; k < size; k++)
 	{
 		if (k != ipiv[k])
 		{
-	//		fprintf(stderr, "SWAP %d and %d\n", k, ipiv[k]);
-			CPU_SWAP(lu_size, &A_saved[k*lu_size], 1, &A_saved[ipiv[k]*lu_size], 1);
+	/*		FPRINTF(stderr, "SWAP %d and %d\n", k, ipiv[k]); */
+			CPU_SWAP(size, &A_saved[k*size], 1, &A_saved[ipiv[k]*size], 1);
 		}
 	}
 }
 
-static void lu_check_result()
+static void check_result(void)
 {
 	unsigned i,j;
 	TYPE *L, *U;
 
-	L = malloc((size_t)lu_size*lu_size*sizeof(TYPE));
-	U = malloc((size_t)lu_size*lu_size*sizeof(TYPE));
+	L = malloc((size_t)size*size*sizeof(TYPE));
+	U = malloc((size_t)size*size*sizeof(TYPE));
 
-	memset(L, 0, lu_size*lu_size*sizeof(TYPE));
-	memset(U, 0, lu_size*lu_size*sizeof(TYPE));
+	memset(L, 0, size*size*sizeof(TYPE));
+	memset(U, 0, size*size*sizeof(TYPE));
 
 	/* only keep the lower part */
-	for (j = 0; j < lu_size; j++)
+	for (j = 0; j < size; j++)
 	{
 		for (i = 0; i < j; i++)
 		{
-			L[j+i*lu_size] = A[j+i*lu_size];
+			L[j+i*size] = A[j+i*size];
 		}
 
 		/* diag i = j */
-		L[j+j*lu_size] = A[j+j*lu_size];
-		U[j+j*lu_size] = 1.0;
+		L[j+j*size] = A[j+j*size];
+		U[j+j*size] = 1.0;
 
-		for (i = j+1; i < lu_size; i++)
+		for (i = j+1; i < size; i++)
 		{
-			U[j+i*lu_size] = A[j+i*lu_size];
+			U[j+i*size] = A[j+i*size];
 		}
 	}
 
-	display_matrix(L, lu_size, lu_size, "L");
-	display_matrix(U, lu_size, lu_size, "U");
+	display_matrix(L, size, size, "L");
+	display_matrix(U, size, size, "U");
 
 	/* now A_err = L, compute L*U */
-	CPU_TRMM("R", "U", "N", "U", lu_size, lu_size, 1.0f, U, lu_size, L, lu_size);
+	CPU_TRMM("R", "U", "N", "U", size, size, 1.0f, U, size, L, size);
 
-	display_matrix(A_saved, lu_size, lu_size, "P A_saved");
-	display_matrix(L, lu_size, lu_size, "LU");
+	display_matrix(A_saved, size, size, "P A_saved");
+	display_matrix(L, size, size, "LU");
 
 	/* compute "LU - A" in L*/
-	CPU_AXPY(lu_size*lu_size, -1.0, A_saved, 1, L, 1);
-	display_matrix(L, lu_size, lu_size, "Residuals");
+	CPU_AXPY(size*size, -1.0, A_saved, 1, L, 1);
+	display_matrix(L, size, size, "Residuals");
 	
-	TYPE err = CPU_ASUM(lu_size*lu_size, L, 1);
-	int max = CPU_IAMAX(lu_size*lu_size, L, 1);
+	TYPE err = CPU_ASUM(size*size, L, 1);
+	int max = CPU_IAMAX(size*size, L, 1);
 
-	fprintf(stderr, "Avg error : %e\n", err/(lu_size*lu_size));
-	fprintf(stderr, "Max error : %e\n", L[max]);
+	FPRINTF(stderr, "Avg error : %e\n", err/(size*size));
+	FPRINTF(stderr, "Max error : %e\n", L[max]);
 
-	double residual = frobenius_norm(L, lu_size);
-	double matnorm = frobenius_norm(A_saved, lu_size);
+	double residual = frobenius_norm(L, size);
+	double matnorm = frobenius_norm(A_saved, size);
 
-	fprintf(stderr, "||%sA-LU|| / (||A||*N) : %e\n", pivot?"P":"", residual/(matnorm*lu_size));
+	FPRINTF(stderr, "||%sA-LU|| / (||A||*N) : %e\n", pivot?"P":"", residual/(matnorm*size));
 
-	if (residual/(matnorm*lu_size) > 1e-5)
+	if (residual/(matnorm*size) > 1e-5)
 		exit(-1);
 }
 
-double run_lu(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
+int main(int argc, char **argv)
 {
-  printf("enter lu\n");
-	lu_parse_args(argc, argv);
+	parse_args(argc, argv);
 
-	//	starpu_init(NULL);
+	starpu_init(NULL);
 
-	//	starpu_helper_cublas_init();
+	starpu_helper_cublas_init();
 
 	init_matrix();
 
 	unsigned *ipiv;
-	if (lu_check)
-	  save_matrix();
+	if (check)
+		save_matrix();
 
-	display_matrix(A, lu_size, lu_size, "A");
+	display_matrix(A, size, size, "A");
 
 	if (bound)
 		starpu_bound_start(bounddeps, boundprio);
@@ -286,18 +286,17 @@ double run_lu(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
 	if (profile)
 		starpu_profiling_status_set(STARPU_PROFILING_ENABLE);
 
-	double gflops = -1;
 	/* Factorize the matrix (in place) */
 	if (pivot)
 	{
- 		ipiv = malloc(lu_size*sizeof(unsigned));
+ 		ipiv = malloc(size*sizeof(unsigned));
 		if (no_stride)
 		{
 			/* in case the LU decomposition uses non-strided blocks, we _copy_ the matrix into smaller blocks */
-			A_blocks = malloc(lu_nblocks*lu_nblocks*sizeof(TYPE **));
+			A_blocks = malloc(nblocks*nblocks*sizeof(TYPE **));
 			copy_matrix_into_blocks();
 
-			gflops = STARPU_LU(lu_decomposition_pivot_no_stride)(A_blocks, ipiv, lu_size, lu_size, lu_nblocks, sched_ctx);
+			STARPU_LU(lu_decomposition_pivot_no_stride)(A_blocks, ipiv, size, size, nblocks);
 
 			copy_blocks_into_matrix();
 			free(A_blocks);
@@ -309,21 +308,21 @@ double run_lu(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
 
 			gettimeofday(&start, NULL);
 
-			gflops = STARPU_LU(lu_decomposition_pivot)(A, ipiv, lu_size, lu_size, lu_nblocks, sched_ctx);
+			STARPU_LU(lu_decomposition_pivot)(A, ipiv, size, size, nblocks);
 	
 			gettimeofday(&end, NULL);
 
 			double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
 			
-			unsigned n = lu_size;
+			unsigned n = size;
 			double flop = (2.0f*n*n*n)/3.0f;
-			gflops = flop/timing/1000.0f;
+			FPRINTF(stderr, "Synthetic GFlops (TOTAL) : \n");
+			FPRINTF(stdout, "%d	%6.2f\n", n, (flop/timing/1000.0f));
 		}
 	}
 	else
 	{
-	  gflops = STARPU_LU(lu_decomposition)(A, lu_size, lu_size, lu_nblocks, sched_ctx);
-			printf("no pivot \n");
+		STARPU_LU(lu_decomposition)(A, size, size, nblocks);
 	}
 
 	if (profile)
@@ -338,25 +337,25 @@ double run_lu(struct starpu_sched_ctx *sched_ctx, int argc, char **argv)
 		if (bounddeps) {
 			FILE *f = fopen("lu.pl", "w");
 			starpu_bound_print_lp(f);
-			fprintf(stderr,"system printed to lu.pl\n");
+			FPRINTF(stderr,"system printed to lu.pl\n");
 		} else {
 			starpu_bound_compute(&min, NULL, 0);
 			if (min != 0.)
-				fprintf(stderr, "theoretical min: %lf ms\n", min);
+				FPRINTF(stderr, "theoretical min: %lf ms\n", min);
 		}
 	}
 
-	if (lu_check)
+	if (check)
 	{
 		if (pivot)
-		  pivot_saved_matrix(ipiv);
+			pivot_saved_matrix(ipiv);
 
-		lu_check_result();
+		check_result();
 	}
 
-	//	starpu_helper_cublas_shutdown();
+	starpu_helper_cublas_shutdown();
 
-	//	starpu_shutdown();
+	starpu_shutdown();
 
-	return gflops;
+	return 0;
 }
