@@ -437,13 +437,13 @@ static int _starpu_init_machine_config(struct starpu_machine_config_s *config,
 /* we put the CPU section after the accelerator : in case there was an
  * accelerator found, we devote one cpu */
 #ifdef STARPU_USE_CPU
+	explicitval = -1;
 	if (user_conf && (user_conf->ncpus != -1)) {
 		explicitval = user_conf->ncpus;
 	}
 	else {
 		explicitval = starpu_get_env_number("STARPU_NCPUS");
 	}
-
 	if (explicitval < 0) {
 		unsigned already_busy_cpus = (topology->ngordon_spus?1:0) + topology->ncudagpus;
 		long avail_cpus = topology->nhwcpus - (use_accelerator?already_busy_cpus:0);
@@ -454,7 +454,6 @@ static int _starpu_init_machine_config(struct starpu_machine_config_s *config,
 		STARPU_ASSERT(topology->ncpus <= STARPU_NMAXCPUS);
 	}
 	STARPU_ASSERT(topology->ncpus + topology->nworkers <= STARPU_NMAXWORKERS);
-
 	unsigned cpu;
 	for (cpu = 0; cpu < topology->ncpus; cpu++)
 	{

@@ -168,7 +168,7 @@ static struct starpu_task *ws_pop_task(void)
 	return task;
 }
 
-int ws_push_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
+int ws_push_task(struct starpu_task *task, __attribute__ ((unused)) int sched_ctx_id)
 {
 	starpu_job_t j = _starpu_get_job_associated_to_task(task);
 
@@ -192,8 +192,10 @@ int ws_push_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
         return 0;
 }
 
-static void initialize_ws_policy(struct starpu_sched_ctx *sched_ctx) 
+static void initialize_ws_policy(int sched_ctx_id) 
 {
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+
 	nworkers = sched_ctx->nworkers_in_ctx;
 	rr_worker = 0;
 

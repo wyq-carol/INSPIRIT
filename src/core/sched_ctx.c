@@ -119,7 +119,7 @@ static int set_changing_ctx_flag(starpu_worker_status changing_ctx, int nworkeri
 	struct starpu_machine_config_s *config = _starpu_get_machine_config();
 
 	int i;
-	int nworkers = nworkerids_in_ctx == -1 ? config->topology.nworkers : nworkerids_in_ctx;
+	int nworkers = nworkerids_in_ctx == -1 ? (int)config->topology.nworkers : nworkerids_in_ctx;
   
 	struct starpu_worker_s *worker = NULL;
 	pthread_mutex_t *changing_ctx_mutex = NULL;
@@ -274,7 +274,7 @@ int starpu_wait_for_all_tasks_of_workers(int *workerids_in_ctx, int nworkerids_i
 	int ret_val = 0;
 	
 	struct starpu_machine_config_s *config = _starpu_get_machine_config();
-	int nworkers = nworkerids_in_ctx == -1 ? config->topology.nworkers : nworkerids_in_ctx;
+	int nworkers = nworkerids_in_ctx == -1 ? (int)config->topology.nworkers : nworkerids_in_ctx;
 	
 	int workerid = -1;
 	int i, n;
@@ -488,8 +488,11 @@ int starpu_wait_for_all_tasks_of_sched_ctx(int sched_ctx_id)
 	PTHREAD_MUTEX_LOCK(&sched_ctx->submitted_mutex);
 	
 	
-	while (sched_ctx->nsubmitted > 0)
+	while (sched_ctx->nsubmitted > 0){
+	  printf("wait %s\n", sched_ctx->sched_name);
 	  PTHREAD_COND_WAIT(&sched_ctx->submitted_cond, &sched_ctx->submitted_mutex);
+	  printf("wait finished %s\n", sched_ctx->sched_name);
+	}
 	
 	PTHREAD_MUTEX_UNLOCK(&sched_ctx->submitted_mutex);
 	
@@ -498,6 +501,8 @@ int starpu_wait_for_all_tasks_of_sched_ctx(int sched_ctx_id)
 
 void _starpu_decrement_nsubmitted_tasks_of_sched_ctx(struct starpu_sched_ctx *sched_ctx)
 {
+  //  if(sched_ctx->sched_ctx_id == 5)
+  // printf("decr tasks to %s : %d \n", sched_ctx->sched_name, sched_ctx->nsubmitted);
   PTHREAD_MUTEX_LOCK(&sched_ctx->submitted_mutex);
 
   if (--sched_ctx->nsubmitted == 0)
@@ -508,6 +513,8 @@ void _starpu_decrement_nsubmitted_tasks_of_sched_ctx(struct starpu_sched_ctx *sc
 
 void _starpu_increment_nsubmitted_tasks_of_sched_ctx(struct starpu_sched_ctx *sched_ctx)
 {
+  //if(sched_ctx->sched_ctx_id == 5)
+  //printf("incr tasks to %s : %d \n", sched_ctx->sched_name, sched_ctx->nsubmitted);
   PTHREAD_MUTEX_LOCK(&sched_ctx->submitted_mutex);
 
   sched_ctx->nsubmitted++;

@@ -375,23 +375,26 @@ static int _parallel_heft_push_task(struct starpu_task *task, unsigned prio, str
 	return push_task_on_best_worker(task, best, model_best, prio);
 }
 
-static int parallel_heft_push_prio_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
+static int parallel_heft_push_prio_task(struct starpu_task *task, int sched_ctx_id)
 {
-  return _parallel_heft_push_task(task, 1, sched_ctx);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+
+	return _parallel_heft_push_task(task, 1, sched_ctx);
 }
 
-static int parallel_heft_push_task(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
-{
-  printf("pheft: push task non null = %d into ctx non null = %d\n", task != NULL, sched_ctx != NULL);
+static int parallel_heft_push_task(struct starpu_task *task, int sched_ctx_id)
+{ 
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	if (task->priority == STARPU_MAX_PRIO)
 	  return _parallel_heft_push_task(task, 1, sched_ctx);
 
 	return _parallel_heft_push_task(task, 0, sched_ctx);
 }
 
-static void initialize_parallel_heft_policy(struct starpu_sched_ctx *sched_ctx) 
+static void initialize_parallel_heft_policy(int sched_ctx_id) 
 {
-  printf("initialize parallel heft\n");
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+
 	nworkers = sched_ctx->nworkers_in_ctx;
 	struct starpu_machine_config_s *config = _starpu_get_machine_config();
 	struct starpu_machine_topology_s *topology = &config->topology;
@@ -440,7 +443,7 @@ static void initialize_parallel_heft_policy(struct starpu_sched_ctx *sched_ctx)
 
 	for (workerid_ctx = 0; workerid_ctx < total_worker_count; workerid_ctx++)
 	{
-	  workerid = workerid_ctx >= nworkers ? (nworkers_machine + workerid_ctx - nworkers) : sched_ctx->workerid[workerid_ctx];
+	  workerid = (unsigned)workerid_ctx >= nworkers ? (nworkers_machine + (unsigned)workerid_ctx - nworkers) : sched_ctx->workerid[workerid_ctx];
 	  printf("workerid = %d\n", workerid);
 		enum starpu_perf_archtype perf_archtype = starpu_worker_get_perf_archtype(workerid);
 		printf("perf_archtype = %d\n", perf_archtype);
@@ -457,8 +460,10 @@ static void initialize_parallel_heft_policy(struct starpu_sched_ctx *sched_ctx)
 	}
 }
 
-static void deinitialize_parallel_heft_policy(struct starpu_sched_ctx *sched_ctx) 
+static void deinitialize_parallel_heft_policy(int sched_ctx_id) 
 {
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+
 	unsigned workerid;
 	int workerid_in_ctx;
         int nworkers = sched_ctx->nworkers_in_ctx;

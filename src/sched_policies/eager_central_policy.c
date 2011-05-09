@@ -29,8 +29,10 @@ static struct starpu_fifo_taskq_s *fifo;
 static pthread_cond_t sched_cond;
 static pthread_mutex_t sched_mutex;
 
-static void initialize_eager_center_policy(struct starpu_sched_ctx *sched_ctx) 
+static void initialize_eager_center_policy(int sched_ctx_id) 
 {
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+
 	/* there is only a single queue in that trivial design */
 	fifo = _starpu_create_fifo();
 
@@ -47,7 +49,7 @@ static void initialize_eager_center_policy(struct starpu_sched_ctx *sched_ctx)
 	}
 }
 
-static void deinitialize_eager_center_policy(struct starpu_sched_ctx *sched_ctx) 
+static void deinitialize_eager_center_policy(__attribute__ ((unused)) int sched_ctx_id) 
 {
 	/* TODO check that there is no task left in the queue */
 
@@ -55,8 +57,10 @@ static void deinitialize_eager_center_policy(struct starpu_sched_ctx *sched_ctx)
 	_starpu_destroy_fifo(fifo);
 }
 
-static int push_task_eager_policy(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
+static int push_task_eager_policy(struct starpu_task *task, int sched_ctx_id)
 {
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+
 	int i;
 	int workerid;
 	for(i = 0; i < sched_ctx->nworkers_in_ctx; i++){
@@ -68,7 +72,7 @@ static int push_task_eager_policy(struct starpu_task *task, struct starpu_sched_
 	return _starpu_fifo_push_task(fifo, &sched_mutex, &sched_cond, task);
 }
 
-static int push_prio_task_eager_policy(struct starpu_task *task, struct starpu_sched_ctx *sched_ctx)
+static int push_prio_task_eager_policy(struct starpu_task *task, __attribute__ ((unused)) int sched_ctx_id)
 {
 	return _starpu_fifo_push_prio_task(fifo, &sched_mutex, &sched_cond, task);
 }
@@ -85,7 +89,8 @@ static struct starpu_task *pop_task_eager_policy(void)
 
 	if(task)
 	  {
-		struct starpu_sched_ctx *sched_ctx = task->sched_ctx;
+	    struct starpu_sched_ctx *sched_ctx = NULL;
+		  _starpu_get_sched_ctx(task->sched_ctx);
 
 		int i;
 		for(i = 0; i <sched_ctx->nworkers_in_ctx; i++)

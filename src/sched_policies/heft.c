@@ -362,7 +362,7 @@ static void heft_deinit(int sched_ctx_id)
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
         unsigned workerid;
 	int workerid_in_ctx;
-	unsigned nworkers = sched_ctx->nworkers_in_ctx;
+	int nworkers = sched_ctx->nworkers_in_ctx;
 	for (workerid_in_ctx = 0; workerid_in_ctx < nworkers; workerid_in_ctx++){
 	        workerid = sched_ctx->workerid[workerid_in_ctx];
 		PTHREAD_MUTEX_DESTROY(&sched_mutex[workerid]);
