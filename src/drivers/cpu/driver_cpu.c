@@ -50,6 +50,7 @@ static int execute_job_on_cpu(starpu_job_t j, struct starpu_worker_s *cpu_args, 
 		{
 			/* there was not enough memory so the codelet cannot be executed right now ... */
 			/* push the codelet back and try another one ... */
+			STARPU_ASSERT(ret == 0);
 			return -EAGAIN;
 		}
 	}
@@ -171,7 +172,6 @@ void *_starpu_cpu_worker(void *arg)
 		PTHREAD_MUTEX_LOCK(sched_mutex);
 
 		task = _starpu_pop_task(cpu_arg);
-	
                 if (!task) 
 		{
 		   if (_starpu_worker_can_block(memnode))
@@ -184,6 +184,7 @@ void *_starpu_cpu_worker(void *arg)
 		PTHREAD_MUTEX_UNLOCK(sched_mutex);	
 
 		STARPU_ASSERT(task);
+		STARPU_ASSERT(task->sched_ctx < 2);
 		j = _starpu_get_job_associated_to_task(task);
 	
 		/* can a cpu perform that task ? */

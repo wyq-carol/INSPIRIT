@@ -18,6 +18,8 @@ int _starpu_create_sched_ctx(const char *policy_name, int *workerids_in_ctx,
 
 	struct starpu_sched_ctx *sched_ctx = &config->sched_ctxs[config->topology.nsched_ctxs];
 
+	sched_ctx->sched_ctx_id = config->topology.nsched_ctxs;
+
 	int nworkers = config->topology.nworkers;
 	
 	STARPU_ASSERT(nworkerids_in_ctx <= nworkers);
@@ -64,9 +66,8 @@ int _starpu_create_sched_ctx(const char *policy_name, int *workerids_in_ctx,
 	  }
 
 	_starpu_init_sched_policy(config, sched_ctx, policy_name);
-	
-	sched_ctx->sched_ctx_id = config->topology.nsched_ctxs;
-	config->topology.nsched_ctxs++;
+
+	config->topology.nsched_ctxs++;	
 
  	return sched_ctx->sched_ctx_id;
 }

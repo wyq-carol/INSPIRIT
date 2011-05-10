@@ -21,14 +21,33 @@
 #include <starpu_scheduler.h>
 
 struct starpu_sched_ctx {
-	int sched_ctx_id;
-	struct starpu_sched_policy_s *sched_policy; /* policy of the contex */
-	int workerid[STARPU_NMAXWORKERS]; /* list of indices of workers */
-	int nworkers_in_ctx; /* number of threads in contex */
-	unsigned is_initial_sched; /* we keep an initial sched which we never delete */
-	pthread_cond_t submitted_cond; /* cond used for no of submitted tasks to a sched_ctx */
-	pthread_mutex_t submitted_mutex; /* mut used for no of submitted tasks to a sched_ctx */
-	int nsubmitted;	 /* counter used for no of submitted tasks to a sched_ctx */
+	unsigned sched_ctx_id;
+
+	/* policy of the context */
+	struct starpu_sched_policy_s *sched_policy;
+
+	/* data necessary for the policy */
+	void *policy_data;
+	
+	/* list of indices of workers */
+	int workerid[STARPU_NMAXWORKERS]; 
+	
+	/* number of threads in contex */
+	int nworkers_in_ctx; 
+
+	/* we keep an initial sched which we never delete */
+	unsigned is_initial_sched; 
+
+	/* cond used for no of submitted tasks to a sched_ctx */
+	pthread_cond_t submitted_cond; 
+	
+	/* mut used for no of submitted tasks to a sched_ctx */
+	pthread_mutex_t submitted_mutex; 
+	
+	/* counter used for no of submitted tasks to a sched_ctx */
+	int nsubmitted;	 
+	
+	/* name of context */
 	const char *sched_name;
 };
 

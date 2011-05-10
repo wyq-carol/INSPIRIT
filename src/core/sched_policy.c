@@ -247,7 +247,7 @@ static int _starpu_push_task_on_specific_worker(struct starpu_task *task, int wo
 	unsigned i;
 	for(i = 0; i < worker->nctxs; i++){
 		if (worker->sched_ctx[i]->sched_policy->push_task_notify){
-			worker->sched_ctx[i]->sched_policy->push_task_notify(task, workerid);
+		  worker->sched_ctx[i]->sched_policy->push_task_notify(task, workerid, worker->sched_ctx[i]->sched_ctx_id);
 		}
 	}
 
@@ -382,7 +382,7 @@ void _starpu_sched_post_exec_hook(struct starpu_task *task)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(task->sched_ctx);
 	if (sched_ctx->sched_policy->post_exec_hook)
-		sched_ctx->sched_policy->post_exec_hook(task);
+		sched_ctx->sched_policy->post_exec_hook(task, sched_ctx->sched_ctx_id);
 }
 
 void _starpu_wait_on_sched_event(void)

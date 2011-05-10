@@ -219,10 +219,8 @@ int _starpu_submit_job(starpu_job_t j, unsigned do_not_increment_nsubmitted)
 /* application should submit new tasks to StarPU through this function */
 int starpu_task_submit_to_ctx(struct starpu_task *task, unsigned sched_ctx)
 {
-	unsigned init_sched_ctx = _starpu_get_initial_sched_ctx()->sched_ctx_id;
-        if(task->sched_ctx ==  init_sched_ctx && sched_ctx != init_sched_ctx)
-	  task->sched_ctx = sched_ctx;
-
+	task->sched_ctx = sched_ctx;
+	  
 	int ret;
 	unsigned is_sync = task->synchronous;
         _STARPU_LOG_IN();

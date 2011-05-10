@@ -622,6 +622,7 @@ struct starpu_worker_s *_starpu_get_worker_struct(unsigned id)
 
 struct starpu_sched_ctx *_starpu_get_sched_ctx(unsigned id)
 {
+	STARPU_ASSERT(id <= config.topology.nsched_ctxs);
 	return &config.sched_ctxs[id];
 }
 
