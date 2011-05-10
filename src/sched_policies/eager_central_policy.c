@@ -29,7 +29,7 @@ static struct starpu_fifo_taskq_s *fifo;
 static pthread_cond_t sched_cond;
 static pthread_mutex_t sched_mutex;
 
-static void initialize_eager_center_policy(int sched_ctx_id) 
+static void initialize_eager_center_policy(unsigned sched_ctx_id) 
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 
@@ -49,7 +49,7 @@ static void initialize_eager_center_policy(int sched_ctx_id)
 	}
 }
 
-static void deinitialize_eager_center_policy(__attribute__ ((unused)) int sched_ctx_id) 
+static void deinitialize_eager_center_policy(__attribute__ ((unused)) unsigned sched_ctx_id) 
 {
 	/* TODO check that there is no task left in the queue */
 
@@ -57,7 +57,7 @@ static void deinitialize_eager_center_policy(__attribute__ ((unused)) int sched_
 	_starpu_destroy_fifo(fifo);
 }
 
-static int push_task_eager_policy(struct starpu_task *task, int sched_ctx_id)
+static int push_task_eager_policy(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 
@@ -72,7 +72,7 @@ static int push_task_eager_policy(struct starpu_task *task, int sched_ctx_id)
 	return _starpu_fifo_push_task(fifo, &sched_mutex, &sched_cond, task);
 }
 
-static int push_prio_task_eager_policy(struct starpu_task *task, __attribute__ ((unused)) int sched_ctx_id)
+static int push_prio_task_eager_policy(struct starpu_task *task, __attribute__ ((unused)) unsigned sched_ctx_id)
 {
 	return _starpu_fifo_push_prio_task(fifo, &sched_mutex, &sched_cond, task);
 }

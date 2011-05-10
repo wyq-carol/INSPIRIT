@@ -375,14 +375,14 @@ static int _parallel_heft_push_task(struct starpu_task *task, unsigned prio, str
 	return push_task_on_best_worker(task, best, model_best, prio);
 }
 
-static int parallel_heft_push_prio_task(struct starpu_task *task, int sched_ctx_id)
+static int parallel_heft_push_prio_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 
 	return _parallel_heft_push_task(task, 1, sched_ctx);
 }
 
-static int parallel_heft_push_task(struct starpu_task *task, int sched_ctx_id)
+static int parallel_heft_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 { 
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	if (task->priority == STARPU_MAX_PRIO)
@@ -391,7 +391,7 @@ static int parallel_heft_push_task(struct starpu_task *task, int sched_ctx_id)
 	return _parallel_heft_push_task(task, 0, sched_ctx);
 }
 
-static void initialize_parallel_heft_policy(int sched_ctx_id) 
+static void initialize_parallel_heft_policy(unsigned sched_ctx_id) 
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 
@@ -460,7 +460,7 @@ static void initialize_parallel_heft_policy(int sched_ctx_id)
 	}
 }
 
-static void deinitialize_parallel_heft_policy(int sched_ctx_id) 
+static void deinitialize_parallel_heft_policy(unsigned sched_ctx_id) 
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 

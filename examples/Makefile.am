@@ -22,7 +22,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/include/ -I$(top_srcdir)/examples/ -I$(top_builddi
 
 TESTS	=	$(check_PROGRAMS)
 
-SUBDIRS = stencil
+SUBDIRS = stencil stencil_ctx
 
 if STARPU_HAVE_FFTW
 if STARPU_HAVE_FFTWL

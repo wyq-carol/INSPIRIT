@@ -1087,6 +1087,7 @@ AC_OUTPUT([
 	examples/Makefile
 	examples/starpufft/Makefile
 	examples/stencil/Makefile
+	examples/stencil_ctx/Makefile
 	tests/Makefile
 	doc/Makefile
 	mpi/Makefile

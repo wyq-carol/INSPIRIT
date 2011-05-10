@@ -203,7 +203,7 @@ static void _starpu_remove_sched_ctx_from_worker(struct starpu_worker_s *workera
 	return;
 }
 
-void starpu_delete_sched_ctx(int sched_ctx_id)
+void starpu_delete_sched_ctx(unsigned sched_ctx_id)
 {
 	if(!starpu_wait_for_all_tasks_of_sched_ctx(sched_ctx_id))
 	  {
@@ -229,26 +229,12 @@ void starpu_delete_sched_ctx(int sched_ctx_id)
 void _starpu_delete_all_sched_ctxs()
 {
 	struct starpu_machine_config_s *config = _starpu_get_machine_config();
-	unsigned nworkers = config->topology.nworkers;
-	
-	unsigned i, j;
-	struct starpu_sched_ctx *sched_ctx = NULL;
-	struct starpu_worker_s *workerarg = NULL;
-	for(i = 0; i < nworkers; i++)
+	unsigned nsched_ctxs = config->topology.nsched_ctxs;
+	unsigned i;
+
+	for(i = 0; i < nsched_ctxs; i++)
 	  {
-		workerarg = _starpu_get_worker_struct(i);
-		for(j = 0; j < workerarg->nctxs; j++)
-		  {
-			sched_ctx = workerarg->sched_ctx[j];
-			if(sched_ctx != NULL)
-			  {
-				free(sched_ctx->sched_policy);
-				sched_ctx->sched_policy = NULL;
-				sched_ctx = NULL;
-				
-			  }
-		  }
-		workerarg->nctxs = 0;
+	    starpu_delete_sched_ctx((int)i);
 	  }
 	return;
 }
@@ -363,7 +349,7 @@ static void _starpu_add_workers_to_sched_ctx(int *workerids_in_ctx, int nworkeri
 }
 
 void starpu_add_workers_to_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx,
-				     int sched_ctx_id)
+				     unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 
@@ -460,7 +446,7 @@ static void _starpu_remove_workers_from_sched_ctx(int *workerids_in_ctx, int nwo
 }
 
 void starpu_remove_workers_from_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, 
-					  int sched_ctx_id)
+					  unsigned sched_ctx_id)
 {
 	  /* wait for the workers concerned by the change of contex                       
 	   * to finish their work in the previous context */
@@ -478,7 +464,7 @@ void starpu_remove_workers_from_sched_ctx(int *workerids_in_ctx, int nworkerids_
 
 }
 
-int starpu_wait_for_all_tasks_of_sched_ctx(int sched_ctx_id)
+int starpu_wait_for_all_tasks_of_sched_ctx(unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	
@@ -488,11 +474,8 @@ int starpu_wait_for_all_tasks_of_sched_ctx(int sched_ctx_id)
 	PTHREAD_MUTEX_LOCK(&sched_ctx->submitted_mutex);
 	
 	
-	while (sched_ctx->nsubmitted > 0){
-	  printf("wait %s\n", sched_ctx->sched_name);
+	while (sched_ctx->nsubmitted > 0)
 	  PTHREAD_COND_WAIT(&sched_ctx->submitted_cond, &sched_ctx->submitted_mutex);
-	  printf("wait finished %s\n", sched_ctx->sched_name);
-	}
 	
 	PTHREAD_MUTEX_UNLOCK(&sched_ctx->submitted_mutex);
 	
@@ -501,8 +484,6 @@ int starpu_wait_for_all_tasks_of_sched_ctx(int sched_ctx_id)
 
 void _starpu_decrement_nsubmitted_tasks_of_sched_ctx(struct starpu_sched_ctx *sched_ctx)
 {
-  //  if(sched_ctx->sched_ctx_id == 5)
-  // printf("decr tasks to %s : %d \n", sched_ctx->sched_name, sched_ctx->nsubmitted);
   PTHREAD_MUTEX_LOCK(&sched_ctx->submitted_mutex);
 
   if (--sched_ctx->nsubmitted == 0)
@@ -513,8 +494,6 @@ void _starpu_decrement_nsubmitted_tasks_of_sched_ctx(struct starpu_sched_ctx *sc
 
 void _starpu_increment_nsubmitted_tasks_of_sched_ctx(struct starpu_sched_ctx *sched_ctx)
 {
-  //if(sched_ctx->sched_ctx_id == 5)
-  //printf("incr tasks to %s : %d \n", sched_ctx->sched_name, sched_ctx->nsubmitted);
   PTHREAD_MUTEX_LOCK(&sched_ctx->submitted_mutex);
 
   sched_ctx->nsubmitted++;

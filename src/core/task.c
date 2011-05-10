@@ -78,7 +78,7 @@ void starpu_task_init(struct starpu_task *task)
 
 	task->starpu_private = NULL;
 
-	task->sched_ctx = -1;
+	task->sched_ctx = _starpu_get_initial_sched_ctx()->sched_ctx_id;
 }
 
 /* Free all the ressources allocated for a task, without deallocating the task
@@ -217,9 +217,10 @@ int _starpu_submit_job(starpu_job_t j, unsigned do_not_increment_nsubmitted)
 }
 
 /* application should submit new tasks to StarPU through this function */
-int starpu_task_submit_to_ctx(struct starpu_task *task, int sched_ctx)
+int starpu_task_submit_to_ctx(struct starpu_task *task, unsigned sched_ctx)
 {
-        if(task->sched_ctx == -1 && sched_ctx != -1)
+	unsigned init_sched_ctx = _starpu_get_initial_sched_ctx()->sched_ctx_id;
+        if(task->sched_ctx ==  init_sched_ctx && sched_ctx != init_sched_ctx)
 	  task->sched_ctx = sched_ctx;
 
 	int ret;
@@ -288,8 +289,8 @@ int starpu_task_submit_to_ctx(struct starpu_task *task, int sched_ctx)
 }
 
 int starpu_task_submit(struct starpu_task *task){
-  struct starpu_sched_ctx *sched_ctx = _starpu_get_initial_sched_ctx();
-   return  starpu_task_submit_to_ctx(task, sched_ctx->sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_initial_sched_ctx();
+	return  starpu_task_submit_to_ctx(task, sched_ctx->sched_ctx_id);
 }
 
 void starpu_display_codelet_stats(struct starpu_codelet_t *cl)

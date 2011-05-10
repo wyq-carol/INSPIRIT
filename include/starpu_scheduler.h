@@ -64,13 +64,13 @@ struct starpu_machine_topology_s {
  * field of the starpu_conf structure passed to the starpu_init function. */
 struct starpu_sched_policy_s {
 	/* Initialize the scheduling policy. */
-	void (*init_sched)(int);
+	void (*init_sched)(unsigned);
 
 	/* Cleanup the scheduling policy. */
-	void (*deinit_sched)(int);
+	void (*deinit_sched)(unsigned);
 
 	/* Insert a task into the scheduler. */
-        int (*push_task)(struct starpu_task *, int);
+        int (*push_task)(struct starpu_task *, unsigned);
 	/* Notify the scheduler that a task was pushed on the worker. This
 	 * method is called when a task that was explicitely assigned to a
 	 * worker is scheduled. This method therefore permits to keep the state
@@ -79,7 +79,7 @@ struct starpu_sched_policy_s {
 	void (*push_task_notify)(struct starpu_task *, int workerid);
 
 	/* Insert a priority task into the scheduler. */
-        int (*push_prio_task)(struct starpu_task *, int);
+        int (*push_prio_task)(struct starpu_task *, unsigned);
 
 	/* Get a task from the scheduler. The mutex associated to the worker is
 	 * already taken when this method is called. */
@@ -103,11 +103,11 @@ struct starpu_sched_policy_s {
 
 int starpu_create_sched_ctx(const char *policy_name, int *workerids_in_ctx, int nworkerids_in_ctx, const char *sched_name);
 
-void starpu_delete_sched_ctx(int sched_ctx);
+void starpu_delete_sched_ctx(unsigned sched_ctx_id);
 
-void starpu_add_workers_to_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, int sched_ctx);
+void starpu_add_workers_to_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, unsigned sched_ctx);
 
-void starpu_remove_workers_from_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, int sched_ctx);
+void starpu_remove_workers_from_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, unsigned sched_ctx);
 
 /* When there is no available task for a worker, StarPU blocks this worker on a
 condition variable. This function specifies which condition variable (and the

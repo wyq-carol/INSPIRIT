@@ -70,21 +70,21 @@ static int _random_push_task(struct starpu_task *task, unsigned prio, struct sta
 	return n;
 }
 
-static int random_push_prio_task(struct starpu_task *task, int sched_ctx_id)
+static int random_push_prio_task(struct starpu_task *task, unsigned sched_ctx_id)
 {	
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 
         return _random_push_task(task, 1, sched_ctx);
 }
 
-static int random_push_task(struct starpu_task *task, int sched_ctx_id)
+static int random_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 
         return _random_push_task(task, 0, sched_ctx);
 }
 
-static void initialize_random_policy(int sched_ctx_id) 
+static void initialize_random_policy(unsigned sched_ctx_id) 
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 

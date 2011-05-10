@@ -71,7 +71,7 @@ void chol_cublas_codelet_update_u21(void *descr[], void *_args);
 void chol_cublas_codelet_update_u22(void *descr[], void *_args);
 #endif
 
-double run_cholesky_implicit(int sched_ctx, int argc, char **argv, double *timing, pthread_barrier_t *barrier);
+double run_cholesky_implicit(int sched_ctx, int start, int argc, char **argv, double *timing, pthread_barrier_t *barrier);
 
 extern struct starpu_perfmodel_t chol_model_11;
 extern struct starpu_perfmodel_t chol_model_21;
@@ -81,6 +81,43 @@ static void __attribute__((unused)) parse_args(int argc, char **argv, unsigned *
 {
 	int i;
 	for (i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "-size") == 0) {
+		        char *argptr;
+			(*size) = strtol(argv[++i], &argptr, 10);
+		}
+
+		if (strcmp(argv[i], "-nblocks") == 0) {
+		        char *argptr;
+			(*nblocks) = strtol(argv[++i], &argptr, 10);
+		}
+
+		if (strcmp(argv[i], "-nbigblocks") == 0) {
+		        char *argptr;
+			nbigblocks = strtol(argv[++i], &argptr, 10);
+		}
+
+		if (strcmp(argv[i], "-pin") == 0) {
+			pinned = 1;
+		}
+
+		if (strcmp(argv[i], "-no-prio") == 0) {
+			noprio = 1;
+		}
+
+		if (strcmp(argv[i], "-check") == 0) {
+			check = 1;
+		}
+
+		if (strcmp(argv[i], "-h") == 0) {
+			printf("usage : %s [-pin] [-size size] [-nblocks nblocks] [-check]\n", argv[0]);
+		}
+	}
+}
+
+static void __attribute__((unused)) parse_args_ctx(int start, int argc, char **argv, unsigned *size, unsigned *nblocks)
+{
+	int i;
+	for (i = start; i < argc; i++) {
 		if (strcmp(argv[i], "-size") == 0) {
 		        char *argptr;
 			(*size) = strtol(argv[++i], &argptr, 10);

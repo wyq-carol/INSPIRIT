@@ -40,7 +40,7 @@ static double exp_end[STARPU_NMAXWORKERS];
 static double exp_len[STARPU_NMAXWORKERS];
 static double ntasks[STARPU_NMAXWORKERS];
 
-static void heft_init(int sched_ctx_id)
+static void heft_init(unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	unsigned nworkers = sched_ctx->nworkers_in_ctx;
@@ -190,6 +190,8 @@ static void compute_all_performance_predictions(struct starpu_task *task,
 	local_power[worker_in_ctx] = starpu_task_expected_power(task, perf_arch);
       }
 
+      /* printf("%d(in ctx%d): local task len = %2.2f locald data penalty = %2.2f local_power = %2.2f\n", worker, worker_in_ctx, local_task_length[worker_in_ctx], local_data_penalty[worker_in_ctx], local_power[worker_in_ctx]); */
+
       double ntasks_end = ntasks[worker] / starpu_worker_get_relative_speedup(perf_arch);
 
       if (ntasks_best == -1
@@ -232,7 +234,7 @@ static void compute_all_performance_predictions(struct starpu_task *task,
   *max_exp_endp = max_exp_end;
 }
 
-static int _heft_push_task(struct starpu_task *task, unsigned prio, int sched_ctx_id)
+static int _heft_push_task(struct starpu_task *task, unsigned prio, unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	unsigned worker, worker_in_ctx;
@@ -241,9 +243,6 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio, int sched_ct
 	/* this flag is set if the corresponding worker is selected because
 	   there is no performance prediction available yet */
 	int forced_best;
-
-	//        struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();                                                            
-	//        int nworkers = config->topology.nworkers;
 
 	unsigned nworkers_in_ctx = sched_ctx->nworkers_in_ctx;
 	double local_task_length[nworkers_in_ctx];
@@ -308,6 +307,7 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio, int sched_ct
 			best = worker;
 			best_id_in_ctx = worker_in_ctx;
 		}
+
 	}
 
 
@@ -344,12 +344,12 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio, int sched_ct
 	return push_task_on_best_worker(task, best, model_best, prio);
 }
 
-static int heft_push_prio_task(struct starpu_task *task, int sched_ctx_id)
+static int heft_push_prio_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
         return _heft_push_task(task, 1, sched_ctx_id);
 }
 
-static int heft_push_task(struct starpu_task *task, int sched_ctx_id)
+static int heft_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	if (task->priority > 0)
         	  return _heft_push_task(task, 1, sched_ctx_id);
@@ -357,7 +357,7 @@ static int heft_push_task(struct starpu_task *task, int sched_ctx_id)
 	return _heft_push_task(task, 0, sched_ctx_id);
 }
 
-static void heft_deinit(int sched_ctx_id) 
+static void heft_deinit(unsigned sched_ctx_id) 
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
         unsigned workerid;

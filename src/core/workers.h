@@ -208,7 +208,7 @@ struct starpu_worker_s *_starpu_get_worker_struct(unsigned id);
 
 /* Returns the starpu_sched_ctx structure that descriebes the state of the 
  * specified ctx */
-struct starpu_sched_ctx *_starpu_get_sched_ctx(int id);
+struct starpu_sched_ctx *_starpu_get_sched_ctx(unsigned id);
 
 
 struct starpu_combined_worker_s *_starpu_get_combined_worker_struct(unsigned id);

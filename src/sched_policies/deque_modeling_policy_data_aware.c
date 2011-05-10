@@ -532,19 +532,19 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio, struct starp
 	return push_task_on_best_worker(task, best, model_best, prio);
 }
 
-static int dmda_push_sorted_task(struct starpu_task *task, int sched_ctx_id)
+static int dmda_push_sorted_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	return _dmda_push_task(task, 2, sched_ctx);
 }
 
-static int dm_push_prio_task(struct starpu_task *task, int sched_ctx_id)
+static int dm_push_prio_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	return _dm_push_task(task, 1, sched_ctx);
 }
 
-static int dm_push_task(struct starpu_task *task, int sched_ctx_id)
+static int dm_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	if (task->priority > 0)
@@ -553,13 +553,13 @@ static int dm_push_task(struct starpu_task *task, int sched_ctx_id)
 	return _dm_push_task(task, 0, sched_ctx);
 }
 
-static int dmda_push_prio_task(struct starpu_task *task, int sched_ctx_id)
+static int dmda_push_prio_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	return _dmda_push_task(task, 1, sched_ctx);
 }
 
-static int dmda_push_task(struct starpu_task *task, int sched_ctx_id)
+static int dmda_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	if (task->priority > 0)
@@ -568,7 +568,7 @@ static int dmda_push_task(struct starpu_task *task, int sched_ctx_id)
 	return _dmda_push_task(task, 0, sched_ctx);
 }
 
-static void initialize_dmda_policy(int sched_ctx_id) 
+static void initialize_dmda_policy(unsigned sched_ctx_id) 
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	nworkers = sched_ctx->nworkers_in_ctx;
@@ -598,7 +598,7 @@ static void initialize_dmda_policy(int sched_ctx_id)
 	}
 }
 
-static void initialize_dmda_sorted_policy(int sched_ctx_id)
+static void initialize_dmda_sorted_policy(unsigned sched_ctx_id)
 {
 	initialize_dmda_policy(sched_ctx_id);
 
@@ -607,7 +607,7 @@ static void initialize_dmda_sorted_policy(int sched_ctx_id)
 	starpu_sched_set_max_priority(INT_MAX);
 }
 
-static void deinitialize_dmda_policy(int sched_ctx_id) 
+static void deinitialize_dmda_policy(unsigned sched_ctx_id) 
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
         unsigned workerid;

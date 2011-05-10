@@ -2,6 +2,7 @@
 #include <pthread.h>
 
 typedef struct {
+  int start;
   int argc;
   char **argv;
   int ctx;
@@ -27,7 +28,7 @@ void* func_cholesky(void *val){
   double timing = 0;
   for(i = 0; i < NSAMPLES; i++)
     {
-      rv->flops += run_cholesky_implicit(sched_ctx, p->argc, p->argv, &timing, (sched_ctx == -1 ? NULL : &barrier));
+      rv->flops += run_cholesky_implicit(sched_ctx, p->start, p->argc, p->argv, &timing, (sched_ctx == -1 ? NULL : &barrier));
       rv->avg_timing += timing;
     }
 
@@ -41,11 +42,20 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3){
   starpu_init(NULL);
   starpu_helper_cublas_init();
 
-  int procs[] = {1, 2, 3, 4, 5, 6};
-  p1->ctx = starpu_create_sched_ctx("heft", procs, 6, "cholesky1");
+  int procs[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+		 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+		 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38,
+		 39, 40, 41, 42, 43, 44, 45, 46, 47,
+		 48, 49, 50, 51, 52, 53, 54,
+		 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66,
+		 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77,  78,
+		 79, 80, 81, 82, 83, 84, 85};
+  int id = starpu_create_sched_ctx("heft", NULL, -1, "cholesky");
+  p1->ctx = id;
 
-  int procs2[] = {0, 7, 8, 9, 10, 11};
-  p2->ctx = starpu_create_sched_ctx("heft", procs2, 6, "cholesky2");
+  int procs2[] =  {86, 87, 88, 89, 90,
+		   91, 92, 93, 94, 95};
+  p2->ctx = id ;//= starpu_create_sched_ctx("heft", procs2, 10, "cholesky2");
 
   pthread_t tid[2];
   pthread_barrier_init(&barrier, NULL, 2);
@@ -103,11 +113,14 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3){
 
 int main(int argc, char **argv)
 {
+  //  printf("argc = %d\n", argc);
   params p1;
-  p1.argc = argc;
+  p1.start = 1;
+  p1.argc = 5;
   p1.argv = argv;
 
   params p2;
+  p2.start = 5;
   p2.argc = argc;
   p2.argv = argv;
 

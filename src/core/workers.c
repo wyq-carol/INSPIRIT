@@ -620,7 +620,7 @@ struct starpu_worker_s *_starpu_get_worker_struct(unsigned id)
 	return &config.workers[id];
 }
 
-struct starpu_sched_ctx *_starpu_get_sched_ctx(int id)
+struct starpu_sched_ctx *_starpu_get_sched_ctx(unsigned id)
 {
 	return &config.sched_ctxs[id];
 }

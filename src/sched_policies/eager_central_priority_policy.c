@@ -74,7 +74,7 @@ static void _starpu_destroy_priority_taskq(struct starpu_priority_taskq_s *prior
 	free(priority_queue);
 }
 
-static void initialize_eager_center_priority_policy(int sched_ctx_id) 
+static void initialize_eager_center_priority_policy(unsigned sched_ctx_id) 
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 
@@ -98,7 +98,7 @@ static void initialize_eager_center_priority_policy(int sched_ctx_id)
 	}
 }
 
-static void deinitialize_eager_center_priority_policy(__attribute__ ((unused)) int sched_ctx_id) 
+static void deinitialize_eager_center_priority_policy(__attribute__ ((unused)) unsigned sched_ctx_id) 
 {
 	/* TODO check that there is no task left in the queue */
 
@@ -106,7 +106,7 @@ static void deinitialize_eager_center_priority_policy(__attribute__ ((unused)) i
 	_starpu_destroy_priority_taskq(taskq);
 }
 
-static int _starpu_priority_push_task(struct starpu_task *task, __attribute__ ((unused)) int sched_ctx_id)
+static int _starpu_priority_push_task(struct starpu_task *task, __attribute__ ((unused)) unsigned sched_ctx_id)
 {
 	/* wake people waiting for a task */
 	PTHREAD_MUTEX_LOCK(&global_sched_mutex);
