@@ -49,13 +49,12 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3){
 		 48, 49, 50, 51, 52, 53, 54,
 		 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66,
 		 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77,  78,
-		 79, 80, 81, 82, 83, 84, 85};
-  unsigned id = starpu_create_sched_ctx("heft", NULL, -1, "cholesky");
-  p1->ctx = id;
+		 79, 80, 81};
+  p1->ctx = starpu_create_sched_ctx("heft", procs, 82, "cholesky1");
 
-  int procs2[] =  {86, 87, 88, 89, 90,
+  int procs2[] =  { 82, 83, 84, 85, 86, 87, 88, 89, 90,
 		   91, 92, 93, 94, 95};
-  p2->ctx = id ;//= starpu_create_sched_ctx("heft", procs2, 10, "cholesky2");
+  p2->ctx = starpu_create_sched_ctx("heft", procs2, 14, "cholesky2");
 
   pthread_t tid[2];
   pthread_barrier_init(&barrier, NULL, 2);

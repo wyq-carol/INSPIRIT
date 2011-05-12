@@ -146,8 +146,8 @@ static double starpu_model_expected_perf(struct starpu_task *task, struct starpu
 				return common_task_expected_perf(model, arch, task);
 
 			case STARPU_HISTORY_BASED:
-				return _starpu_history_based_job_expected_perf(model, arch, j);
-
+			    return _starpu_history_based_job_expected_perf(model, arch, j);
+			  
 			case STARPU_REGRESSION_BASED:
 				return _starpu_regression_based_job_expected_perf(model, arch, j);
 

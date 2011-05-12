@@ -653,6 +653,7 @@ double _starpu_history_based_job_expected_perf(struct starpu_perfmodel_t *model,
 	history = per_arch_model->history;
 	if (!history)
 		return -1.0;
+    
 
 	PTHREAD_RWLOCK_RDLOCK(&model->model_rwlock);
 	entry = _starpu_htbl_search_32(history, key);
@@ -665,7 +666,7 @@ double _starpu_history_based_job_expected_perf(struct starpu_perfmodel_t *model,
 		 * of that task and the scheduler should perhaps put it aside */
 		/* Not calibrated enough */
 		return -1.0;
-
+	  
 	return exp;
 }
 

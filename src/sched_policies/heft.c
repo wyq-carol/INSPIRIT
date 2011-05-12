@@ -211,7 +211,7 @@ static void compute_all_performance_predictions(struct starpu_task *task,
 	local_power[worker_in_ctx] = starpu_task_expected_power(task, perf_arch);
       }
 
-/*       printf("%d(in ctx%d): local task len = %2.2f locald data penalty = %2.2f local_power = %2.2f\n", worker, worker_in_ctx, local_task_length[worker_in_ctx], local_data_penalty[worker_in_ctx], local_power[worker_in_ctx]); */
+      //      printf("%d: local task len = %2.2f perf model %d\n", worker, local_task_length[worker_in_ctx], task->cl->model->type);
 
       double ntasks_end = hd->ntasks[worker_in_ctx] / starpu_worker_get_relative_speedup(perf_arch);
 
