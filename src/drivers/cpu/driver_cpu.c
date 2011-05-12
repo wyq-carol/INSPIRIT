@@ -168,23 +168,23 @@ void *_starpu_cpu_worker(void *arg)
 		}
 
 		PTHREAD_MUTEX_UNLOCK(changing_ctx_mutex);
-  
-		PTHREAD_MUTEX_LOCK(sched_mutex);
 
+		/* take the mutex inside pop because it depends what mutex:
+		   the one of the local task or the one of one of the strategies */
 		task = _starpu_pop_task(cpu_arg);
+
                 if (!task) 
 		{
-		   if (_starpu_worker_can_block(memnode))
+			PTHREAD_MUTEX_LOCK(sched_mutex);
+			if (_starpu_worker_can_block(memnode))
 				_starpu_block_worker(workerid, sched_cond, sched_mutex);
 
 			PTHREAD_MUTEX_UNLOCK(sched_mutex);
 			continue;
 		};
 
-		PTHREAD_MUTEX_UNLOCK(sched_mutex);	
-
 		STARPU_ASSERT(task);
-		STARPU_ASSERT(task->sched_ctx < 2);
+
 		j = _starpu_get_job_associated_to_task(task);
 	
 		/* can a cpu perform that task ? */

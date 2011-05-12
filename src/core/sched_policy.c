@@ -331,21 +331,29 @@ struct starpu_task *_starpu_pop_task(struct starpu_worker_s *worker)
 	if (profiling)
 		starpu_clock_gettime(&pop_start_time);
 
+	PTHREAD_MUTEX_LOCK(worker->sched_mutex);
 	/* perhaps there is some local task to be executed first */
 	task = _starpu_pop_local_task(worker);
+	PTHREAD_MUTEX_UNLOCK(worker->sched_mutex);
 
 	if(!task)
 	  {
 		struct starpu_sched_ctx *sched_ctx;
+		pthread_mutex_t *sched_mutex_ctx;
+
 		unsigned i;
 		for(i = 0; i < worker->nctxs; i++)
 		  {
 			sched_ctx = worker->sched_ctx[i];
+			sched_mutex_ctx = _starpu_get_sched_mutex(sched_ctx, worker->workerid);
+			PTHREAD_MUTEX_LOCK(sched_mutex_ctx);
 			if (sched_ctx->sched_policy->pop_task)
 			  {
-				task = sched_ctx->sched_policy->pop_task();
+				task = sched_ctx->sched_policy->pop_task(sched_ctx->sched_ctx_id);
+				PTHREAD_MUTEX_UNLOCK(sched_mutex_ctx);
 				break;
 			  }
+			PTHREAD_MUTEX_UNLOCK(sched_mutex_ctx);
 		  }
 	  }
 
@@ -375,7 +383,7 @@ struct starpu_task *_starpu_pop_every_task(struct starpu_sched_ctx *sched_ctx)
 	STARPU_ASSERT(sched_ctx->sched_policy->pop_every_task);
 
 	/* TODO set profiling info */
-	return sched_ctx->sched_policy->pop_every_task();
+	return sched_ctx->sched_policy->pop_every_task(sched_ctx->sched_ctx_id);
 }
 
 void _starpu_sched_post_exec_hook(struct starpu_task *task)

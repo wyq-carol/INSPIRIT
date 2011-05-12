@@ -22,8 +22,8 @@
 
 //static unsigned nworkers;
 
-static pthread_cond_t sched_cond[STARPU_NMAXWORKERS];
-static pthread_mutex_t sched_mutex[STARPU_NMAXWORKERS];
+/* static pthread_cond_t sched_cond[STARPU_NMAXWORKERS]; */
+/* static pthread_mutex_t sched_mutex[STARPU_NMAXWORKERS]; */
 
 static int _random_push_task(struct starpu_task *task, unsigned prio, struct starpu_sched_ctx *sched_ctx)
 {
@@ -92,15 +92,13 @@ static void initialize_random_policy(unsigned sched_ctx_id)
 
 	unsigned nworkers = sched_ctx->nworkers_in_ctx;	
 
-	unsigned workerid, workerid_ctx;
+	unsigned workerid_ctx;
 	for (workerid_ctx = 0; workerid_ctx < nworkers; workerid_ctx++)
 	{
-                workerid = sched_ctx->workerid[workerid_ctx];
-	
-		PTHREAD_MUTEX_INIT(&sched_mutex[workerid], NULL);
-		PTHREAD_COND_INIT(&sched_cond[workerid], NULL);
-	
-		starpu_worker_set_sched_condition(workerid, &sched_cond[workerid], &sched_mutex[workerid]);
+		sched_ctx->sched_mutex[workerid_ctx] = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+		sched_ctx->sched_cond[workerid_ctx] = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
+		PTHREAD_MUTEX_INIT(sched_ctx->sched_mutex[workerid_ctx], NULL);
+		PTHREAD_COND_INIT(sched_ctx->sched_cond[workerid_ctx], NULL);
 	}
 }
 

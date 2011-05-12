@@ -131,7 +131,7 @@ int _starpu_pack_cl_args(size_t arg_buffer_size, char **arg_buffer, va_list varg
 	va_end(varg_list);
 	return 0;
 }
-static void _starpu_prepare_task(char *arg_buffer, starpu_codelet *cl, struct starpu_task **task, va_list varg_list, int *ctx) {
+static void _starpu_prepare_task(char *arg_buffer, starpu_codelet *cl, struct starpu_task **task, va_list varg_list, unsigned *ctx) {
         int arg_type;
 	unsigned current_buffer = 0;
 
@@ -180,7 +180,7 @@ static void _starpu_prepare_task(char *arg_buffer, starpu_codelet *cl, struct st
 			va_arg(varg_list, int);
 		}
 		else if (arg_type==STARPU_CTX) {
-			*ctx = va_arg(varg_list, int);
+			*ctx = va_arg(varg_list, unsigned);
 		}
 
 	}
@@ -199,10 +199,10 @@ static void _starpu_prepare_task(char *arg_buffer, starpu_codelet *cl, struct st
 }
 
 int _starpu_insert_task_create_and_submit(char *arg_buffer, starpu_codelet *cl, struct starpu_task **task, va_list varg_list) {
-	int ctx = -1;
+	unsigned ctx = 0;
 	_starpu_prepare_task(arg_buffer, cl, task, varg_list, &ctx);
 	
-	 int ret = ctx == -1 ? starpu_task_submit(*task) : starpu_task_submit_to_ctx(*task, ctx);
+	 int ret = ctx == 0 ? starpu_task_submit(*task) : starpu_task_submit_to_ctx(*task, ctx);
 
 	if (STARPU_UNLIKELY(ret == -ENODEV))
           fprintf(stderr, "No one can execute task %p wih cl %p (symbol %s)\n", *task, (*task)->cl, ((*task)->cl->model && (*task)->cl->model->symbol)?(*task)->cl->model->symbol:"none");

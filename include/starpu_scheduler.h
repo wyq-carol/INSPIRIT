@@ -76,23 +76,23 @@ struct starpu_sched_policy_s {
 	 * worker is scheduled. This method therefore permits to keep the state
 	 * of of the scheduler coherent even when StarPU bypasses the
 	 * scheduling strategy. */
-	void (*push_task_notify)(struct starpu_task *, int workerid);
+	void (*push_task_notify)(struct starpu_task *, int workerid, unsigned);
 
 	/* Insert a priority task into the scheduler. */
         int (*push_prio_task)(struct starpu_task *, unsigned);
 
 	/* Get a task from the scheduler. The mutex associated to the worker is
 	 * already taken when this method is called. */
-	struct starpu_task *(*pop_task)(void);
+	struct starpu_task *(*pop_task)(unsigned);
 
 	 /* Remove all available tasks from the scheduler (tasks are chained by
 	  * the means of the prev and next fields of the starpu_task
 	  * structure). The mutex associated to the worker is already taken
 	  * when this method is called. */
-	struct starpu_task *(*pop_every_task)(void);
+	struct starpu_task *(*pop_every_task)(unsigned);
 
 	/* This method is called every time a task has been executed. (optionnal) */
-	void (*post_exec_hook)(struct starpu_task *);
+	void (*post_exec_hook)(struct starpu_task *, unsigned);
 
 	/* Name of the policy (optionnal) */
 	const char *policy_name;
@@ -101,7 +101,7 @@ struct starpu_sched_policy_s {
 	const char *policy_description;
 };
 
-int starpu_create_sched_ctx(const char *policy_name, int *workerids_in_ctx, int nworkerids_in_ctx, const char *sched_name);
+unsigned starpu_create_sched_ctx(const char *policy_name, int *workerids_in_ctx, int nworkerids_in_ctx, const char *sched_name);
 
 void starpu_delete_sched_ctx(unsigned sched_ctx_id);
 

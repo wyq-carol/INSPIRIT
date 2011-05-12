@@ -69,7 +69,7 @@ static void callback_turn_spmd_on(void *arg __attribute__ ((unused)))
 	cl22.type = STARPU_SPMD;
 }
 
-static double _cholesky(starpu_data_handle dataA, unsigned nblocks, int sched_ctx, double *timing)
+static double _cholesky(starpu_data_handle dataA, unsigned nblocks, unsigned sched_ctx, double *timing)
 {
 	struct timeval start;
 	struct timeval end;
@@ -85,36 +85,22 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, int sched_ct
 	{
                 starpu_data_handle sdatakk = starpu_data_get_sub_data(dataA, 2, k, k);
 
-		if(sched_ctx != -1)
-			starpu_insert_task(&cl11,
-					   STARPU_PRIORITY, prio_level,
-					   STARPU_RW, sdatakk,
-					   STARPU_CALLBACK, (k == 3*nblocks/4)?callback_turn_spmd_on:NULL,
-					   STARPU_CTX, sched_ctx,
-					   0);
-		else
-			starpu_insert_task(&cl11,
-					   STARPU_PRIORITY, prio_level,
-					   STARPU_RW, sdatakk,
-					   STARPU_CALLBACK, (k == 3*nblocks/4)?callback_turn_spmd_on:NULL,
-					   0);
+		starpu_insert_task(&cl11,
+				   STARPU_PRIORITY, prio_level,
+				   STARPU_RW, sdatakk,
+				   STARPU_CALLBACK, (k == 3*nblocks/4)?callback_turn_spmd_on:NULL,
+				   STARPU_CTX, sched_ctx,
+				   0);
 
 		for (j = k+1; j<nblocks; j++)
 		{
                         starpu_data_handle sdatakj = starpu_data_get_sub_data(dataA, 2, k, j);
-			if(sched_ctx != -1)
-				starpu_insert_task(&cl21,
-						   STARPU_PRIORITY, (j == k+1)?prio_level:STARPU_DEFAULT_PRIO,
-						   STARPU_R, sdatakk,
-						   STARPU_RW, sdatakj,
-						   STARPU_CTX, sched_ctx,
-						   0);
-			else
-				starpu_insert_task(&cl21,
-						   STARPU_PRIORITY, (j == k+1)?prio_level:STARPU_DEFAULT_PRIO,
-						   STARPU_R, sdatakk,
-						   STARPU_RW, sdatakj,
-						   0);
+			starpu_insert_task(&cl21,
+					   STARPU_PRIORITY, (j == k+1)?prio_level:STARPU_DEFAULT_PRIO,
+					   STARPU_R, sdatakk,
+					   STARPU_RW, sdatakj,
+					   STARPU_CTX, sched_ctx,
+					   0);
 
 			for (i = k+1; i<nblocks; i++)
 			{
@@ -122,21 +108,14 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, int sched_ct
                                 {
 					starpu_data_handle sdataki = starpu_data_get_sub_data(dataA, 2, k, i);
 					starpu_data_handle sdataij = starpu_data_get_sub_data(dataA, 2, i, j);
-					if(sched_ctx != -1)
-						starpu_insert_task(&cl22,
-								   STARPU_PRIORITY, ((i == k+1) && (j == k+1))?prio_level:STARPU_DEFAULT_PRIO,
-								   STARPU_R, sdataki,
-								   STARPU_R, sdatakj,
-								   STARPU_RW, sdataij,
-								   STARPU_CTX, sched_ctx,
-								   0);
-					else 
-						starpu_insert_task(&cl22,
-								   STARPU_PRIORITY, ((i == k+1) && (j == k+1))?prio_level:STARPU_DEFAULT_PRIO,
-								   STARPU_R, sdataki,
-								   STARPU_R, sdatakj,
-								   STARPU_RW, sdataij,
-								   0);
+					
+					starpu_insert_task(&cl22,
+							   STARPU_PRIORITY, ((i == k+1) && (j == k+1))?prio_level:STARPU_DEFAULT_PRIO,
+							   STARPU_R, sdataki,
+							   STARPU_R, sdatakj,
+							   STARPU_RW, sdataij,
+							   STARPU_CTX, sched_ctx,
+							   0);
                                 }
 			}
 		}
@@ -160,7 +139,7 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, int sched_ct
 	return (flop/(*timing)/1000.0f);
 }
 
-static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks, int sched_ctx, double *timing)
+static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks, unsigned sched_ctx, double *timing)
 {
 	starpu_data_handle dataA;
 
@@ -184,7 +163,7 @@ static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks
 	return _cholesky(dataA, nblocks, sched_ctx, timing);
 }
 
-double run_cholesky_implicit(int sched_ctx, int start, int argc, char **argv, double *timing, pthread_barrier_t *barrier)
+double run_cholesky_implicit(unsigned sched_ctx, int start, int argc, char **argv, double *timing, pthread_barrier_t *barrier)
 {
 	/* create a simple definite positive symetric matrix example
 	 *

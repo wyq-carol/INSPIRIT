@@ -33,6 +33,10 @@
 /* acquire/release semantic for concurrent initialization/de-initialization */
 static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t init_cond = PTHREAD_COND_INITIALIZER;
+
+static pthread_mutex_t local_list_sched_mutex[STARPU_NMAXWORKERS]; 
+static pthread_cond_t local_list_sched_cond[STARPU_NMAXWORKERS];
+
 static int init_count;
 static enum { UNINITIALIZED, CHANGING, INITIALIZED } initialized = UNINITIALIZED;
 
@@ -159,6 +163,13 @@ static void _starpu_launch_drivers(struct starpu_machine_config_s *config)
 		workerarg->combined_workerid = workerarg->workerid;
 		workerarg->current_rank = 1;
 
+		/* mutex + cond only for the local list */
+		/* we have a single local list */
+		/* afterwards there would be a mutex + cond for the list of each strategy */
+		PTHREAD_MUTEX_INIT(&local_list_sched_mutex[worker], NULL);
+		PTHREAD_COND_INIT(&local_list_sched_cond[worker], NULL);
+
+		starpu_worker_set_sched_condition(worker, &local_list_sched_cond[worker], &local_list_sched_mutex[worker]);
 		/* if some codelet's termination cannot be handled directly :
 		 * for instance in the Gordon driver, Gordon tasks' callbacks
 		 * may be executed by another thread than that of the Gordon

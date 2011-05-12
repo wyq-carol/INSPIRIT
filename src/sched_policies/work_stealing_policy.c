@@ -20,49 +20,55 @@
 #include <core/workers.h>
 #include <sched_policies/deque_queues.h>
 
-static unsigned nworkers;
-static unsigned rr_worker;
-static struct starpu_deque_jobq_s *queue_array[STARPU_NMAXWORKERS];
+//static unsigned nworkers;
+//static unsigned rr_worker;
+//static struct starpu_deque_jobq_s *queue_array[STARPU_NMAXWORKERS];
 
-static pthread_mutex_t global_sched_mutex;
-static pthread_cond_t global_sched_cond;
+/* static pthread_mutex_t global_sched_mutex; */
+/* static pthread_cond_t global_sched_cond; */
 
 /* keep track of the work performed from the beginning of the algorithm to make
  * better decisions about which queue to select when stealing or deferring work
  */
-static unsigned performed_total = 0;
+//static unsigned performed_total = 0;
+
+typedef struct {
+	struct starpu_deque_jobq_s **queue_array;
+	unsigned rr_worker;
+	unsigned performed_total;
+} work_stealing_data;
 
 #ifdef USE_OVERLOAD
-static float overload_metric(unsigned id)
+static float overload_metric(struct starpu_deque_jobq_s *dequeue_queue, unsigned *performed_total)
 {
 	float execution_ratio = 0.0f;
-	if (performed_total > 0) {
-		execution_ratio = _starpu_get_deque_nprocessed(queue_array[id])/performed_total;
+	if (*performed_total > 0) {
+		execution_ratio = _starpu_get_deque_nprocessed(dequeue_queue)/ *performed_total;
 	}
 
 	unsigned performed_queue;
-	performed_queue = _starpu_get_deque_nprocessed(queue_array[id]);
+	performed_queue = _starpu_get_deque_nprocessed(dequeue_queue);
 
 	float current_ratio = 0.0f;
 	if (performed_queue > 0) {
-		current_ratio = _starpu_get_deque_njobs(queue_array[id])/performed_queue;
+		current_ratio = _starpu_get_deque_njobs(dequeue_queue)/performed_queue;
 	}
 	
 	return (current_ratio - execution_ratio);
 }
 
 /* who to steal work to ? */
-static struct starpu_deque_jobq_s *select_victimq(void)
+static struct starpu_deque_jobq_s *select_victimq(work_stealing_data *ws, unsigned nworkers)
 {
 	struct starpu_deque_jobq_s *q;
 
 	unsigned attempts = nworkers;
 
-	unsigned worker = rr_worker;
+	unsigned worker = ws->rr_worker;
 	do {
 		if (overload_metric(worker) > 0.0f)
 		{
-			q = queue_array[worker];
+			q = ws->queue_array[worker];
 			return q;
 		}
 		else {
@@ -71,23 +77,23 @@ static struct starpu_deque_jobq_s *select_victimq(void)
 	} while(attempts-- > 0);
 
 	/* take one anyway ... */
-	q = queue_array[rr_worker];
-	rr_worker = (rr_worker + 1 )%nworkers;
+	q = ws->queue_array[ws->rr_worker];
+	ws->rr_worker = (ws->rr_worker + 1 )%nworkers;
 
 	return q;
 }
 
-static struct starpu_deque_jobq_s *select_workerq(void)
+static struct starpu_deque_jobq_s *select_workerq(work_stealing_data *ws, unsigned nworkers)
 {
 	struct starpu_deque_jobq_s *q;
 
 	unsigned attempts = nworkers;
 
-	unsigned worker = rr_worker;
+	unsigned worker = ws->rr_worker;
 	do {
 		if (overload_metric(worker) < 0.0f)
 		{
-			q = queue_array[worker];
+			q = ws->queue_array[worker];
 			return q;
 		}
 		else {
@@ -96,8 +102,8 @@ static struct starpu_deque_jobq_s *select_workerq(void)
 	} while(attempts-- > 0);
 
 	/* take one anyway ... */
-	q = queue_array[rr_worker];
-	rr_worker = (rr_worker + 1 )%nworkers;
+	q = ws->queue_array[ws->rr_worker];
+	ws->rr_worker = (ws->rr_worker + 1 )%nworkers;
 
 	return q;
 }
@@ -105,13 +111,13 @@ static struct starpu_deque_jobq_s *select_workerq(void)
 #else
 
 /* who to steal work to ? */
-static struct starpu_deque_jobq_s *select_victimq(void)
+static struct starpu_deque_jobq_s *select_victimq(work_stealing_data *ws, unsigned nworkers)
 {
 	struct starpu_deque_jobq_s *q;
 
-	q = queue_array[rr_worker];
+	q = ws->queue_array[ws->rr_worker];
 
-	rr_worker = (rr_worker + 1 )%nworkers;
+	ws->rr_worker = (ws->rr_worker + 1 )%nworkers;
 
 	return q;
 }
@@ -119,13 +125,13 @@ static struct starpu_deque_jobq_s *select_victimq(void)
 
 /* when anonymous threads submit tasks, 
  * we need to select a queue where to dispose them */
-static struct starpu_deque_jobq_s *select_workerq(void)
+static struct starpu_deque_jobq_s *select_workerq(work_stealing_data *ws, unsigned nworkers)
 {
 	struct starpu_deque_jobq_s *q;
 
-	q = queue_array[rr_worker];
+	q = ws->queue_array[ws->rr_worker];
 
-	rr_worker = (rr_worker + 1 )%nworkers;
+	ws->rr_worker = (ws->rr_worker + 1 )%nworkers;
 
 	return q;
 }
@@ -133,51 +139,59 @@ static struct starpu_deque_jobq_s *select_workerq(void)
 #endif
 
 #warning TODO rewrite ... this will not scale at all now
-static struct starpu_task *ws_pop_task(void)
+static struct starpu_task *ws_pop_task(unsigned sched_ctx_id)
 {
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+	work_stealing_data *ws = (work_stealing_data*)sched_ctx->policy_data;
+
 	struct starpu_task *task;
 
 	int workerid = starpu_worker_get_id();
+	int workerid_ctx =  _starpu_get_index_in_ctx_of_workerid(sched_ctx_id, workerid);
 
 	struct starpu_deque_jobq_s *q;
 
-	q = queue_array[workerid];
+	q = ws->queue_array[workerid_ctx];
 
-	PTHREAD_MUTEX_LOCK(&global_sched_mutex);
+	PTHREAD_MUTEX_LOCK(sched_ctx->sched_mutex[0]);
 
 	task = _starpu_deque_pop_task(q, -1);
 	if (task) {
 		/* there was a local task */
-		performed_total++;
-		PTHREAD_MUTEX_UNLOCK(&global_sched_mutex);
+		ws->performed_total++;
+		PTHREAD_MUTEX_UNLOCK(sched_ctx->sched_mutex[0]);
 		return task;
 	}
 	
 	/* we need to steal someone's job */
 	struct starpu_deque_jobq_s *victimq;
-	victimq = select_victimq();
+	victimq = select_victimq(ws, sched_ctx->nworkers_in_ctx);
 
 	task = _starpu_deque_pop_task(victimq, workerid);
 	if (task) {
 		STARPU_TRACE_WORK_STEALING(q, victimq);
-		performed_total++;
+		ws->performed_total++;
 	}
 
-	PTHREAD_MUTEX_UNLOCK(&global_sched_mutex);
+	PTHREAD_MUTEX_UNLOCK(sched_ctx->sched_mutex[0]);
 
 	return task;
 }
 
-int ws_push_task(struct starpu_task *task, __attribute__ ((unused)) unsigned sched_ctx_id)
+int ws_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	starpu_job_t j = _starpu_get_job_associated_to_task(task);
 
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+	work_stealing_data *ws = (work_stealing_data*)sched_ctx->policy_data;
+
 	int workerid = starpu_worker_get_id();
+	int workerid_ctx =  _starpu_get_index_in_ctx_of_workerid(sched_ctx_id, workerid);
 
         struct starpu_deque_jobq_s *deque_queue;
-	deque_queue = queue_array[workerid];
+	deque_queue = ws->queue_array[workerid_ctx];
 
-        PTHREAD_MUTEX_LOCK(&global_sched_mutex);
+        PTHREAD_MUTEX_LOCK(sched_ctx->sched_mutex[0]);
 	// XXX reuse ?
         //total_number_of_jobs++;
 
@@ -186,8 +200,8 @@ int ws_push_task(struct starpu_task *task, __attribute__ ((unused)) unsigned sch
         deque_queue->njobs++;
         deque_queue->nprocessed++;
 
-        PTHREAD_COND_SIGNAL(&global_sched_cond);
-        PTHREAD_MUTEX_UNLOCK(&global_sched_mutex);
+        PTHREAD_COND_SIGNAL(sched_ctx->sched_cond[0]);
+        PTHREAD_MUTEX_UNLOCK(sched_ctx->sched_mutex[0]);
 
         return 0;
 }
@@ -195,19 +209,26 @@ int ws_push_task(struct starpu_task *task, __attribute__ ((unused)) unsigned sch
 static void initialize_ws_policy(unsigned sched_ctx_id) 
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+	work_stealing_data *ws = (work_stealing_data*)malloc(sizeof(work_stealing_data));
+	sched_ctx->policy_data = (void*)ws;
+	
+	unsigned nworkers = sched_ctx->nworkers_in_ctx;
+	ws->rr_worker = 0;
+	ws->queue_array = (struct starpu_deque_jobq_s**)malloc(nworkers*sizeof(struct starpu_deque_jobq_s*));
 
-	nworkers = sched_ctx->nworkers_in_ctx;
-	rr_worker = 0;
 
-	PTHREAD_MUTEX_INIT(&global_sched_mutex, NULL);
-	PTHREAD_COND_INIT(&global_sched_cond, NULL);
+	pthread_mutex_t *sched_mutex = (pthread_mutex_t*) malloc(sizeof(pthread_mutex_t));
+	pthread_cond_t *sched_cond = (pthread_cond_t*) malloc(sizeof(pthread_cond_t));
+	PTHREAD_MUTEX_INIT(sched_mutex, NULL);
+	PTHREAD_COND_INIT(sched_cond, NULL);
 
-	unsigned workerid, workerid_ctx;
+	unsigned workerid_ctx;
 	for (workerid_ctx = 0; workerid_ctx < nworkers; workerid_ctx++)
 	{
-                workerid = sched_ctx->workerid[workerid_ctx];
-		queue_array[workerid] = _starpu_create_deque();
-		starpu_worker_set_sched_condition(workerid, &global_sched_cond, &global_sched_mutex);
+		ws->queue_array[workerid_ctx] = _starpu_create_deque();
+
+		sched_ctx->sched_mutex[workerid_ctx] = sched_mutex;
+		sched_ctx->sched_cond[workerid_ctx] = sched_cond;
 	}
 }
 

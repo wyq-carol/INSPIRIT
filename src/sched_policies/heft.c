@@ -26,16 +26,15 @@
 #include <starpu_task_bundle.h>
 
 typedef struct {
-  double alpha;
-  double beta;
-  double _gamma;
-  double idle_power;
+	double alpha;
+	double beta;
+	double _gamma;
+	double idle_power;
 
-  double exp_start[STARPU_NMAXWORKERS];
-  double exp_end[STARPU_NMAXWORKERS];
-  double exp_len[STARPU_NMAXWORKERS];
-  double ntasks[STARPU_NMAXWORKERS];
-
+	double *exp_start;
+	double *exp_end;
+	double *exp_len;
+	double *ntasks;
 } heft_data;
 
 static void heft_init(unsigned sched_ctx_id)
@@ -50,6 +49,11 @@ static void heft_init(unsigned sched_ctx_id)
 
 	unsigned nworkers = sched_ctx->nworkers_in_ctx;
 	sched_ctx->policy_data = (void*)hd;
+
+	hd->exp_start = (double*)malloc(nworkers*sizeof(double));
+	hd->exp_end = (double*)malloc(nworkers*sizeof(double));
+	hd->exp_len = (double*)malloc(nworkers*sizeof(double));
+	hd->ntasks = (double*)malloc(nworkers*sizeof(double));
 
 	const char *strval_alpha = getenv("STARPU_SCHED_ALPHA");
 	if (strval_alpha)
@@ -67,47 +71,44 @@ static void heft_init(unsigned sched_ctx_id)
 	if (strval_idle_power)
 		hd->idle_power = atof(strval_idle_power);
 
-	unsigned workerid, workerid_ctx;
+	unsigned workerid_ctx;
 
 	for (workerid_ctx = 0; workerid_ctx < nworkers; workerid_ctx++)
 	  {
-	    workerid = sched_ctx->workerid[workerid_ctx];
-	    hd->exp_start[workerid] = starpu_timing_now();
-	    hd->exp_len[workerid] = 0.0;
-	    hd->exp_end[workerid] = hd->exp_start[workerid]; 
-	    hd->ntasks[workerid] = 0;
-	    
-	    pthread_cond_t *sched_cond = malloc(sizeof(pthread_cond_t));
-	    pthread_mutex_t *sched_mutex = malloc(sizeof(pthread_mutex_t));
-	    
-	    PTHREAD_MUTEX_INIT(sched_mutex, NULL);
-	    PTHREAD_COND_INIT(sched_cond, NULL);
-	    
-	    starpu_worker_set_sched_condition(workerid, sched_cond, sched_mutex);
+	    hd->exp_start[workerid_ctx] = starpu_timing_now();
+	    hd->exp_len[workerid_ctx] = 0.0;
+	    hd->exp_end[workerid_ctx] = hd->exp_start[workerid_ctx]; 
+	    hd->ntasks[workerid_ctx] = 0;
+	    	    
+	    sched_ctx->sched_mutex[workerid_ctx] = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+	    sched_ctx->sched_cond[workerid_ctx] = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
+	    PTHREAD_MUTEX_INIT(sched_ctx->sched_mutex[workerid_ctx], NULL);
+	    PTHREAD_COND_INIT(sched_ctx->sched_cond[workerid_ctx], NULL);
 	  }
 }
 
 static void heft_post_exec_hook(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	int workerid = starpu_worker_get_id();
+	int workerid_ctx =  _starpu_get_index_in_ctx_of_workerid(sched_ctx_id, workerid);
+
 	double model = task->predicted;
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	heft_data *hd = (heft_data*)sched_ctx->policy_data;
 
-	struct starpu_worker_s *worker = _starpu_get_worker_struct(workerid);
-
 	/* Once we have executed the task, we can update the predicted amount
 	 * of work. */
-	PTHREAD_MUTEX_LOCK(worker->sched_mutex);
-	hd->exp_len[workerid] -= model;
-	hd->exp_start[workerid] = starpu_timing_now() + model;
-	hd->exp_end[workerid] = hd->exp_start[workerid] + hd->exp_len[workerid];
-	hd->ntasks[workerid]--;
-	PTHREAD_MUTEX_UNLOCK(worker->sched_mutex);
+	PTHREAD_MUTEX_LOCK(sched_ctx->sched_mutex[workerid_ctx]);
+	hd->exp_len[workerid_ctx] -= model;
+	hd->exp_start[workerid_ctx] = starpu_timing_now() + model;
+	hd->exp_end[workerid_ctx] = hd->exp_start[workerid_ctx] + hd->exp_len[workerid_ctx];
+	hd->ntasks[workerid_ctx]--;
+	PTHREAD_MUTEX_UNLOCK(sched_ctx->sched_mutex[workerid_ctx]);
 }
 
 static void heft_push_task_notify(struct starpu_task *task, int workerid, unsigned sched_ctx_id)
 {
+	int workerid_ctx =  _starpu_get_index_in_ctx_of_workerid(sched_ctx_id, workerid);
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	heft_data *hd = (heft_data*)sched_ctx->policy_data;
 
@@ -115,25 +116,24 @@ static void heft_push_task_notify(struct starpu_task *task, int workerid, unsign
 	enum starpu_perf_archtype perf_arch = starpu_worker_get_perf_archtype(workerid);
 	double predicted = starpu_task_expected_length(task, perf_arch);
 
-	struct starpu_worker_s *worker = _starpu_get_worker_struct(workerid);
 	/* Update the predictions */
-	PTHREAD_MUTEX_LOCK(worker->sched_mutex);
+	PTHREAD_MUTEX_LOCK(sched_ctx->sched_mutex[workerid_ctx]);
 
 	/* Sometimes workers didn't take the tasks as early as we expected */
-	hd->exp_start[workerid] = STARPU_MAX(hd->exp_start[workerid], starpu_timing_now());
-	hd->exp_end[workerid] = STARPU_MAX(hd->exp_start[workerid], starpu_timing_now());
+	hd->exp_start[workerid_ctx] = STARPU_MAX(hd->exp_start[workerid_ctx], starpu_timing_now());
+	hd->exp_end[workerid_ctx] = STARPU_MAX(hd->exp_start[workerid_ctx], starpu_timing_now());
 
 	/* If there is no prediction available, we consider the task has a null length */
 	if (predicted != -1.0)
 	{
 		task->predicted = predicted;
-		hd->exp_end[workerid] += predicted;
-		hd->exp_len[workerid] += predicted;
+		hd->exp_end[workerid_ctx] += predicted;
+		hd->exp_len[workerid_ctx] += predicted;
 	}
 
-	hd->ntasks[workerid]++;
+	hd->ntasks[workerid_ctx]++;
 
-	PTHREAD_MUTEX_UNLOCK(worker->sched_mutex);
+	PTHREAD_MUTEX_UNLOCK(sched_ctx->sched_mutex[workerid_ctx]);
 }
 
 static int push_task_on_best_worker(struct starpu_task *task, int best_workerid, double predicted, int prio, struct starpu_sched_ctx *sched_ctx)
@@ -142,13 +142,13 @@ static int push_task_on_best_worker(struct starpu_task *task, int best_workerid,
 
 	/* make sure someone coule execute that task ! */
 	STARPU_ASSERT(best_workerid != -1);
-	struct starpu_worker_s *worker = _starpu_get_worker_struct(best_workerid);
+	int best_workerid_ctx =  _starpu_get_index_in_ctx_of_workerid(sched_ctx->sched_ctx_id, best_workerid);
 
-	PTHREAD_MUTEX_LOCK(worker->sched_mutex);
-	hd->exp_end[best_workerid] += predicted;
-	hd->exp_len[best_workerid] += predicted;
-	hd->ntasks[best_workerid]++;
-	PTHREAD_MUTEX_UNLOCK(worker->sched_mutex);
+	PTHREAD_MUTEX_LOCK(sched_ctx->sched_mutex[best_workerid_ctx]);
+	hd->exp_end[best_workerid_ctx] += predicted;
+	hd->exp_len[best_workerid_ctx] += predicted;
+	hd->ntasks[best_workerid_ctx]++;
+	PTHREAD_MUTEX_UNLOCK(sched_ctx->sched_mutex[best_workerid_ctx]);
 
 	task->predicted = predicted;
 
@@ -157,7 +157,6 @@ static int push_task_on_best_worker(struct starpu_task *task, int best_workerid,
 		unsigned memory_node = starpu_worker_get_memory_node(best_workerid);
 		starpu_prefetch_task_input_on_node(task, memory_node);
 	}
-
 	return starpu_push_local_task(best_workerid, task, prio);
 }
 
@@ -186,8 +185,8 @@ static void compute_all_performance_predictions(struct starpu_task *task,
     {
       worker = sched_ctx->workerid[worker_in_ctx];
       /* Sometimes workers didn't take the tasks as early as we expected */
-      hd->exp_start[worker] = STARPU_MAX(hd->exp_start[worker], starpu_timing_now());
-      exp_end[worker_in_ctx] = hd->exp_start[worker] + hd->exp_len[worker];
+      hd->exp_start[worker_in_ctx] = STARPU_MAX(hd->exp_start[worker_in_ctx], starpu_timing_now());
+      exp_end[worker_in_ctx] = hd->exp_start[worker_in_ctx] + hd->exp_len[worker_in_ctx];
       if (exp_end[worker_in_ctx] > max_exp_end)
  	max_exp_end = exp_end[worker_in_ctx];
 
@@ -214,7 +213,7 @@ static void compute_all_performance_predictions(struct starpu_task *task,
 
 /*       printf("%d(in ctx%d): local task len = %2.2f locald data penalty = %2.2f local_power = %2.2f\n", worker, worker_in_ctx, local_task_length[worker_in_ctx], local_data_penalty[worker_in_ctx], local_power[worker_in_ctx]); */
 
-      double ntasks_end = hd->ntasks[worker] / starpu_worker_get_relative_speedup(perf_arch);
+      double ntasks_end = hd->ntasks[worker_in_ctx] / starpu_worker_get_relative_speedup(perf_arch);
 
       if (ntasks_best == -1
 	  || (!calibrating && ntasks_end < ntasks_best_end) /* Not calibrating, take better task */
@@ -239,7 +238,7 @@ static void compute_all_performance_predictions(struct starpu_task *task,
       if (unknown)
 	continue;
 
-      exp_end[worker_in_ctx] = hd->exp_start[worker] + hd->exp_len[worker] + local_task_length[worker_in_ctx];
+      exp_end[worker_in_ctx] = hd->exp_start[worker_in_ctx] + hd->exp_len[worker_in_ctx] + local_task_length[worker_in_ctx];
 
       if (exp_end[worker_in_ctx] < best_exp_end)
 	{
@@ -332,7 +331,6 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio, unsigned sch
 		}
 	}
 
-
 	/* By now, we must have found a solution */
 	STARPU_ASSERT(best != -1);
 	
@@ -382,18 +380,23 @@ static int heft_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 static void heft_deinit(unsigned sched_ctx_id) 
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
-        unsigned workerid;
 	int workerid_in_ctx;
 	int nworkers = sched_ctx->nworkers_in_ctx;
+	heft_data *ht = (heft_data*)sched_ctx->policy_data;
+
 	for (workerid_in_ctx = 0; workerid_in_ctx < nworkers; workerid_in_ctx++){
-	        workerid = sched_ctx->workerid[workerid_in_ctx];
-		struct starpu_worker_s *worker = _starpu_get_worker_struct(workerid);
-		PTHREAD_MUTEX_DESTROY(worker->sched_mutex);
-		PTHREAD_COND_DESTROY(worker->sched_cond);
-		free(worker->sched_mutex);
-		free(worker->sched_cond);
+		PTHREAD_MUTEX_DESTROY(sched_ctx->sched_mutex[workerid_in_ctx]);
+		PTHREAD_COND_DESTROY(sched_ctx->sched_cond[workerid_in_ctx]);
+		free(sched_ctx->sched_mutex[workerid_in_ctx]);
+		free(sched_ctx->sched_cond[workerid_in_ctx]);
 	}
-	free(sched_ctx->policy_data);
+
+	free(ht->exp_start);
+	free(ht->exp_end);
+	free(ht->exp_len);
+	free(ht->ntasks);
+	  
+	free(ht);
 }
 
 struct starpu_sched_policy_s heft_policy = {

@@ -296,12 +296,12 @@ void *_starpu_cuda_worker(void *arg)
 
                 PTHREAD_MUTEX_UNLOCK(changing_ctx_mutex);
 
-		PTHREAD_MUTEX_LOCK(sched_mutex);
 
 		task = _starpu_pop_task(args);
 
                 if (task == NULL) 
 		{
+			PTHREAD_MUTEX_LOCK(sched_mutex);
 			if (_starpu_worker_can_block(memnode))
 				_starpu_block_worker(workerid, sched_cond, sched_mutex);
 		  
@@ -311,7 +311,6 @@ void *_starpu_cuda_worker(void *arg)
 			continue;
 		};
 
-		PTHREAD_MUTEX_UNLOCK(sched_mutex);
 
 		STARPU_ASSERT(task);
 		j = _starpu_get_job_associated_to_task(task);

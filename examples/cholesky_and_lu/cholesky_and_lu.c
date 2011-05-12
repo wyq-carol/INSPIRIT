@@ -5,7 +5,7 @@ typedef struct {
   int start;
   int argc;
   char **argv;
-  int ctx;
+  unsigned ctx;
 } params;
 
 typedef struct {
@@ -19,7 +19,7 @@ pthread_barrier_t barrier;
 
 void* func_cholesky(void *val){
   params *p = (params*)val;
-  int sched_ctx = p->ctx;
+  unsigned sched_ctx = p->ctx;
 
   int i;
   retvals *rv  = (retvals*)malloc(sizeof(retvals));
@@ -28,7 +28,7 @@ void* func_cholesky(void *val){
   double timing = 0;
   for(i = 0; i < NSAMPLES; i++)
     {
-      rv->flops += run_cholesky_implicit(sched_ctx, p->start, p->argc, p->argv, &timing, (sched_ctx == -1 ? NULL : &barrier));
+      rv->flops += run_cholesky_implicit(sched_ctx, p->start, p->argc, p->argv, &timing, &barrier);
       rv->avg_timing += timing;
     }
 
@@ -50,7 +50,7 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3){
 		 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66,
 		 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77,  78,
 		 79, 80, 81, 82, 83, 84, 85};
-  int id = starpu_create_sched_ctx("heft", NULL, -1, "cholesky");
+  unsigned id = starpu_create_sched_ctx("heft", NULL, -1, "cholesky");
   p1->ctx = id;
 
   int procs2[] =  {86, 87, 88, 89, 90,
@@ -127,7 +127,7 @@ int main(int argc, char **argv)
   params p3;
   p3.argc = argc;
   p3.argv = argv;
-  p3.ctx = -1;
+  p3.ctx = 0;
   cholesky_vs_cholesky(&p1, &p2,&p3);
 
   return 0;
