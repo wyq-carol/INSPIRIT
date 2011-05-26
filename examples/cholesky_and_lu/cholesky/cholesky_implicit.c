@@ -135,8 +135,11 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, unsigned sch
 	unsigned long n = starpu_matrix_get_nx(dataA);
 
 	double flop = (1.0f*n*n*n)/3.0f;
-	
-	return (flop/(*timing)/1000.0f);
+
+	double gflops = (flop/(*timing)/1000.0f);
+	(*timing) /= 1000000.0f; //sec
+	(*timing) /= 60.0f; //min
+	return gflops;
 }
 
 static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks, unsigned sched_ctx, double *timing)

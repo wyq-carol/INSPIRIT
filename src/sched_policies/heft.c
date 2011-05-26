@@ -166,7 +166,7 @@ static void compute_all_performance_predictions(struct starpu_task *task,
 						double *local_data_penalty,
 						double *local_power, int *forced_best,
 						struct starpu_task_bundle *bundle,
-						 struct starpu_sched_ctx *sched_ctx )
+						struct starpu_sched_ctx *sched_ctx )
 {
   int calibrating = 0;
   double max_exp_end = DBL_MIN;
