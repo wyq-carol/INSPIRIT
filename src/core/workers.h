@@ -78,7 +78,7 @@ struct starpu_worker_s {
 	starpu_worker_status status; /* what is the worker doing now ? (eg. CALLBACK) */
 	char name[32];
 
-	struct starpu_sched_ctx *sched_ctx[STARPU_NMAX_SCHED_CTXS];
+	struct starpu_sched_ctx **sched_ctx;
 	unsigned nctxs; /* the no of contexts a worker belongs to*/
 	unsigned changing_ctx;
 	pthread_mutex_t changing_ctx_mutex;

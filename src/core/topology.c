@@ -462,6 +462,7 @@ static int _starpu_init_machine_config(struct starpu_machine_config_s *config,
 		config->workers[topology->nworkers + cpu].devid = cpu;
 		config->workers[topology->nworkers + cpu].worker_mask = STARPU_CPU;
 		config->worker_mask |= STARPU_CPU;
+		config->workers[topology->nworkers + cpu].sched_ctx = (struct starpu_sched_ctx**)malloc(sizeof(struct starpu_sched_ctx*));
 	}
 
 	topology->nworkers += topology->ncpus;

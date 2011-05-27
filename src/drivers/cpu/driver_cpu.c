@@ -177,6 +177,17 @@ void *_starpu_cpu_worker(void *arg)
 		{
 			PTHREAD_MUTEX_LOCK(sched_mutex);
 			if (_starpu_worker_can_block(memnode))
+/* 			struct starpu_sched_ctx **sched_ctx = cpu_arg->sched_ctx; */
+/* 			int i = 0; */
+/* 			int sleep = 0; */
+/* 			for(i = 0; i < cpu_arg->nctxs; i++){ */
+/* 			  if(sched_ctx[i]->sched_ctx_id  == 2 ){ */
+/* 			    sleep = 1; */
+/* 			    break; */
+/* 			  } */
+/* 			} */
+
+/* 			if(sleep) */
 				_starpu_block_worker(workerid, sched_cond, sched_mutex);
 
 			PTHREAD_MUTEX_UNLOCK(sched_mutex);
