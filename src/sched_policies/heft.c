@@ -37,6 +37,29 @@ typedef struct {
 	double *ntasks;
 } heft_data;
 
+static void heft_init_for_workers(unsigned sched_ctx_id, int nnew_workers)
+{
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+
+	unsigned nworkers_ctx = sched_ctx->nworkers_in_ctx;
+	heft_data *hd = (heft_data*)sched_ctx->policy_data;
+
+	unsigned initial_nworkers = nworkers_ctx - nnew_workers;
+
+	unsigned workerid_ctx;
+	for (workerid_ctx = initial_nworkers; workerid_ctx < nworkers_ctx; workerid_ctx++)
+	  {
+	    hd->exp_start[workerid_ctx] = starpu_timing_now();
+	    hd->exp_len[workerid_ctx] = 0.0;
+	    hd->exp_end[workerid_ctx] = hd->exp_start[workerid_ctx]; 
+	    hd->ntasks[workerid_ctx] = 0;
+	    	    
+	    sched_ctx->sched_mutex[workerid_ctx] = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+	    sched_ctx->sched_cond[workerid_ctx] = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
+	    PTHREAD_MUTEX_INIT(sched_ctx->sched_mutex[workerid_ctx], NULL);
+	    PTHREAD_COND_INIT(sched_ctx->sched_cond[workerid_ctx], NULL);
+	  }
+}
 static void heft_init(unsigned sched_ctx_id)
 {
 	heft_data *hd = (heft_data*)malloc(sizeof(heft_data));
@@ -50,10 +73,10 @@ static void heft_init(unsigned sched_ctx_id)
 	unsigned nworkers = sched_ctx->nworkers_in_ctx;
 	sched_ctx->policy_data = (void*)hd;
 
-	hd->exp_start = (double*)malloc(nworkers*sizeof(double));
-	hd->exp_end = (double*)malloc(nworkers*sizeof(double));
-	hd->exp_len = (double*)malloc(nworkers*sizeof(double));
-	hd->ntasks = (double*)malloc(nworkers*sizeof(double));
+	hd->exp_start = (double*)malloc(STARPU_NMAXWORKERS*sizeof(double));
+	hd->exp_end = (double*)malloc(STARPU_NMAXWORKERS*sizeof(double));
+	hd->exp_len = (double*)malloc(STARPU_NMAXWORKERS*sizeof(double));
+	hd->ntasks = (double*)malloc(STARPU_NMAXWORKERS*sizeof(double));
 
 	const char *strval_alpha = getenv("STARPU_SCHED_ALPHA");
 	if (strval_alpha)
@@ -399,6 +422,23 @@ static void heft_deinit(unsigned sched_ctx_id)
 	free(ht);
 }
 
+
+static void heft_deinit_for_workers(unsigned sched_ctx_id) 
+{
+  //TODO: solve pb with indexes before
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+	int workerid_in_ctx;
+	int nworkers = sched_ctx->nworkers_in_ctx;
+
+	for (workerid_in_ctx = 0; workerid_in_ctx < nworkers; workerid_in_ctx++){
+		PTHREAD_MUTEX_DESTROY(sched_ctx->sched_mutex[workerid_in_ctx]);
+		PTHREAD_COND_DESTROY(sched_ctx->sched_cond[workerid_in_ctx]);
+		free(sched_ctx->sched_mutex[workerid_in_ctx]);
+		free(sched_ctx->sched_cond[workerid_in_ctx]);
+	}
+
+}
+
 struct starpu_sched_policy_s heft_policy = {
 	.init_sched = heft_init,
 	.deinit_sched = heft_deinit,
@@ -409,5 +449,7 @@ struct starpu_sched_policy_s heft_policy = {
 	.pop_every_task = NULL,
 	.post_exec_hook = heft_post_exec_hook,
 	.policy_name = "heft",
-	.policy_description = "Heterogeneous Earliest Finish Task"
+	.policy_description = "Heterogeneous Earliest Finish Task",
+	.init_sched_for_workers = heft_init_for_workers
+	
 };

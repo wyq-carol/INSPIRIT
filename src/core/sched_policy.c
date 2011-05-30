@@ -100,6 +100,7 @@ static void load_sched_policy(struct starpu_sched_policy_s *sched_policy, struct
 	policy->pop_every_task = sched_policy->pop_every_task;
 	policy->push_task_notify = sched_policy->push_task_notify;
 	policy->policy_name = sched_policy->policy_name;
+	policy->init_sched_for_workers = sched_policy->init_sched_for_workers;
 }
 
 static struct starpu_sched_policy_s *find_sched_policy_from_name(const char *policy_name)

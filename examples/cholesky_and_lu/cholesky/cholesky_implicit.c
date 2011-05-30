@@ -211,8 +211,8 @@ double run_cholesky_implicit(unsigned sched_ctx, int start, int argc, char **arg
 		printf("\n");
 	}
 #endif
- 	if(barrier != NULL)
-	  pthread_barrier_wait(barrier);
+	// 	if(barrier != NULL)
+	//	  pthread_barrier_wait(barrier);
 	double gflops = cholesky(mat, size, size, nblocks, sched_ctx, timing);
 
 #ifdef PRINT_OUTPUT

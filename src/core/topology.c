@@ -328,6 +328,7 @@ static int _starpu_init_machine_config(struct starpu_machine_config_s *config,
 		config->workers[topology->nworkers + cudagpu].devid = devid;
 		config->workers[topology->nworkers + cudagpu].perf_arch = arch; 
 		config->workers[topology->nworkers + cudagpu].worker_mask = STARPU_CUDA;
+		config->workers[topology->nworkers + cudagpu].sched_ctx = (struct starpu_sched_ctx**)malloc(sizeof(struct starpu_sched_ctx*));
 		config->worker_mask |= STARPU_CUDA;
 
                 uint32_t key = _starpu_crc32_be(devid, 0);
@@ -394,6 +395,7 @@ static int _starpu_init_machine_config(struct starpu_machine_config_s *config,
 		config->workers[topology->nworkers + openclgpu].devid = devid;
 		config->workers[topology->nworkers + openclgpu].perf_arch = arch; 
 		config->workers[topology->nworkers + openclgpu].worker_mask = STARPU_OPENCL;
+		config->workers[topology->nworkers + openclgpu].sched_ctx = (struct starpu_sched_ctx**)malloc(sizeof(struct starpu_sched_ctx*));
 		config->worker_mask |= STARPU_OPENCL;
 	}
 
@@ -428,6 +430,7 @@ static int _starpu_init_machine_config(struct starpu_machine_config_s *config,
 		config->workers[topology->nworkers + spu].id = spu;
 		config->workers[topology->nworkers + spu].worker_is_running = 0;
 		config->workers[topology->nworkers + spu].worker_mask = STARPU_GORDON;
+		config->workers[topology->nworkers + spu].sched_ctx = (struct starpu_sched_ctx**)malloc(sizeof(struct starpu_sched_ctx*));
 		config->worker_mask |= STARPU_GORDON;
 	}
 

@@ -66,6 +66,9 @@ struct starpu_sched_policy_s {
 	/* Initialize the scheduling policy. */
 	void (*init_sched)(unsigned);
 
+	/* Initialize the scheduling policy only for certain workers. */
+	void (*init_sched_for_workers)(unsigned, int);
+
 	/* Cleanup the scheduling policy. */
 	void (*deinit_sched)(unsigned);
 

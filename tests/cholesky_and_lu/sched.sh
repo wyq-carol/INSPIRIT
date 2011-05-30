@@ -20,23 +20,25 @@
 DIR=$PWD
 ROOTDIR=$DIR/../..
 TIMINGDIR=$DIR/timings-sched/
-#mkdir -p $TIMINGDIR
+mkdir -p $TIMINGDIR
 BENCH_NAME=cholesky_and_lu
-nsamples=5
+nsamples=3
 
 filename=$TIMINGDIR/$BENCH_NAME
 
-nmaxcpus=96
-nmincpus1=40
-nmincpus2=30
+nmaxcpus=12
+nmincpus1=1
+nmincpus2=1
 
-blocks1=60
-blocks2=40
+blocks1=40
+blocks2=20
 
-size1=$(($blocks1*1024))
-size2=$(($blocks2*1024))
+size1=20000
+size2=10000
+#size1=$(($blocks1*1024))
+#size2=$(($blocks2*1024))
 
-for i in `seq $nmincpus1 2 $(($nmaxcpus-1))`
+for i in `seq $nmincpus1 1 $(($nmaxcpus-1))`
 do
     if [ $i -gt $(($nmaxcpus-$nmincpus2)) ]
     then

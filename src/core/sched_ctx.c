@@ -199,6 +199,7 @@ static void _starpu_remove_sched_ctx_from_worker(struct starpu_worker_s *workera
 		  {
 			workerarg->sched_ctx[i] = NULL;
 			to_remove = 1;
+			break;
 		  }
 	  }
 	
@@ -208,27 +209,38 @@ static void _starpu_remove_sched_ctx_from_worker(struct starpu_worker_s *workera
 	return;
 }
 
+static void _starpu_manage_delete_sched_ctx(struct starpu_sched_ctx *sched_ctx)
+{
+	int nworkers = sched_ctx->nworkers_in_ctx;
+	int workerid;
+	int i;
+	for(i = 0; i < nworkers; i++)
+	  {
+	    workerid = sched_ctx->workerid[i];
+	    struct starpu_worker_s *workerarg = _starpu_get_worker_struct(workerid);
+	    _starpu_remove_sched_ctx_from_worker(workerarg, sched_ctx);
+	  }
+	
+	free(sched_ctx->sched_policy);
+	free(sched_ctx->sched_mutex);
+	free(sched_ctx->sched_cond);
+	sched_ctx->sched_policy = NULL;
+	struct starpu_machine_config_s *config = _starpu_get_machine_config();
+	config->topology.nsched_ctxs--;
+
+}
 void starpu_delete_sched_ctx(unsigned sched_ctx_id)
 {
 	if(!starpu_wait_for_all_tasks_of_sched_ctx(sched_ctx_id))
 	  {
+
 		struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 
-		int nworkers = sched_ctx->nworkers_in_ctx;
-		int workerid;
-
-		int i;
-		for(i = 0; i < nworkers; i++)
-		  {
-			workerid = sched_ctx->workerid[i];
-			struct starpu_worker_s *workerarg = _starpu_get_worker_struct(workerid);
-			_starpu_remove_sched_ctx_from_worker(workerarg, sched_ctx);
-		  }
-	
-		free(sched_ctx->sched_policy);
-		free(sched_ctx->sched_mutex);
-		free(sched_ctx->sched_cond);
-		sched_ctx->sched_policy = NULL;
+		/* block the workers until the contex is switched */
+		set_changing_ctx_flag(STATUS_CHANGING_CTX, sched_ctx->nworkers_in_ctx, sched_ctx->workerid);
+		_starpu_manage_delete_sched_ctx(sched_ctx);
+		/* also wait the workers to wake up before using the context */
+		set_changing_ctx_flag(STATUS_UNKNOWN, sched_ctx->nworkers_in_ctx, sched_ctx->workerid);
 	  }		
 	return;	
 }
@@ -241,7 +253,13 @@ void _starpu_delete_all_sched_ctxs()
 
 	for(i = 0; i < nsched_ctxs; i++)
 	  {
-	    starpu_delete_sched_ctx((int)i);
+	    if(!starpu_wait_for_all_tasks_of_sched_ctx(i))
+	      {
+
+		struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(i);
+
+		_starpu_manage_delete_sched_ctx(sched_ctx);
+	      }		
 	  }
 	return;
 }
@@ -350,8 +368,11 @@ static void _starpu_add_workers_to_sched_ctx(int *workerids_in_ctx, int nworkeri
 				  }
 			  }
 		  }
-		sched_ctx->nworkers_in_ctx = nworkerids_in_ctx;
+		sched_ctx->nworkers_in_ctx += nworkerids_in_ctx;
 	  }
+
+	sched_ctx->sched_policy->init_sched_for_workers(sched_ctx->sched_ctx_id, nworkerids_in_ctx);
+
 	return;
 }
 
