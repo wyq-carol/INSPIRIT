@@ -16,7 +16,7 @@ typedef struct {
   double avg_timing;
 } retvals;
 
-#define NSAMPLES 3
+#define NSAMPLES 5
 int first = 1;
 pthread_mutex_t mut;
 

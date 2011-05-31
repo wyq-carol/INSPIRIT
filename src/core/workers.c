@@ -348,6 +348,7 @@ int starpu_init(struct starpu_conf *user_conf)
 	 * initialization */
 	config.user_conf = user_conf;
 
+	_starpu_init_sched_ctx(&config);
 	ret = _starpu_build_topology(&config);
 	if (ret) {
 		PTHREAD_MUTEX_LOCK(&init_mutex);
@@ -633,7 +634,7 @@ struct starpu_worker_s *_starpu_get_worker_struct(unsigned id)
 
 struct starpu_sched_ctx *_starpu_get_sched_ctx(unsigned id)
 {
-	STARPU_ASSERT(id <= config.topology.nsched_ctxs);
+	STARPU_ASSERT(id <= STARPU_NMAX_SCHED_CTXS);
 	return &config.sched_ctxs[id];
 }
 
