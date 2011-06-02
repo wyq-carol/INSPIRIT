@@ -326,7 +326,14 @@ void starpu_delete_sched_ctx(unsigned sched_ctx_id, unsigned inheritor_sched_ctx
 		/* block the workers until the contex is switched */
 		set_changing_ctx_flag(STATUS_CHANGING_CTX, sched_ctx->nworkers_in_ctx, sched_ctx->workerid);
 		_starpu_manage_delete_sched_ctx(sched_ctx);
-		_starpu_add_workers_to_sched_ctx(sched_ctx->workerid, sched_ctx->nworkers_in_ctx, inheritor_sched_ctx);
+
+		/*if both of them have all the ressources is pointless*/
+		/*trying to transfer ressources from one ctx to the other*/
+		struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
+		int ntotal_workers = config->topology.nworkers;
+
+		if(!(sched_ctx->nworkers_in_ctx == ntotal_workers && sched_ctx->nworkers_in_ctx == inheritor_sched_ctx->nworkers_in_ctx))
+		  _starpu_add_workers_to_sched_ctx(sched_ctx->workerid, sched_ctx->nworkers_in_ctx, inheritor_sched_ctx);
 		/* also wait the workers to wake up before using the context */
 		set_changing_ctx_flag(STATUS_UNKNOWN, sched_ctx->nworkers_in_ctx, sched_ctx->workerid);
 	  }		
