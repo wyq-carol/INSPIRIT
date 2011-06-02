@@ -42,8 +42,8 @@ void* func_cholesky(void *val){
   pthread_mutex_lock(&mut);
   if(first)
     {
-      starpu_delete_sched_ctx(p->ctx);
-      starpu_add_workers_to_sched_ctx(p->procs, p->ncpus, the_other_ctx);
+      starpu_delete_sched_ctx(p->ctx, the_other_ctx);
+      //      starpu_add_workers_to_sched_ctx(p->procs, p->ncpus, the_other_ctx);
     }
   first = 0;
   pthread_mutex_unlock(&mut);
@@ -54,24 +54,38 @@ void* func_cholesky(void *val){
   return (void*)rv;
 }
 
-void cholesky_vs_cholesky(params *p1, params *p2, params *p3, int ncpus1, int ncpus2){
+void cholesky_vs_cholesky(params *p1, params *p2, params *p3, 
+			  unsigned cpu_start1, unsigned cpu_start2,
+			  unsigned cpu_end1, unsigned cpu_end2){
+  int ncpus1 = cpu_end1 - cpu_start1;
+  int ncpus2 = cpu_end2 - cpu_start2;
+
   /* 2 cholesky in different ctxs */
   starpu_init(NULL);
   starpu_helper_cublas_init();
 
   int procs[ncpus1];
   int i;
-  for(i = 0; i < ncpus1; i++)
-    procs[i] = i;
-
+  int k = 0;
+  for(i = cpu_start1; i < cpu_end1; i++)
+    {
+      printf("%d ", i);
+      procs[k++] = i;
+    }
+  printf("\n");
   p1->ctx = starpu_create_sched_ctx("heft", procs, ncpus1, "cholesky1");
   p2->the_other_ctx = (int)p1->ctx;
   p1->procs = procs;
   p1->ncpus = ncpus1;
   int procs2[ncpus2];
 
-  for(i = 0; i < ncpus2; i++)
-    procs2[i] = ncpus1+i;
+  k = 0;
+  for(i = cpu_start2; i < cpu_end2; i++){
+    printf("%d ", i);
+    procs2[k++] = i;
+  }
+
+  printf("\n");
 
   p2->ctx = starpu_create_sched_ctx("heft", procs2, ncpus2, "cholesky2");
   p1->the_other_ctx = (int)p2->ctx;
@@ -115,22 +129,33 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3, int ncpus1, int nc
 
 int main(int argc, char **argv)
 {
-  //  printf("argc = %d\n", argc);
-  int ncpus1=0, ncpus2=0;
+  unsigned cpu_start1 = 0, cpu_end1 = 0, cpu_start2 = 0, cpu_end2 = 0;
+
   int i;
   
   for (i = 9; i < argc; i++) {
-    if (strcmp(argv[i], "-ncpus1") == 0) {
+    if (strcmp(argv[i], "-cpu_start1") == 0) {
       char *argptr;
-      ncpus1 = strtol(argv[++i], &argptr, 10);
+      cpu_start1 = strtol(argv[++i], &argptr, 10);
     }
     
-    if (strcmp(argv[i], "-ncpus2") == 0) {
+    if (strcmp(argv[i], "-cpu_start2") == 0) {
       char *argptr;
-      ncpus2 = strtol(argv[++i], &argptr, 10);
+      cpu_start2 = strtol(argv[++i], &argptr, 10);
     }    
+
+    if (strcmp(argv[i], "-cpu_end1") == 0) {
+      char *argptr;
+      cpu_end1 = strtol(argv[++i], &argptr, 10);
+    }
+    
+    if (strcmp(argv[i], "-cpu_end2") == 0) {
+      char *argptr;
+      cpu_end2 = strtol(argv[++i], &argptr, 10);
+    }    
+
   }
-  //  printf("%d %d\n", ncpus1, ncpus2);
+
   params p1;
   p1.start = 1;
   p1.argc = 5;
@@ -145,7 +170,7 @@ int main(int argc, char **argv)
   p3.argc = argc;
   p3.argv = argv;
   p3.ctx = 0;
-  cholesky_vs_cholesky(&p1, &p2,&p3, ncpus1, ncpus2);
+  cholesky_vs_cholesky(&p1, &p2,&p3, cpu_start1, cpu_start2, cpu_end1, cpu_end2);
 
   return 0;
 }

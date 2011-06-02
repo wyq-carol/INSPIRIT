@@ -246,8 +246,8 @@ static int _starpu_push_task_on_specific_worker(struct starpu_task *task, int wo
 		starpu_prefetch_task_input_on_node(task, memory_node);
 
 	unsigned i;
-	for(i = 0; i < worker->nctxs; i++){
-		if (worker->sched_ctx[i]->sched_policy->push_task_notify){
+	for(i = 0; i < STARPU_NMAX_SCHED_CTXS; i++){
+		if (worker->sched_ctx[i] != NULL && worker->sched_ctx[i]->sched_policy->push_task_notify){
 		  worker->sched_ctx[i]->sched_policy->push_task_notify(task, workerid, worker->sched_ctx[i]->sched_ctx_id);
 		}
 	}
@@ -343,18 +343,21 @@ struct starpu_task *_starpu_pop_task(struct starpu_worker_s *worker)
 		pthread_mutex_t *sched_mutex_ctx;
 
 		unsigned i;
-		for(i = 0; i < worker->nctxs; i++)
+		for(i = 0; i < STARPU_NMAX_SCHED_CTXS; i++)
 		  {
 			sched_ctx = worker->sched_ctx[i];
-			sched_mutex_ctx = _starpu_get_sched_mutex(sched_ctx, worker->workerid);
-			PTHREAD_MUTEX_LOCK(sched_mutex_ctx);
-			if (sched_ctx->sched_policy->pop_task)
+			if(sched_ctx != NULL)
 			  {
+			    sched_mutex_ctx = _starpu_get_sched_mutex(sched_ctx, worker->workerid);
+			    PTHREAD_MUTEX_LOCK(sched_mutex_ctx);
+			    if (sched_ctx->sched_policy->pop_task)
+			      {
 				task = sched_ctx->sched_policy->pop_task(sched_ctx->sched_ctx_id);
 				PTHREAD_MUTEX_UNLOCK(sched_mutex_ctx);
 				break;
+			      }
+			    PTHREAD_MUTEX_UNLOCK(sched_mutex_ctx);
 			  }
-			PTHREAD_MUTEX_UNLOCK(sched_mutex_ctx);
 		  }
 	  }
 

@@ -106,7 +106,7 @@ struct starpu_sched_policy_s {
 
 unsigned starpu_create_sched_ctx(const char *policy_name, int *workerids_in_ctx, int nworkerids_in_ctx, const char *sched_name);
 
-void starpu_delete_sched_ctx(unsigned sched_ctx_id);
+void starpu_delete_sched_ctx(unsigned sched_ctx_id, unsigned inheritor_sched_ctx_id);
 
 void starpu_add_workers_to_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, unsigned sched_ctx);
 

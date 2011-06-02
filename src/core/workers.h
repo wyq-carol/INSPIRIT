@@ -76,6 +76,7 @@ struct starpu_worker_s {
 	unsigned worker_is_running;
 	unsigned worker_is_initialized;
 	starpu_worker_status status; /* what is the worker doing now ? (eg. CALLBACK) */
+	starpu_worker_status blocking_status; /* blocked or not */
 	char name[32];
 
 	struct starpu_sched_ctx **sched_ctx;

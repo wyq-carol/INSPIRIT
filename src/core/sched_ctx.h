@@ -58,6 +58,8 @@ struct starpu_sched_ctx {
 	pthread_mutex_t **sched_mutex;
 };
 
+void _starpu_init_sched_ctx_for_worker(unsigned workerid);
+
 unsigned _starpu_create_sched_ctx(const char *policy_name, int *workerid, int nworkerids, unsigned is_init_sched, const char *sched_name);
 
 void _starpu_delete_all_sched_ctxs();

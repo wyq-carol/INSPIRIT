@@ -161,7 +161,7 @@ void *_starpu_cpu_worker(void *arg)
 		/*when contex is changing block the threads belonging to it*/
 		PTHREAD_MUTEX_LOCK(changing_ctx_mutex);
 
-		if(cpu_arg->status == STATUS_CHANGING_CTX){
+		if(cpu_arg->blocking_status == STATUS_CHANGING_CTX){
 			_starpu_increment_nblocked_ths(cpu_arg->nworkers_of_next_ctx);
 			_starpu_block_worker(workerid, changing_ctx_cond, changing_ctx_mutex);
 			_starpu_decrement_nblocked_ths();
@@ -172,7 +172,6 @@ void *_starpu_cpu_worker(void *arg)
 		/* take the mutex inside pop because it depends what mutex:
 		   the one of the local task or the one of one of the strategies */
 		task = _starpu_pop_task(cpu_arg);
-
                 if (!task) 
 		{
 			PTHREAD_MUTEX_LOCK(sched_mutex);
