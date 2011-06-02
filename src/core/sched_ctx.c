@@ -301,7 +301,7 @@ static void _starpu_add_workers_to_sched_ctx(int *new_workers, int nnew_workers,
 			if(!_starpu_worker_belongs_to_ctx(new_workers[i], sched_ctx))
 			  {
 			    /* add worker to context */
-			    sched_ctx->workerid[ nworkerids_already_in_ctx + i] = new_workers[i];
+			    sched_ctx->workerid[ nworkerids_already_in_ctx + n_added_workers] = new_workers[i];
 			    /* add context to worker */
 			    workerarg->sched_ctx[_starpu_get_first_free_sched_ctx_in_worker_list(workerarg)] = sched_ctx;
 			    n_added_workers++;
