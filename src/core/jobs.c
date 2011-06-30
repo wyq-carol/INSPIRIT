@@ -227,6 +227,7 @@ void _starpu_handle_job_termination(starpu_job_t j, unsigned job_is_already_lock
 		/* We reuse the same job structure */
 		int ret = _starpu_submit_job(j, 1);
 		STARPU_ASSERT(!ret);
+		printf("did not decrement\n");
 	}	
 	else {
 		_starpu_decrement_nsubmitted_tasks();

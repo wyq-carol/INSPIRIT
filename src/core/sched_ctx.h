@@ -3,7 +3,7 @@
  * Copyright (C) 2010  Université de Bordeaux 1
  *
  * StarPU is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation; either version 2.1 of the License, or (at
  * your option) any later version.
  *
@@ -19,6 +19,9 @@
 
 #include <starpu.h>
 #include <starpu_scheduler.h>
+#include <common/config.h>
+#include <common/barrier_counter.h>
+#include <profiling/profiling.h>
 
 struct starpu_sched_ctx {
 	/* id of the context used in user mode*/
@@ -42,14 +45,8 @@ struct starpu_sched_ctx {
 	/* we keep an initial sched which we never delete */
 	unsigned is_initial_sched; 
 
-	/* cond used for no of submitted tasks to a sched_ctx */
-	pthread_cond_t submitted_cond; 
-	
-	/* mut used for no of submitted tasks to a sched_ctx */
-	pthread_mutex_t submitted_mutex; 
-	
-	/* counter used for no of submitted tasks to a sched_ctx */
-	int nsubmitted;	 
+	/* wait for the tasks submitted to the context to be executed */
+	struct _starpu_barrier_counter_t tasks_barrier;
 
 	/* table of sched cond corresponding to each worker in this ctx */
 	pthread_cond_t **sched_cond;
@@ -58,14 +55,24 @@ struct starpu_sched_ctx {
 	pthread_mutex_t **sched_mutex;
 };
 
+struct starpu_machine_config_s;
+/* init sched_ctx_id of all contextes*/
+void _starpu_init_all_sched_ctx(struct starpu_machine_config_s *config);
+
+/* init the list of contextes of the worker */
 void _starpu_init_sched_ctx_for_worker(unsigned workerid);
 
+/* allocate all structures belonging to a context */
 unsigned _starpu_create_sched_ctx(const char *policy_name, int *workerid, int nworkerids, unsigned is_init_sched, const char *sched_name);
 
+/* delete all sched_ctx */
 void _starpu_delete_all_sched_ctxs();
 
-void _starpu_increment_nblocked_ths(int nworkers);
+/* Workers are blocked when constructing or modifying a context */
+void _starpu_increment_nblocked_ths(void);
 void _starpu_decrement_nblocked_ths(void);
+int _starpu_wait_for_all_threads_to_block(void);
+int _starpu_wait_for_all_threads_to_wake_up(void);
 
 /* Keeps track of the number of tasks currently submitted to a worker */
 void _starpu_decrement_nsubmitted_tasks_of_worker(int workerid);

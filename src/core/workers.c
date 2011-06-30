@@ -151,10 +151,7 @@ static void _starpu_launch_drivers(struct starpu_machine_config_s *config)
 		PTHREAD_MUTEX_INIT(&workerarg->changing_ctx_mutex, NULL);
 		PTHREAD_COND_INIT(&workerarg->changing_ctx_cond, NULL);
 
-		workerarg->nsubmitted = 0;
-		PTHREAD_COND_INIT(&workerarg->submitted_cond, NULL);
-		PTHREAD_MUTEX_INIT(&workerarg->submitted_mutex, NULL);
-
+		_starpu_barrier_counter_init(&workerarg->tasks_barrier, 0);
 
 		PTHREAD_MUTEX_INIT(&workerarg->mutex, NULL);
 		PTHREAD_COND_INIT(&workerarg->ready_cond, NULL);
@@ -348,7 +345,7 @@ int starpu_init(struct starpu_conf *user_conf)
 	 * initialization */
 	config.user_conf = user_conf;
 
-	_starpu_init_sched_ctx(&config);
+	_starpu_init_all_sched_ctx(&config);
 	ret = _starpu_build_topology(&config);
 	if (ret) {
 		PTHREAD_MUTEX_LOCK(&init_mutex);
