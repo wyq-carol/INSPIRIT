@@ -44,10 +44,15 @@ static void heft_init_for_workers(unsigned sched_ctx_id, int nnew_workers)
 	unsigned nworkers_ctx = sched_ctx->nworkers_in_ctx;
 	heft_data *hd = (heft_data*)sched_ctx->policy_data;
 
-	unsigned initial_nworkers = nworkers_ctx - nnew_workers;
+	//	unsigned initial_nworkers = nworkers_ctx - nnew_workers;
+	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
+
+	unsigned ntotal_workers = config->topology.nworkers;
+
+	unsigned all_workers = nnew_workers == ntotal_workers ? ntotal_workers : nworkers_ctx + nnew_workers;
 
 	unsigned workerid_ctx;
-	for (workerid_ctx = initial_nworkers; workerid_ctx < nworkers_ctx; workerid_ctx++)
+	for (workerid_ctx = nworkers_ctx; workerid_ctx < all_workers; workerid_ctx++)
 	  {
 	    hd->exp_start[workerid_ctx] = starpu_timing_now();
 	    hd->exp_len[workerid_ctx] = 0.0;
@@ -59,6 +64,7 @@ static void heft_init_for_workers(unsigned sched_ctx_id, int nnew_workers)
 	    PTHREAD_MUTEX_INIT(sched_ctx->sched_mutex[workerid_ctx], NULL);
 	    PTHREAD_COND_INIT(sched_ctx->sched_cond[workerid_ctx], NULL);
 	  }
+	sched_ctx->nworkers_in_ctx = all_workers;
 }
 static void heft_init(unsigned sched_ctx_id)
 {
@@ -180,6 +186,7 @@ static int push_task_on_best_worker(struct starpu_task *task, int best_workerid,
 		unsigned memory_node = starpu_worker_get_memory_node(best_workerid);
 		starpu_prefetch_task_input_on_node(task, memory_node);
 	}
+	
 	return starpu_push_local_task(best_workerid, task, prio);
 }
 
@@ -329,6 +336,7 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio, unsigned sch
 	for (worker_in_ctx = 0; worker_in_ctx < nworkers_in_ctx; worker_in_ctx++)
 	{
 		worker = sched_ctx->workerid[worker_in_ctx];
+
 		if (!starpu_worker_may_execute_task(worker, task))
 		{
 			/* no one on that queue may execute this task */

@@ -93,6 +93,7 @@ noinst_HEADERS = 						\
 	common/fxt.h						\
 	common/utils.h						\
 	common/barrier.h					\
+	common/barrier_counter.h				\
 	drivers/driver_common/driver_common.h			\
 	drivers/cpu/driver_cpu.h				\
 	drivers/gordon/driver_gordon.h				\
@@ -108,6 +109,7 @@ noinst_HEADERS = 						\
 
 libstarpu_la_SOURCES = 						\
 	common/barrier.c					\
+	common/barrier_counter.c					\
 	common/hash.c 						\
 	common/htable32.c					\
 	common/rwlock.c						\

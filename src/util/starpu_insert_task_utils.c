@@ -201,7 +201,6 @@ static void _starpu_prepare_task(char *arg_buffer, starpu_codelet *cl, struct st
 int _starpu_insert_task_create_and_submit(char *arg_buffer, starpu_codelet *cl, struct starpu_task **task, va_list varg_list) {
 	unsigned ctx = 0;
 	_starpu_prepare_task(arg_buffer, cl, task, varg_list, &ctx);
-	
 	 int ret = ctx == 0 ? starpu_task_submit(*task) : starpu_task_submit_to_ctx(*task, ctx);
 
 	if (STARPU_UNLIKELY(ret == -ENODEV))
