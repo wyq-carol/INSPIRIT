@@ -16,7 +16,7 @@ typedef struct {
   double avg_timing;
 } retvals;
 
-#define NSAMPLES 5
+#define NSAMPLES 3
 int first = 1;
 pthread_mutex_t mut;
 
@@ -40,11 +40,10 @@ void* func_cholesky(void *val){
 
 
   pthread_mutex_lock(&mut);
-  if(first)
-    {
+  if(first){
       starpu_delete_sched_ctx(p->ctx, the_other_ctx);
-      //      starpu_add_workers_to_sched_ctx(p->procs, p->ncpus, the_other_ctx);
-    }
+  }
+
   first = 0;
   pthread_mutex_unlock(&mut);
  
@@ -55,10 +54,13 @@ void* func_cholesky(void *val){
 }
 
 void cholesky_vs_cholesky(params *p1, params *p2, params *p3, 
-			  unsigned cpu_start1, unsigned cpu_start2,
-			  unsigned cpu_end1, unsigned cpu_end2){
-  int ncpus1 = cpu_end1 - cpu_start1;
-  int ncpus2 = cpu_end2 - cpu_start2;
+			  //			  unsigned cpu_start1, unsigned cpu_start2,
+			  //			  unsigned cpu_end1, unsigned cpu_end2,
+			  unsigned cpu1, unsigned cpu2,
+			  unsigned gpu, unsigned gpu1, unsigned gpu2){
+
+  int ncpus1 = cpu1 + gpu + gpu1;
+  int ncpus2 = cpu2 + gpu + gpu2;
 
   /* 2 cholesky in different ctxs */
   starpu_init(NULL);
@@ -67,12 +69,26 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
   int procs[ncpus1];
   int i;
   int k = 0;
-  for(i = cpu_start1; i < cpu_end1; i++)
+
+  for(i = 0; i < gpu; i++)
     {
-      printf("%d ", i);
       procs[k++] = i;
+      //      printf("%d ", i);
     }
-  printf("\n");
+
+  for(i = gpu; i < gpu + gpu1; i++)
+    {
+      procs[k++] = i;
+      //      printf("%d ", i);
+    }
+
+  for(i = 3; i < 3 + cpu1; i++)
+    {
+      procs[k++] = i;
+      //  printf("%d ", i);
+    }
+  //  printf("\n");
+
   p1->ctx = starpu_create_sched_ctx("heft", procs, ncpus1, "cholesky1");
   p2->the_other_ctx = (int)p1->ctx;
   p1->procs = procs;
@@ -80,12 +96,23 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
   int procs2[ncpus2];
 
   k = 0;
-  for(i = cpu_start2; i < cpu_end2; i++){
-    printf("%d ", i);
+
+  for(i = 0; i < gpu; i++){
     procs2[k++] = i;
+    //printf("%d ", i);
   }
 
-  printf("\n");
+  for(i = gpu + gpu1; i < gpu + gpu1 + gpu2; i++){
+    procs2[k++] = i;
+    //    printf("%d ", i);
+  }
+
+  for(i = 3  + cpu1; i < 3 + cpu1 + cpu2; i++){
+    procs2[k++] = i;
+    //    printf("%d ", i);
+  }
+
+  //   printf("\n");
 
   p2->ctx = starpu_create_sched_ctx("heft", procs2, ncpus2, "cholesky2");
   p1->the_other_ctx = (int)p2->ctx;
@@ -119,40 +146,49 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
   
   double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
   timing /= 1000000;
-  timing /= 60;
+  //  timing /= 60;
 
   printf("%2.2f %2.2f ", ((retvals*)gflops_cholesky1)->flops, ((retvals*)gflops_cholesky2)->flops);
   printf("%2.2f %2.2f %2.2f\n", ((retvals*)gflops_cholesky1)->avg_timing, ((retvals*)gflops_cholesky2)->avg_timing, timing);
-
+  //printf("%2.2f %2.2f ", ((retvals*)gflops_cholesky1)->flops, 0.0 );    
+  //  printf("%2.2f %2.2f %2.2f\n", ((retvals*)gflops_cholesky1)->avg_timing, 0.0, timing);
 
 }
 
 int main(int argc, char **argv)
 {
-  unsigned cpu_start1 = 0, cpu_end1 = 0, cpu_start2 = 0, cpu_end2 = 0;
+  unsigned cpu1 = 0, cpu2 = 0;
 
+  unsigned gpu = 0, gpu1 = 0, gpu2 = 0;
   int i;
   
   for (i = 9; i < argc; i++) {
-    if (strcmp(argv[i], "-cpu_start1") == 0) {
+
+    if (strcmp(argv[i], "-cpu1") == 0) {
       char *argptr;
-      cpu_start1 = strtol(argv[++i], &argptr, 10);
-    }
-    
-    if (strcmp(argv[i], "-cpu_start2") == 0) {
-      char *argptr;
-      cpu_start2 = strtol(argv[++i], &argptr, 10);
+      cpu1 = strtol(argv[++i], &argptr, 10);
     }    
 
-    if (strcmp(argv[i], "-cpu_end1") == 0) {
+    if (strcmp(argv[i], "-cpu2") == 0) {
       char *argptr;
-      cpu_end1 = strtol(argv[++i], &argptr, 10);
-    }
-    
-    if (strcmp(argv[i], "-cpu_end2") == 0) {
-      char *argptr;
-      cpu_end2 = strtol(argv[++i], &argptr, 10);
+      cpu2 = strtol(argv[++i], &argptr, 10);
     }    
+
+    if (strcmp(argv[i], "-gpu") == 0) {
+      char *argptr;
+      gpu = strtol(argv[++i], &argptr, 10);
+    }    
+
+    if (strcmp(argv[i], "-gpu1") == 0) {
+      char *argptr;
+      gpu1 = strtol(argv[++i], &argptr, 10);
+    }    
+
+    if (strcmp(argv[i], "-gpu2") == 0) {
+      char *argptr;
+      gpu2 = strtol(argv[++i], &argptr, 10);
+    }    
+
 
   }
 
@@ -170,7 +206,7 @@ int main(int argc, char **argv)
   p3.argc = argc;
   p3.argv = argv;
   p3.ctx = 0;
-  cholesky_vs_cholesky(&p1, &p2,&p3, cpu_start1, cpu_start2, cpu_end1, cpu_end2);
+  cholesky_vs_cholesky(&p1, &p2,&p3, cpu1, cpu2, gpu, gpu1, gpu2);
 
   return 0;
 }
