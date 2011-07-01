@@ -312,7 +312,19 @@ int _starpu_push_task(starpu_job_t j, unsigned job_is_already_locked)
 	else {
 		struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(task->sched_ctx);
 		STARPU_ASSERT(sched_ctx->sched_policy->push_task);
+		/* update the number of threads of the context before pushing a task to 
+		   the context in order to avoid doing it during the computation of the
+		   best worker */
+		PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
+		if(sched_ctx->temp_nworkers_in_ctx != -1)
+		  {
+		    sched_ctx->nworkers_in_ctx = sched_ctx->temp_nworkers_in_ctx;
+		    sched_ctx->temp_nworkers_in_ctx = -1;
+		  }
+		/* don't push task on ctx at the same time workers are removed from ctx */
 		ret = sched_ctx->sched_policy->push_task(task, sched_ctx->sched_ctx_id);
+		PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
+		
 	}
 
 	_starpu_profiling_set_task_push_end_time(task);
@@ -340,24 +352,28 @@ struct starpu_task *_starpu_pop_task(struct starpu_worker_s *worker)
 	if(!task)
 	  {
 		struct starpu_sched_ctx *sched_ctx;
-		pthread_mutex_t *sched_mutex_ctx;
+		pthread_mutex_t *sched_ctx_mutex;
 
 		unsigned i;
 		for(i = 0; i < STARPU_NMAX_SCHED_CTXS; i++)
 		  {
-			sched_ctx = worker->sched_ctx[i];
-			if(sched_ctx != NULL)
+		    sched_ctx = worker->sched_ctx[i];
+		    
+		    if(sched_ctx != NULL)
+		      {
+			sched_ctx_mutex = _starpu_get_sched_mutex(sched_ctx, worker->workerid);
+			if(sched_ctx_mutex != NULL)
 			  {
-			    sched_mutex_ctx = _starpu_get_sched_mutex(sched_ctx, worker->workerid);
-			    PTHREAD_MUTEX_LOCK(sched_mutex_ctx);
+			    PTHREAD_MUTEX_LOCK(sched_ctx_mutex);
 			    if (sched_ctx->sched_policy->pop_task)
 			      {
 				task = sched_ctx->sched_policy->pop_task(sched_ctx->sched_ctx_id);
-				PTHREAD_MUTEX_UNLOCK(sched_mutex_ctx);
+				PTHREAD_MUTEX_UNLOCK(sched_ctx_mutex);
 				break;
 			      }
-			    PTHREAD_MUTEX_UNLOCK(sched_mutex_ctx);
+			    PTHREAD_MUTEX_UNLOCK(sched_ctx_mutex);
 			  }
+		      }
 		  }
 	  }
 

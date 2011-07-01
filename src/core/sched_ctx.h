@@ -42,6 +42,12 @@ struct starpu_sched_ctx {
 	/* number of threads in contex */
 	int nworkers_in_ctx; 
 
+	/* temporary variable for number of threads in contex */
+	int temp_nworkers_in_ctx; 
+  
+	/* mutext for temp_nworkers_in_ctx*/
+	pthread_mutex_t changing_ctx_mutex;
+
 	/* we keep an initial sched which we never delete */
 	unsigned is_initial_sched; 
 
