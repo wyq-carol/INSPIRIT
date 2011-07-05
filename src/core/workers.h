@@ -87,6 +87,9 @@ struct starpu_worker_s {
 	int nworkers_of_next_ctx;
 
 	struct _starpu_barrier_counter_t tasks_barrier; /* wait for the tasks submitted */
+
+	/* block workers to update their affiliation to a context */
+	struct _starpu_barrier_counter_t *workers_barrier[STARPU_NMAX_SCHED_CTXS];
        
 #ifdef __GLIBC__
 	cpu_set_t initial_cpu_set;

@@ -23,6 +23,13 @@ int _starpu_barrier_counter_init(struct _starpu_barrier_counter_t *barrier_c, in
 	return 0;
 }
 
+int _starpu_barrier_counter_update(struct _starpu_barrier_counter_t *barrier_c, int count)
+{
+	barrier_c->barrier.count = count;
+	barrier_c->barrier.reached = 0;
+	return 0;
+}
+
 int _starpu_barrier_counter_destroy(struct _starpu_barrier_counter_t *barrier_c)
 {
 	_starpu_barrier_destroy(&barrier_c->barrier);

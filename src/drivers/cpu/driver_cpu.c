@@ -162,9 +162,9 @@ void *_starpu_cpu_worker(void *arg)
 		PTHREAD_MUTEX_LOCK(changing_ctx_mutex);
 
 		if(cpu_arg->blocking_status == STATUS_CHANGING_CTX){
-			_starpu_increment_nblocked_ths();
+			_starpu_increment_nblocked_ths(cpu_arg->workers_barrier);
 			_starpu_block_worker(workerid, changing_ctx_cond, changing_ctx_mutex);
-			_starpu_decrement_nblocked_ths();
+			_starpu_decrement_nblocked_ths(cpu_arg->workers_barrier);
 		}
 
 		PTHREAD_MUTEX_UNLOCK(changing_ctx_mutex);

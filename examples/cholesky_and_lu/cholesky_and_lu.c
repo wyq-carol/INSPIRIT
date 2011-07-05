@@ -79,15 +79,15 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
   for(i = gpu; i < gpu + gpu1; i++)
     {
       procs[k++] = i;
-      //      printf("%d ", i);
+      //printf("%d ", i);
     }
 
   for(i = 3; i < 3 + cpu1; i++)
     {
       procs[k++] = i;
-      //  printf("%d ", i);
+      //printf("%d ", i);
     }
-  //  printf("\n");
+  //printf("\n");
 
   p1->ctx = starpu_create_sched_ctx("heft", procs, ncpus1, "cholesky1");
   p2->the_other_ctx = (int)p1->ctx;
@@ -99,7 +99,7 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
 
   for(i = 0; i < gpu; i++){
     procs2[k++] = i;
-    //printf("%d ", i);
+    //    printf("%d ", i);
   }
 
   for(i = gpu + gpu1; i < gpu + gpu1 + gpu2; i++){
@@ -112,7 +112,7 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
     //    printf("%d ", i);
   }
 
-  //   printf("\n");
+  //  printf("\n");
 
   p2->ctx = starpu_create_sched_ctx("heft", procs2, ncpus2, "cholesky2");
   p1->the_other_ctx = (int)p2->ctx;

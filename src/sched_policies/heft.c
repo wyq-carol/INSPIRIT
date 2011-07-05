@@ -64,7 +64,11 @@ static void heft_init_for_workers(unsigned sched_ctx_id, int nnew_workers)
 	    PTHREAD_MUTEX_INIT(sched_ctx->sched_mutex[workerid_ctx], NULL);
 	    PTHREAD_COND_INIT(sched_ctx->sched_cond[workerid_ctx], NULL);
 	  }
-	sched_ctx->nworkers_in_ctx = all_workers;
+
+	/* take into account the new number of threads at the next push */
+	PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
+	sched_ctx->temp_nworkers_in_ctx = all_workers;
+	PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
 }
 static void heft_init(unsigned sched_ctx_id)
 {
