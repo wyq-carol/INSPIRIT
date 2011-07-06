@@ -246,7 +246,9 @@ void *_starpu_cuda_worker(void *arg)
 
 	_starpu_set_local_worker_key(args);
 
+	PTHREAD_MUTEX_LOCK(args->sched_mutex);
 	init_context(devid);
+	PTHREAD_MUTEX_UNLOCK(args->sched_mutex);
 
 	/* one more time to avoid hacks from third party lib :) */
 	_starpu_bind_thread_on_cpu(args->config, args->bindid);
@@ -296,10 +298,9 @@ void *_starpu_cuda_worker(void *arg)
 
                 PTHREAD_MUTEX_UNLOCK(changing_ctx_mutex);
 
-
 		task = _starpu_pop_task(args);
 
-                if (task == NULL) 
+                if (!task) 
 		{
 			PTHREAD_MUTEX_LOCK(sched_mutex);
 			if (_starpu_worker_can_block(memnode))
