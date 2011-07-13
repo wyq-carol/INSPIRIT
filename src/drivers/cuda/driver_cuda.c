@@ -246,9 +246,7 @@ void *_starpu_cuda_worker(void *arg)
 
 	_starpu_set_local_worker_key(args);
 
-	PTHREAD_MUTEX_LOCK(args->sched_mutex);
 	init_context(devid);
-	PTHREAD_MUTEX_UNLOCK(args->sched_mutex);
 
 	/* one more time to avoid hacks from third party lib :) */
 	_starpu_bind_thread_on_cpu(args->config, args->bindid);
@@ -278,25 +276,12 @@ void *_starpu_cuda_worker(void *arg)
 
 	pthread_cond_t *sched_cond = args->sched_cond;
         pthread_mutex_t *sched_mutex = args->sched_mutex;
-        pthread_cond_t *changing_ctx_cond = &args->changing_ctx_cond;
-        pthread_mutex_t *changing_ctx_mutex = &args->changing_ctx_mutex;
 
 	while (_starpu_machine_is_running())
 	{
 		STARPU_TRACE_START_PROGRESS(memnode);
 		_starpu_datawizard_progress(memnode, 1);
 		STARPU_TRACE_END_PROGRESS(memnode);
-
-		/*when contex is changing block the threads belonging to it*/
-                PTHREAD_MUTEX_LOCK(changing_ctx_mutex);
-
-                if(args->blocking_status == STATUS_CHANGING_CTX){
-			_starpu_increment_nblocked_ths(args->workers_barrier);
-			_starpu_block_worker(workerid, changing_ctx_cond, changing_ctx_mutex);
-			_starpu_decrement_nblocked_ths(args->workers_barrier);
-                }
-
-                PTHREAD_MUTEX_UNLOCK(changing_ctx_mutex);
 
 		task = _starpu_pop_task(args);
 
@@ -328,7 +313,23 @@ void *_starpu_cuda_worker(void *arg)
 
 		struct starpu_sched_ctx *local_sched_ctx = _starpu_get_sched_ctx(j->task->sched_ctx);
 
-		res = execute_job_on_cuda(j, args);
+		if(j && j->model_name && strcmp(j->model_name, "sched_ctx_info") == 0)
+		  {
+			struct starpu_task *task = j->task;
+			STARPU_ASSERT(task);
+			struct starpu_codelet_t *cl = task->cl;
+			STARPU_ASSERT(cl);
+
+			cl_func func = cl->cuda_func;
+			STARPU_ASSERT(func);
+			func(task->interface, task->cl_arg);
+
+		  }
+		else
+		  {
+		    res = execute_job_on_cuda(j, args);
+		  }
+
 
 		_starpu_set_current_task(NULL);
 

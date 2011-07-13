@@ -54,8 +54,6 @@ void* func_cholesky(void *val){
 }
 
 void cholesky_vs_cholesky(params *p1, params *p2, params *p3, 
-			  //			  unsigned cpu_start1, unsigned cpu_start2,
-			  //			  unsigned cpu_end1, unsigned cpu_end2,
 			  unsigned cpu1, unsigned cpu2,
 			  unsigned gpu, unsigned gpu1, unsigned gpu2){
 
@@ -88,6 +86,7 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
       //printf("%d ", i);
     }
   //printf("\n");
+
 
   p1->ctx = starpu_create_sched_ctx("heft", procs, ncpus1, "cholesky1");
   p2->the_other_ctx = (int)p1->ctx;
@@ -150,8 +149,8 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
 
   printf("%2.2f %2.2f ", ((retvals*)gflops_cholesky1)->flops, ((retvals*)gflops_cholesky2)->flops);
   printf("%2.2f %2.2f %2.2f\n", ((retvals*)gflops_cholesky1)->avg_timing, ((retvals*)gflops_cholesky2)->avg_timing, timing);
-  //printf("%2.2f %2.2f ", ((retvals*)gflops_cholesky1)->flops, 0.0 );    
-  //  printf("%2.2f %2.2f %2.2f\n", ((retvals*)gflops_cholesky1)->avg_timing, 0.0, timing);
+  /* printf("%2.2f %2.2f ", ((retvals*)gflops_cholesky1)->flops, 0.0 );     */
+  /*  printf("%2.2f %2.2f %2.2f\n", ((retvals*)gflops_cholesky1)->avg_timing, 0.0, timing); */
 
 }
 

@@ -148,9 +148,6 @@ void *_starpu_cpu_worker(void *arg)
 
 	pthread_cond_t *sched_cond = cpu_arg->sched_cond;
 	pthread_mutex_t *sched_mutex = cpu_arg->sched_mutex;
-	pthread_cond_t *changing_ctx_cond = &cpu_arg->changing_ctx_cond;
-	pthread_mutex_t *changing_ctx_mutex = &cpu_arg->changing_ctx_mutex;
-
 
 	while (_starpu_machine_is_running())
 	{
@@ -158,24 +155,14 @@ void *_starpu_cpu_worker(void *arg)
 		_starpu_datawizard_progress(memnode, 1);
 		STARPU_TRACE_END_PROGRESS(memnode);
 
-		/*when contex is changing block the threads belonging to it*/
-		PTHREAD_MUTEX_LOCK(changing_ctx_mutex);
-
-		if(cpu_arg->blocking_status == STATUS_CHANGING_CTX){
-			_starpu_increment_nblocked_ths(cpu_arg->workers_barrier);
-			_starpu_block_worker(workerid, changing_ctx_cond, changing_ctx_mutex);
-			_starpu_decrement_nblocked_ths(cpu_arg->workers_barrier);
-		}
-
-		PTHREAD_MUTEX_UNLOCK(changing_ctx_mutex);
-
 		/* take the mutex inside pop because it depends what mutex:
 		   the one of the local task or the one of one of the strategies */
 		task = _starpu_pop_task(cpu_arg);
+
                 if (!task) 
 		{
 			PTHREAD_MUTEX_LOCK(sched_mutex);
-			if (_starpu_worker_can_block(memnode))
+			if (_starpu_worker_can_block(memnode)){
 /* 			struct starpu_sched_ctx **sched_ctx = cpu_arg->sched_ctx; */
 /* 			int i = 0; */
 /* 			int sleep = 0; */
@@ -188,6 +175,7 @@ void *_starpu_cpu_worker(void *arg)
 
 /* 			if(sleep) */
 				_starpu_block_worker(workerid, sched_cond, sched_mutex);
+			}
 
 			PTHREAD_MUTEX_UNLOCK(sched_mutex);
 			continue;

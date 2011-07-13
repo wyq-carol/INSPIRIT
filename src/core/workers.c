@@ -235,7 +235,6 @@ static void _starpu_launch_drivers(struct starpu_machine_config_s *config)
 				workerarg->set = &gordon_worker_set;
 				gordon_worker_set.joined = 0;
 				workerarg->worker_is_running = 1;
-				printf("%d launched", workerarg->workerid);
 
 				break;
 #endif

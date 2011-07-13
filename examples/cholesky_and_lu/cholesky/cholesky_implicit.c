@@ -136,7 +136,6 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, unsigned sch
 
 	double flop = (1.0f*n*n*n)/3.0f;
 
-	//	printf("n= %2.2f\n", flop);
 	double gflops = (flop/(*timing)/1000.0f);
 	(*timing) /= 1000000.0f; //sec
 	//	(*timing) /= 60.0f; //min

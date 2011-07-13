@@ -246,11 +246,14 @@ static int _starpu_push_task_on_specific_worker(struct starpu_task *task, int wo
 		starpu_prefetch_task_input_on_node(task, memory_node);
 
 	unsigned i;
-	for(i = 0; i < STARPU_NMAX_SCHED_CTXS; i++){
-		if (worker->sched_ctx[i] != NULL && worker->sched_ctx[i]->sched_policy->push_task_notify){
-		  worker->sched_ctx[i]->sched_policy->push_task_notify(task, workerid, worker->sched_ctx[i]->sched_ctx_id);
-		}
-	}
+	for(i = 0; i < STARPU_NMAX_SCHED_CTXS; i++)
+	  {
+		if (worker->sched_ctx[i] != NULL && worker->sched_ctx[i]->sched_policy != NULL && 
+		    worker->sched_ctx[i]->sched_policy->push_task_notify)
+		  {
+			worker->sched_ctx[i]->sched_policy->push_task_notify(task, workerid, worker->sched_ctx[i]->sched_ctx_id);
+		  }
+	  }
 
 	if (is_basic_worker)
 	{
@@ -349,6 +352,8 @@ struct starpu_task *_starpu_pop_task(struct starpu_worker_s *worker)
 	task = _starpu_pop_local_task(worker);
 	PTHREAD_MUTEX_UNLOCK(worker->sched_mutex);
 
+
+	/* get tasks from the stacks of the strategy */
 	if(!task)
 	  {
 		struct starpu_sched_ctx *sched_ctx;
