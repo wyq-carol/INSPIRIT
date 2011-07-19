@@ -114,11 +114,11 @@ do
 	done
 
 
-	# if [ "$val" == "" ]
-	# then
-	#     echo "no val"
-	#     exec_nsamples=$(($exec_nsamples-1))
-	# fi
+	if [ "$val" == "" ]
+	then
+	    echo "no val"
+	    exec_nsamples=$(($exec_nsamples-1))
+	fi
 	
     done
 

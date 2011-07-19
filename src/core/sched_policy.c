@@ -366,6 +366,8 @@ struct starpu_task *_starpu_pop_task(struct starpu_worker_s *worker)
 		    
 		    if(sched_ctx != NULL)
 		      {
+			if(i > 2)
+			  printf("i = %d\n", i);
 			sched_ctx_mutex = _starpu_get_sched_mutex(sched_ctx, worker->workerid);
 			if(sched_ctx_mutex != NULL)
 			  {
