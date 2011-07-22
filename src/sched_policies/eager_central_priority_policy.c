@@ -40,14 +40,6 @@ struct starpu_priority_taskq_s {
 	unsigned total_ntasks;
 };
 
-/* the former is the actual queue, the latter some container */
-//static struct starpu_priority_taskq_s *taskq;
-
-/* keep track of the total number of tasks to be scheduled to avoid infinite 
- * polling when there are really few tasks in the overall queue */
-//static pthread_cond_t global_sched_cond;
-//static pthread_mutex_t global_sched_mutex;
-
 /*
  * Centralized queue with priorities 
  */
@@ -72,6 +64,29 @@ static struct starpu_priority_taskq_s *_starpu_create_priority_taskq(void)
 static void _starpu_destroy_priority_taskq(struct starpu_priority_taskq_s *priority_queue)
 {
 	free(priority_queue);
+}
+
+static void initialize_eager_center_priority_policy_for_workers(unsigned sched_ctx_id, unsigned nnew_workers) 
+{
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+	unsigned nworkers_ctx = sched_ctx->nworkers_in_ctx;
+
+	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
+	unsigned ntotal_workers = config->topology.nworkers;
+
+	unsigned all_workers = nnew_workers == ntotal_workers ? ntotal_workers : nworkers_ctx + nnew_workers;
+
+	unsigned workerid_ctx;
+	for (workerid_ctx = nworkers_ctx; workerid_ctx < all_workers; workerid_ctx++)
+	{
+		sched_ctx->sched_mutex[workerid_ctx] = sched_ctx->sched_mutex[0];
+		sched_ctx->sched_cond[workerid_ctx] = sched_ctx->sched_cond[0];
+	}
+
+	/* take into account the new number of threads at the next push */
+	PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
+	sched_ctx->temp_nworkers_in_ctx = all_workers;
+	PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
 }
 
 static void initialize_eager_center_priority_policy(unsigned sched_ctx_id) 
@@ -181,6 +196,7 @@ static struct starpu_task *_starpu_priority_pop_task(unsigned sched_ctx_id)
 
 struct starpu_sched_policy_s _starpu_sched_prio_policy = {
 	.init_sched = initialize_eager_center_priority_policy,
+	.init_sched_for_workers = initialize_eager_center_priority_policy_for_workers,
 	.deinit_sched = deinitialize_eager_center_priority_policy,
 	/* we always use priorities in that policy */
 	.push_task = _starpu_priority_push_task,

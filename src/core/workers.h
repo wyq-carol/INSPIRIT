@@ -76,20 +76,12 @@ struct starpu_worker_s {
 	unsigned worker_is_running;
 	unsigned worker_is_initialized;
 	starpu_worker_status status; /* what is the worker doing now ? (eg. CALLBACK) */
-	starpu_worker_status blocking_status; /* blocked or not */
 	char name[32];
 
 	struct starpu_sched_ctx **sched_ctx;
 	unsigned nctxs; /* the no of contexts a worker belongs to*/
-	unsigned changing_ctx;
-	pthread_mutex_t changing_ctx_mutex;
-	pthread_cond_t changing_ctx_cond;
-	int nworkers_of_next_ctx;
 
 	struct _starpu_barrier_counter_t tasks_barrier; /* wait for the tasks submitted */
-
-	/* block workers to update their affiliation to a context */
-	struct _starpu_barrier_counter_t *workers_barrier[STARPU_NMAX_SCHED_CTXS];
        
 #ifdef __GLIBC__
 	cpu_set_t initial_cpu_set;

@@ -20,21 +20,12 @@
 #include <core/workers.h>
 #include <sched_policies/deque_queues.h>
 
-//static unsigned nworkers;
-//static unsigned rr_worker;
-//static struct starpu_deque_jobq_s *queue_array[STARPU_NMAXWORKERS];
-
-/* static pthread_mutex_t global_sched_mutex; */
-/* static pthread_cond_t global_sched_cond; */
-
-/* keep track of the work performed from the beginning of the algorithm to make
- * better decisions about which queue to select when stealing or deferring work
- */
-//static unsigned performed_total = 0;
-
 typedef struct {
 	struct starpu_deque_jobq_s **queue_array;
 	unsigned rr_worker;
+	/* keep track of the work performed from the beginning of the algorithm to make
+	 * better decisions about which queue to select when stealing or deferring work
+	 */
 	unsigned performed_total;
 } work_stealing_data;
 
@@ -206,6 +197,32 @@ int ws_push_task(struct starpu_task *task, unsigned sched_ctx_id)
         return 0;
 }
 
+static void initialize_ws_policy_for_workers(unsigned sched_ctx_id, unsigned nnew_workers) 
+{
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+	work_stealing_data *ws = (work_stealing_data*)sched_ctx->policy_data;
+
+	unsigned nworkers_ctx = sched_ctx->nworkers_in_ctx;
+
+	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
+	unsigned ntotal_workers = config->topology.nworkers;
+
+	unsigned all_workers = nnew_workers == ntotal_workers ? ntotal_workers : nworkers_ctx + nnew_workers;
+
+	unsigned workerid_ctx;
+	for (workerid_ctx = nworkers_ctx; workerid_ctx < all_workers; workerid_ctx++)
+	  {
+		ws->queue_array[workerid_ctx] = _starpu_create_deque();
+
+		sched_ctx->sched_mutex[workerid_ctx] = sched_ctx->sched_mutex[0];
+		sched_ctx->sched_cond[workerid_ctx] = sched_ctx->sched_cond[0];
+	}
+	/* take into account the new number of threads at the next push */
+	PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
+	sched_ctx->temp_nworkers_in_ctx = all_workers;
+	PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
+}
+
 static void initialize_ws_policy(unsigned sched_ctx_id) 
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
@@ -214,8 +231,7 @@ static void initialize_ws_policy(unsigned sched_ctx_id)
 	
 	unsigned nworkers = sched_ctx->nworkers_in_ctx;
 	ws->rr_worker = 0;
-	ws->queue_array = (struct starpu_deque_jobq_s**)malloc(nworkers*sizeof(struct starpu_deque_jobq_s*));
-
+	ws->queue_array = (struct starpu_deque_jobq_s**)malloc(STARPU_NMAXWORKERS*sizeof(struct starpu_deque_jobq_s*));
 
 	pthread_mutex_t *sched_mutex = (pthread_mutex_t*) malloc(sizeof(pthread_mutex_t));
 	pthread_cond_t *sched_cond = (pthread_cond_t*) malloc(sizeof(pthread_cond_t));
@@ -241,5 +257,6 @@ struct starpu_sched_policy_s _starpu_sched_ws_policy = {
 	.post_exec_hook = NULL,
 	.pop_every_task = NULL,
 	.policy_name = "ws",
-	.policy_description = "work stealing"
+	.policy_description = "work stealing",
+	.init_sched_for_workers = initialize_ws_policy_for_workers
 };

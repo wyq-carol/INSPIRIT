@@ -148,9 +148,6 @@ static void _starpu_launch_drivers(struct starpu_machine_config_s *config)
 
 		workerarg->config = config;
 
-		PTHREAD_MUTEX_INIT(&workerarg->changing_ctx_mutex, NULL);
-		PTHREAD_COND_INIT(&workerarg->changing_ctx_cond, NULL);
-
 		_starpu_barrier_counter_init(&workerarg->tasks_barrier, 0);
 
 		PTHREAD_MUTEX_INIT(&workerarg->mutex, NULL);
@@ -429,7 +426,7 @@ static void _starpu_terminate_workers(struct starpu_machine_config_s *config)
 #endif
 			}
 		}
-		worker->status = STATUS_JOINED;
+		//		worker->status = STATUS_JOINED;
 		STARPU_ASSERT(starpu_task_list_empty(&worker->local_tasks));
 		starpu_job_list_delete(worker->terminated_jobs);
 	}

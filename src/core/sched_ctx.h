@@ -74,12 +74,6 @@ struct starpu_sched_ctx*  _starpu_create_sched_ctx(const char *policy_name, int 
 /* delete all sched_ctx */
 void _starpu_delete_all_sched_ctxs();
 
-/* Workers are blocked when constructing or modifying a context */
-void _starpu_increment_nblocked_ths(struct _starpu_barrier_counter_t **barrier);
-  void _starpu_decrement_nblocked_ths(struct _starpu_barrier_counter_t **barrier);
-int _starpu_wait_for_all_threads_to_block(struct _starpu_barrier_counter_t *workers_barrier);
-int _starpu_wait_for_all_threads_to_wake_up(struct _starpu_barrier_counter_t *workers_barrier);
-
 /* Keeps track of the number of tasks currently submitted to a worker */
 void _starpu_decrement_nsubmitted_tasks_of_worker(int workerid);
 void _starpu_increment_nsubmitted_tasks_of_worker(int workerid);

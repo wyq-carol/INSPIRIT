@@ -1,8 +1,6 @@
 #include <core/sched_policy.h>
 #include <core/sched_ctx.h>
 
-static struct _starpu_barrier_counter_t workers_barrier[STARPU_NMAX_SCHED_CTXS];
-
 static unsigned _starpu_get_first_available_sched_ctx_id(struct starpu_machine_config_s *config);
 static unsigned _starpu_get_first_free_sched_ctx_in_worker_list(struct starpu_worker_s *worker);
 static void _starpu_rearange_sched_ctx_workerids(struct starpu_sched_ctx *sched_ctx, int old_nworkerids_in_ctx);
@@ -201,6 +199,7 @@ static void free_sched_ctx_mem(struct starpu_sched_ctx *sched_ctx)
 	free(sched_ctx->sched_policy);
 	free(sched_ctx->sched_mutex);
 	free(sched_ctx->sched_cond);
+	/* just for debug in order to seg fault if we use these structures after del */
 	sched_ctx->sched_policy = NULL;
 	sched_ctx->sched_mutex = NULL;
 	sched_ctx->sched_cond = NULL;
@@ -367,7 +366,7 @@ static void _starpu_remove_workers_from_sched_ctx(int *workerids_in_ctx, int nwo
 void starpu_remove_workers_from_sched_ctx(int *workerids_in_ctx, int nworkerids_in_ctx, 
 					  unsigned sched_ctx_id)
 {
-	  /* wait for the workers concerned by the change of contex                       
+	  /* wait for the workers concerned by the change of contex    
 	   * to finish their work in the previous context */
 	if(!starpu_wait_for_all_tasks_of_workers(workerids_in_ctx, nworkerids_in_ctx))
 	  {
@@ -385,10 +384,8 @@ void _starpu_init_all_sched_ctx(struct starpu_machine_config_s *config)
 {
 	unsigned i;
 	for(i = 0; i < STARPU_NMAX_SCHED_CTXS; i++)
-	  {
 		config->sched_ctxs[i].sched_ctx_id = STARPU_NMAX_SCHED_CTXS;
-		_starpu_barrier_counter_init(&workers_barrier[i], 0);
-	  }
+
 	return;
 }
 
@@ -399,10 +396,8 @@ void _starpu_init_sched_ctx_for_worker(unsigned workerid)
 	worker->sched_ctx = (struct starpu_sched_ctx**)malloc(STARPU_NMAX_SCHED_CTXS * sizeof(struct starpu_sched_ctx*));
 	unsigned i;
 	for(i = 0; i < STARPU_NMAX_SCHED_CTXS; i++)
-	  {
 		worker->sched_ctx[i] = NULL;
-		worker->workers_barrier[i] = NULL;
-	  }
+
 	return;
 }
 

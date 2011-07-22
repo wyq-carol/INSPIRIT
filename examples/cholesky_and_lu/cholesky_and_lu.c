@@ -113,7 +113,7 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
 
   //  printf("\n");
 
-  p2->ctx = starpu_create_sched_ctx("heft", procs2, ncpus2, "cholesky2");
+  p2->ctx = starpu_create_sched_ctx("prio", procs2, ncpus2, "cholesky2");
   p1->the_other_ctx = (int)p2->ctx;
   p2->procs = procs2;
   p2->ncpus = ncpus2;

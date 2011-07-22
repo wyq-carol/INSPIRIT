@@ -30,11 +30,6 @@ typedef struct {
 	double beta;
 	double _gamma;
 	double idle_power;
-
-/* 	double *exp_start; */
-/* 	double *exp_end; */
-/* 	double *exp_len; */
-/* 	double *ntasks; */
 } heft_data;
 
 double exp_start[STARPU_NMAXWORKERS];
@@ -42,7 +37,7 @@ double exp_end[STARPU_NMAXWORKERS];
 double exp_len[STARPU_NMAXWORKERS];
 double ntasks[STARPU_NMAXWORKERS];
 
-static void heft_init_for_workers(unsigned sched_ctx_id, int nnew_workers)
+static void heft_init_for_workers(unsigned sched_ctx_id, unsigned nnew_workers)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	unsigned nworkers_ctx = sched_ctx->nworkers_in_ctx;
@@ -58,6 +53,7 @@ static void heft_init_for_workers(unsigned sched_ctx_id, int nnew_workers)
 	  {
 	    workerid = sched_ctx->workerid[workerid_ctx];
 	    struct starpu_worker_s *workerarg = _starpu_get_worker_struct(workerid);
+	    /* init these structures only once for each worker */
 	    if(workerarg->nctxs == 1)
 	      {
 		exp_start[workerid] = starpu_timing_now();
@@ -65,6 +61,10 @@ static void heft_init_for_workers(unsigned sched_ctx_id, int nnew_workers)
 		exp_end[workerid] = exp_start[workerid]; 
 		ntasks[workerid] = 0;
 	      }
+
+	    /* we push the tasks on the local lists of the workers
+	       therefore the synchronisations mechanisms of the strategy
+	       are the global ones */
 	    sched_ctx->sched_mutex[workerid_ctx] = workerarg->sched_mutex;
 	    sched_ctx->sched_cond[workerid_ctx] = workerarg->sched_cond;
 	  }
@@ -109,6 +109,7 @@ static void heft_init(unsigned sched_ctx_id)
 	  {
 	    int workerid = sched_ctx->workerid[workerid_ctx];
 	    struct starpu_worker_s *workerarg = _starpu_get_worker_struct(workerid);
+	    /* init these structures only once for each worker */
 	    if(workerarg->nctxs == 1)
 	      {
 		exp_start[workerid] = starpu_timing_now();
@@ -116,6 +117,9 @@ static void heft_init(unsigned sched_ctx_id)
 		exp_end[workerid] = exp_start[workerid]; 
 		ntasks[workerid] = 0;
 	      }
+	    /* we push the tasks on the local lists of the workers
+	       therefore the synchronisations mechanisms of the strategy
+	       are the global ones */
 	    sched_ctx->sched_mutex[workerid_ctx] = workerarg->sched_mutex;
 	    sched_ctx->sched_cond[workerid_ctx] = workerarg->sched_cond;
 
@@ -125,17 +129,20 @@ static void heft_init(unsigned sched_ctx_id)
 static void heft_post_exec_hook(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	int workerid = starpu_worker_get_id();
-	struct starpu_worker_s *worker = _starpu_get_worker_struct(workerid);
-	double model = task->predicted;
-
-	/* Once we have executed the task, we can update the predicted amount
-	 * of work. */
-	PTHREAD_MUTEX_LOCK(worker->sched_mutex);
-	exp_len[workerid] -= model;
-	exp_start[workerid] = starpu_timing_now() + model;
-	exp_end[workerid] = exp_start[workerid] + exp_len[workerid];
-	ntasks[workerid]--;
-	PTHREAD_MUTEX_UNLOCK(worker->sched_mutex);
+	if(workerid >= 0)
+	  {
+		struct starpu_worker_s *worker = _starpu_get_worker_struct(workerid);
+		double model = task->predicted;
+		
+		/* Once we have executed the task, we can update the predicted amount
+		 * of work. */
+		PTHREAD_MUTEX_LOCK(worker->sched_mutex);
+		exp_len[workerid] -= model;
+		exp_start[workerid] = starpu_timing_now() + model;
+		exp_end[workerid] = exp_start[workerid] + exp_len[workerid];
+		ntasks[workerid]--;
+		PTHREAD_MUTEX_UNLOCK(worker->sched_mutex);
+	  }
 }
 
 static void heft_push_task_notify(struct starpu_task *task, int workerid, unsigned sched_ctx_id)
@@ -207,7 +214,6 @@ static void compute_all_performance_predictions(struct starpu_task *task,
   int unknown = 0;
 
   unsigned nworkers = sched_ctx->nworkers_in_ctx;
-  heft_data *hd = (heft_data*)sched_ctx->policy_data;
 
   unsigned worker, worker_in_ctx;
   for (worker_in_ctx = 0; worker_in_ctx < nworkers; worker_in_ctx++)

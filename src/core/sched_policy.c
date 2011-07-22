@@ -366,16 +366,14 @@ struct starpu_task *_starpu_pop_task(struct starpu_worker_s *worker)
 		    
 		    if(sched_ctx != NULL)
 		      {
-			if(i > 2)
-			  printf("i = %d\n", i);
 			sched_ctx_mutex = _starpu_get_sched_mutex(sched_ctx, worker->workerid);
 			if(sched_ctx_mutex != NULL)
 			  {
 			    PTHREAD_MUTEX_LOCK(sched_ctx_mutex);
 			    if (sched_ctx->sched_policy->pop_task)
 			      {
-				task = sched_ctx->sched_policy->pop_task(sched_ctx->sched_ctx_id);
 				PTHREAD_MUTEX_UNLOCK(sched_ctx_mutex);
+				task = sched_ctx->sched_policy->pop_task(sched_ctx->sched_ctx_id);
 				break;
 			      }
 			    PTHREAD_MUTEX_UNLOCK(sched_ctx_mutex);

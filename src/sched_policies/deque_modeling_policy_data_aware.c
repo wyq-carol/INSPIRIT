@@ -24,8 +24,6 @@
 #include <core/perfmodel/perfmodel.h>
 #include <starpu_parameters.h>
 
-//static struct starpu_fifo_taskq_s *queue_array[STARPU_NMAXWORKERS];
-
 /* #ifdef STARPU_VERBOSE */
 /* static long int total_task_cnt = 0; */
 /* static long int ready_task_cnt = 0; */
@@ -120,7 +118,7 @@ static struct starpu_task *_starpu_fifo_pop_first_ready_task(struct starpu_fifo_
 static struct starpu_task *dmda_pop_ready_task(unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
-	 dmda_data *dt = (dmda_data*)sched_ctx->policy_data;
+	dmda_data *dt = (dmda_data*)sched_ctx->policy_data;
 
 	struct starpu_task *task;
 
@@ -156,7 +154,7 @@ static struct starpu_task *dmda_pop_ready_task(unsigned sched_ctx_id)
 static struct starpu_task *dmda_pop_task(unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
-	 dmda_data *dt = (dmda_data*)sched_ctx->policy_data;
+	dmda_data *dt = (dmda_data*)sched_ctx->policy_data;
 
 	struct starpu_task *task;
 
@@ -192,7 +190,7 @@ static struct starpu_task *dmda_pop_task(unsigned sched_ctx_id)
 static struct starpu_task *dmda_pop_every_task(unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
-	 dmda_data *dt = (dmda_data*)sched_ctx->policy_data;
+	dmda_data *dt = (dmda_data*)sched_ctx->policy_data;
 
 	struct starpu_task *new_list;
 
@@ -592,6 +590,34 @@ static int dmda_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 	return _dmda_push_task(task, 0, sched_ctx);
 }
 
+static void initialize_dmda_policy_for_workers(unsigned sched_ctx_id, unsigned nnew_workers) 
+{
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+	unsigned nworkers = sched_ctx->nworkers_in_ctx;
+	dmda_data *dt = (dmda_data*)sched_ctx->policy_data;
+
+	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
+	unsigned ntotal_workers = config->topology.nworkers;
+
+	unsigned all_workers = nnew_workers == ntotal_workers ? ntotal_workers : nworkers + nnew_workers;
+
+	unsigned workerid_ctx;
+	for (workerid_ctx = nworkers; workerid_ctx < all_workers; workerid_ctx++)
+	{
+		dt->queue_array[workerid_ctx] = _starpu_create_fifo();
+	
+		sched_ctx->sched_mutex[workerid_ctx] = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
+		sched_ctx->sched_cond[workerid_ctx] = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
+		PTHREAD_MUTEX_INIT(sched_ctx->sched_mutex[workerid_ctx], NULL);
+		PTHREAD_COND_INIT(sched_ctx->sched_cond[workerid_ctx], NULL);
+	}
+
+	/* take into account the new number of threads at the next push */
+	PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
+	sched_ctx->temp_nworkers_in_ctx = all_workers;
+	PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
+}
+
 static void initialize_dmda_policy(unsigned sched_ctx_id) 
 {
 	dmda_data *dt = (dmda_data*)malloc(sizeof(dmda_data));
@@ -604,7 +630,7 @@ static void initialize_dmda_policy(unsigned sched_ctx_id)
 	unsigned nworkers = sched_ctx->nworkers_in_ctx;
 	sched_ctx->policy_data = (void*)dt;
 
-	dt->queue_array = (struct starpu_fifo_taskq_s**)malloc(nworkers*sizeof(struct starpu_fifo_taskq_s*));
+	dt->queue_array = (struct starpu_fifo_taskq_s**)malloc(STARPU_NMAXWORKERS*sizeof(struct starpu_fifo_taskq_s*));
 
 	const char *strval_alpha = getenv("STARPU_SCHED_ALPHA");
 	if (strval_alpha)
@@ -669,7 +695,8 @@ struct starpu_sched_policy_s _starpu_sched_dm_policy = {
 	.post_exec_hook = NULL,
 	.pop_every_task = dmda_pop_every_task,
 	.policy_name = "dm",
-	.policy_description = "performance model"
+	.policy_description = "performance model",
+	.init_sched_for_workers = initialize_dmda_policy_for_workers
 };
 
 struct starpu_sched_policy_s _starpu_sched_dmda_policy = {
@@ -681,7 +708,8 @@ struct starpu_sched_policy_s _starpu_sched_dmda_policy = {
 	.post_exec_hook = NULL,
 	.pop_every_task = dmda_pop_every_task,
 	.policy_name = "dmda",
-	.policy_description = "data-aware performance model"
+	.policy_description = "data-aware performance model",
+	.init_sched_for_workers = initialize_dmda_policy_for_workers
 };
 
 struct starpu_sched_policy_s _starpu_sched_dmda_sorted_policy = {
@@ -693,7 +721,8 @@ struct starpu_sched_policy_s _starpu_sched_dmda_sorted_policy = {
 	.post_exec_hook = NULL,
 	.pop_every_task = dmda_pop_every_task,
 	.policy_name = "dmdas",
-	.policy_description = "data-aware performance model (sorted)"
+	.policy_description = "data-aware performance model (sorted)",
+	.init_sched_for_workers = initialize_dmda_policy_for_workers
 };
 
 struct starpu_sched_policy_s _starpu_sched_dmda_ready_policy = {
@@ -705,5 +734,6 @@ struct starpu_sched_policy_s _starpu_sched_dmda_ready_policy = {
 	.post_exec_hook = NULL,
 	.pop_every_task = dmda_pop_every_task,
 	.policy_name = "dmdar",
-	.policy_description = "data-aware performance model (ready)"
+	.policy_description = "data-aware performance model (ready)",
+	.init_sched_for_workers = initialize_dmda_policy_for_workers
 };

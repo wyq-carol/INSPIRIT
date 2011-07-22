@@ -23,11 +23,26 @@
 #include <core/workers.h>
 #include <sched_policies/fifo_queues.h>
 
-/* the former is the actual queue, the latter some container */
-//static struct starpu_fifo_taskq_s *fifo;
+static void initialize_eager_center_policy_for_workers(unsigned sched_ctx_id, unsigned nnew_workers) 
+{
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 
-//static pthread_cond_t sched_cond;
-//static pthread_mutex_t sched_mutex;
+	unsigned nworkers_ctx = sched_ctx->nworkers_in_ctx;
+	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
+	unsigned ntotal_workers = config->topology.nworkers;
+
+	unsigned all_workers = nnew_workers == ntotal_workers ? ntotal_workers : nworkers_ctx + nnew_workers;
+
+	unsigned workerid_in_ctx;
+	for (workerid_in_ctx = nworkers_ctx; workerid_in_ctx < all_workers; workerid_in_ctx++){
+		sched_ctx->sched_mutex[workerid_in_ctx] = sched_ctx->sched_mutex[0];
+		sched_ctx->sched_cond[workerid_in_ctx] = sched_ctx->sched_cond[0];
+	}
+	/* take into account the new number of threads at the next push */
+	PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
+	sched_ctx->temp_nworkers_in_ctx = all_workers;
+	PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
+}
 
 static void initialize_eager_center_policy(unsigned sched_ctx_id) 
 {
@@ -71,7 +86,6 @@ static void deinitialize_eager_center_policy(unsigned sched_ctx_id)
 static int push_task_eager_policy(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
-	int nworkers_in_ctx = sched_ctx->nworkers_in_ctx;
 	int i;
 	int workerid;
 	for(i = 0; i < sched_ctx->nworkers_in_ctx; i++){
@@ -119,6 +133,7 @@ static struct starpu_task *pop_task_eager_policy(unsigned sched_ctx_id)
 
 struct starpu_sched_policy_s _starpu_sched_eager_policy = {
 	.init_sched = initialize_eager_center_policy,
+	.init_sched_for_workers = initialize_eager_center_policy_for_workers,
 	.deinit_sched = deinitialize_eager_center_policy,
 	.push_task = push_task_eager_policy,
 	.push_task_notify = NULL,
@@ -132,6 +147,7 @@ struct starpu_sched_policy_s _starpu_sched_eager_policy = {
 
 struct starpu_sched_policy_s _starpu_sched_no_prio_policy = {
 	.init_sched = initialize_eager_center_policy,
+	.init_sched_for_workers = initialize_eager_center_policy_for_workers,
 	.deinit_sched = deinitialize_eager_center_policy,
 	.push_task = push_task_eager_policy,
 	.push_task_notify = NULL,

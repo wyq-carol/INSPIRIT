@@ -20,11 +20,6 @@
 #include <core/workers.h>
 #include <sched_policies/fifo_queues.h>
 
-//static unsigned nworkers;
-
-/* static pthread_cond_t sched_cond[STARPU_NMAXWORKERS]; */
-/* static pthread_mutex_t sched_mutex[STARPU_NMAXWORKERS]; */
-
 static int _random_push_task(struct starpu_task *task, unsigned prio, struct starpu_sched_ctx *sched_ctx)
 {
 	/* find the queue */
@@ -84,6 +79,32 @@ static int random_push_task(struct starpu_task *task, unsigned sched_ctx_id)
         return _random_push_task(task, 0, sched_ctx);
 }
 
+static void initialize_random_policy_for_workers(unsigned sched_ctx_id, unsigned nnew_workers) 
+{
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+
+	unsigned nworkers_ctx = sched_ctx->nworkers_in_ctx;
+
+	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
+	unsigned ntotal_workers = config->topology.nworkers;
+
+	unsigned all_workers = nnew_workers == ntotal_workers ? ntotal_workers : nworkers_ctx + nnew_workers;
+
+	unsigned workerid_ctx;
+	int workerid;
+	for (workerid_ctx = nworkers_ctx; workerid_ctx < all_workers; workerid_ctx++)
+	{
+		workerid = sched_ctx->workerid[workerid_ctx];
+		struct starpu_worker_s *workerarg = _starpu_get_worker_struct(workerid);
+		sched_ctx->sched_mutex[workerid_ctx] = workerarg->sched_mutex;
+		sched_ctx->sched_cond[workerid_ctx] = workerarg->sched_cond;
+	}
+	/* take into account the new number of threads at the next push */
+	PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
+	sched_ctx->temp_nworkers_in_ctx = all_workers;
+	PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
+}
+
 static void initialize_random_policy(unsigned sched_ctx_id) 
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
@@ -93,17 +114,19 @@ static void initialize_random_policy(unsigned sched_ctx_id)
 	unsigned nworkers = sched_ctx->nworkers_in_ctx;	
 
 	unsigned workerid_ctx;
+	int workerid;
 	for (workerid_ctx = 0; workerid_ctx < nworkers; workerid_ctx++)
 	{
-		sched_ctx->sched_mutex[workerid_ctx] = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
-		sched_ctx->sched_cond[workerid_ctx] = (pthread_cond_t*)malloc(sizeof(pthread_cond_t));
-		PTHREAD_MUTEX_INIT(sched_ctx->sched_mutex[workerid_ctx], NULL);
-		PTHREAD_COND_INIT(sched_ctx->sched_cond[workerid_ctx], NULL);
+		workerid = sched_ctx->workerid[workerid_ctx];
+		struct starpu_worker_s *workerarg = _starpu_get_worker_struct(workerid);
+		sched_ctx->sched_mutex[workerid_ctx] = workerarg->sched_mutex;
+		sched_ctx->sched_cond[workerid_ctx] = workerarg->sched_cond;
 	}
 }
 
 struct starpu_sched_policy_s _starpu_sched_random_policy = {
 	.init_sched = initialize_random_policy,
+	.init_sched_for_workers = initialize_random_policy_for_workers,
 	.deinit_sched = NULL,
 	.push_task = random_push_task,
 	.push_prio_task = random_push_prio_task,

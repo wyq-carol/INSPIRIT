@@ -163,7 +163,9 @@ static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks
 		f2.get_child_ops = NULL;
 
 	starpu_data_map_filters(dataA, 2, &f, &f2);
-	return _cholesky(dataA, nblocks, sched_ctx, timing);
+	double gflops = _cholesky(dataA, nblocks, sched_ctx, timing);
+	starpu_data_unregister(dataA);
+	return gflops;
 }
 
 double run_cholesky_implicit(unsigned sched_ctx, int start, int argc, char **argv, double *timing, pthread_barrier_t *barrier)
@@ -283,7 +285,7 @@ double run_cholesky_implicit(unsigned sched_ctx, int start, int argc, char **arg
 			}
 	        }
 	}
-
+	starpu_data_free_pinned_if_possible((void *)mat);
 	//	starpu_helper_cublas_shutdown();
 	//	starpu_shutdown();
 

@@ -109,7 +109,9 @@ static void init_context(int devid)
 		STARPU_CUDA_REPORT_ERROR(cures);
 
 	/* force CUDA to initialize the context for real */
-	cudaFree(0);
+	cures = cudaFree(0);
+	if (STARPU_UNLIKELY(cures))
+		STARPU_CUDA_REPORT_ERROR(cures);
 
 	limit_gpu_mem_if_needed(devid);
 
