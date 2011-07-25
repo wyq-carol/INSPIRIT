@@ -246,6 +246,7 @@ int starpu_task_submit_to_ctx(struct starpu_task *task, unsigned sched_ctx)
                         _STARPU_LOG_OUT_TAG("ENODEV");
 			return -ENODEV;
                 }
+		assert(task->cl->nbuffers <= STARPU_NMAXBUFS);
 
 		/* In case we require that a task should be explicitely
 		 * executed on a specific worker, we make sure that the worker
@@ -256,6 +257,12 @@ int starpu_task_submit_to_ctx(struct starpu_task *task, unsigned sched_ctx)
                 }
 
 		_starpu_detect_implicit_data_deps(task);
+
+		if (task->cl->model)
+			_starpu_load_perfmodel(task->cl->model);
+
+		if (task->cl->power_model)
+			_starpu_load_perfmodel(task->cl->power_model);
 	}
 
 	/* If profiling is activated, we allocate a structure to store the
@@ -268,7 +275,8 @@ int starpu_task_submit_to_ctx(struct starpu_task *task, unsigned sched_ctx)
 	/* The task is considered as block until we are sure there remains not
 	 * dependency. */
 	task->status = STARPU_TASK_BLOCKED;
-	
+
+
 	if (profiling)
 		starpu_clock_gettime(&info->submit_time);
 

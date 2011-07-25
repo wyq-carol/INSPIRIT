@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
  * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
@@ -41,11 +41,9 @@ static void map_filter(starpu_data_handle root_handle, struct starpu_data_filter
 		}
 	}
 }
-void starpu_data_map_filters(starpu_data_handle root_handle, unsigned nfilters, ...)
+void starpu_data_vmap_filters(starpu_data_handle root_handle, unsigned nfilters, va_list pa)
 {
 	unsigned i;
-	va_list pa;
-	va_start(pa, nfilters);
 	for (i = 0; i < nfilters; i++)
 	{
 		struct starpu_data_filter *next_filter;
@@ -55,6 +53,13 @@ void starpu_data_map_filters(starpu_data_handle root_handle, unsigned nfilters, 
 
 		map_filter(root_handle, next_filter);
 	}
+}
+
+void starpu_data_map_filters(starpu_data_handle root_handle, unsigned nfilters, ...)
+{
+	va_list pa;
+	va_start(pa, nfilters);
+	starpu_data_vmap_filters(root_handle, nfilters, pa);
 	va_end(pa);
 }
 
@@ -75,22 +80,30 @@ starpu_data_handle starpu_data_get_child(starpu_data_handle handle, unsigned i)
  */
 starpu_data_handle starpu_data_get_sub_data(starpu_data_handle root_handle, unsigned depth, ... )
 {
+	va_list pa;
+	va_start(pa, depth);
+	starpu_data_handle handle = starpu_data_vget_sub_data(root_handle, depth, pa);
+	va_end(pa);
+
+	return handle;
+}
+
+starpu_data_handle starpu_data_vget_sub_data(starpu_data_handle root_handle, unsigned depth, va_list pa )
+{
 	STARPU_ASSERT(root_handle);
 	starpu_data_handle current_handle = root_handle;
 
 	/* the variable number of argument must correlate the depth in the tree */
 	unsigned i; 
-	va_list pa;
-	va_start(pa, depth);
 	for (i = 0; i < depth; i++)
 	{
 		unsigned next_child;
 		next_child = va_arg(pa, unsigned);
+
 		STARPU_ASSERT(next_child < current_handle->nchildren);
 
 		current_handle = &current_handle->children[next_child];
 	}
-	va_end(pa);
 
 	return current_handle;
 }
@@ -142,6 +155,7 @@ void starpu_data_partition(starpu_data_handle initial_handle, struct starpu_data
 		child->req_list = starpu_data_requester_list_new();
 		child->reduction_req_list = starpu_data_requester_list_new();
 		child->refcnt = 0;
+		child->reduction_refcnt = 0;
 		_starpu_spin_init(&child->header_lock);
 
 		child->sequential_consistency = initial_handle->sequential_consistency;
@@ -157,9 +171,6 @@ void starpu_data_partition(starpu_data_handle initial_handle, struct starpu_data
 		 * children. */
 		child->redux_cl = initial_handle->redux_cl;
 		child->init_cl = initial_handle->init_cl;
-
-		child->reduction_refcnt = 0;
-		child->reduction_req_list = starpu_data_requester_list_new();
 
 #ifdef STARPU_USE_FXT
 		child->last_submitted_ghost_writer_id_is_valid = 0;
@@ -201,8 +212,13 @@ void starpu_data_partition(starpu_data_handle initial_handle, struct starpu_data
 			child_replicate->automatically_allocated = 0;
 			child_replicate->refcnt = 0;
 			child_replicate->memory_node = starpu_worker_get_memory_node(worker);
-			child_replicate->requested = 0;
-			child_replicate->request = NULL;
+
+			for (node = 0; node < STARPU_MAXNODES; node++)
+			{
+				child_replicate->requested[node] = 0;
+				child_replicate->request[node] = NULL;
+			}
+
 			child_replicate->relaxed_coherency = 1;
 			child_replicate->initialized = 0;
 
@@ -214,6 +230,13 @@ void starpu_data_partition(starpu_data_handle initial_handle, struct starpu_data
 		 * store it in the handle */
 		child->data_size = child->ops->get_size(child);
 		child->footprint = _starpu_compute_data_footprint(child);
+
+		void *ptr;
+		ptr = starpu_handle_to_pointer(child, 0);
+		if (ptr != NULL)
+		{
+			_starpu_data_register_ram_pointer(child, ptr);
+		}
 	}
 	/* now let the header */
 	_starpu_spin_unlock(&initial_handle->header_lock);
@@ -244,6 +267,8 @@ void starpu_data_unpartition(starpu_data_handle root_handle, uint32_t gathering_
 		STARPU_ASSERT(ret == 0); 
 
 		_starpu_data_free_interfaces(&root_handle->children[child]);
+		starpu_data_requester_list_delete(child_handle->req_list);
+		starpu_data_requester_list_delete(child_handle->reduction_req_list);
 	}
 
 	/* the gathering_node should now have a valid copy of all the children.
@@ -279,7 +304,9 @@ void starpu_data_unpartition(starpu_data_handle root_handle, uint32_t gathering_
 				_starpu_request_mem_chunk_removal(root_handle, node);
 				isvalid = 0; 
 			}
+#ifdef STARPU_DEVEL
 #warning free the data replicate if needed
+#endif
 
 		}
 
@@ -300,6 +327,7 @@ void starpu_data_unpartition(starpu_data_handle root_handle, uint32_t gathering_
 	}
 
 	/* there is no child anymore */
+	//free(root_handle->children);
 	root_handle->nchildren = 0;
 
 	/* now the parent may be used again so we release the lock */

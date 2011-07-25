@@ -211,7 +211,7 @@ static void gordon_callback_list_func(void *arg)
 		}
 
 		_starpu_push_task_output(j->task, 0);
-		_starpu_handle_job_termination(j, 0, worker->sched_ctx);
+		_starpu_handle_job_termination(j, 0);
 		//starpu_wake_all_blocked_workers();
 
 		task_cnt++;
@@ -337,7 +337,9 @@ void *gordon_worker_inject(struct starpu_worker_set_s *arg)
 		else {
 #ifndef NOCHAIN
 			int ret = 0;
+#ifdef STARPU_DEVEL
 #warning we should look into the local job list here !
+#endif
 
 			struct starpu_job_list_s *list = _starpu_pop_every_task();
 			/* XXX 0 is hardcoded */
@@ -390,7 +392,7 @@ void *gordon_worker_inject(struct starpu_worker_set_s *arg)
 #else
 			/* gordon should accept a little more work */
 			starpu_job_t j;
-			j =  _starpu_pop_task(arg->current_sched_ctx);
+			j =  _starpu_pop_task(arg);
 	//		_STARPU_DEBUG("pop task %p\n", j);
 			if (j) {
 				if (STARPU_GORDON_MAY_PERFORM(j)) {
@@ -399,7 +401,7 @@ void *gordon_worker_inject(struct starpu_worker_set_s *arg)
 					inject_task(j, &arg->workers[0]);
 				}
 				else {
-				  _starpu_push_task(j, 0, arg->current_sched_ctx);
+					_starpu_push_task(j, 0);
 				}
 			}
 #endif

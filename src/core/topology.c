@@ -269,7 +269,7 @@ unsigned _starpu_topology_get_nhwcpu(struct starpu_machine_config_s *config)
 static int _starpu_init_machine_config(struct starpu_machine_config_s *config,
 				struct starpu_conf *user_conf)
 {
-	int explicitval __attribute__((unused));
+	int explicitval STARPU_ATTRIBUTE_UNUSED;
 	unsigned use_accelerator = 0;
 
 	int i;
@@ -440,23 +440,26 @@ static int _starpu_init_machine_config(struct starpu_machine_config_s *config,
 /* we put the CPU section after the accelerator : in case there was an
  * accelerator found, we devote one cpu */
 #ifdef STARPU_USE_CPU
-	explicitval = -1;
 	if (user_conf && (user_conf->ncpus != -1)) {
 		explicitval = user_conf->ncpus;
 	}
 	else {
 		explicitval = starpu_get_env_number("STARPU_NCPUS");
 	}
+
 	if (explicitval < 0) {
-		unsigned already_busy_cpus = (topology->ngordon_spus?1:0) + topology->ncudagpus;
+		unsigned already_busy_cpus = (topology->ngordon_spus?1:0) + topology->ncudagpus + topology->nopenclgpus;
 		long avail_cpus = topology->nhwcpus - (use_accelerator?already_busy_cpus:0);
-		topology->ncpus = STARPU_MIN(avail_cpus, STARPU_NMAXCPUS);
+		if (avail_cpus < 0)
+			avail_cpus = 0;
+		topology->ncpus = STARPU_MIN(avail_cpus, STARPU_MAXCPUS);
 	} else {
 		/* use the specified value */
 		topology->ncpus = (unsigned)explicitval;
-		STARPU_ASSERT(topology->ncpus <= STARPU_NMAXCPUS);
+		STARPU_ASSERT(topology->ncpus <= STARPU_MAXCPUS);
 	}
 	STARPU_ASSERT(topology->ncpus + topology->nworkers <= STARPU_NMAXWORKERS);
+
 	unsigned cpu;
 	for (cpu = 0; cpu < topology->ncpus; cpu++)
 	{
@@ -596,7 +599,7 @@ static inline int _starpu_get_next_bindid(struct starpu_machine_config_s *config
 	return (int)topology->workers_bindid[i];
 }
 
-void _starpu_bind_thread_on_cpu(struct starpu_machine_config_s *config __attribute__((unused)), unsigned cpuid)
+void _starpu_bind_thread_on_cpu(struct starpu_machine_config_s *config STARPU_ATTRIBUTE_UNUSED, unsigned cpuid)
 {
 #ifdef STARPU_HAVE_HWLOC
 	int ret;
@@ -649,7 +652,7 @@ static void _starpu_init_workers_binding(struct starpu_machine_config_s *config)
 
 	/* note that even if the CPU cpu are not used, we always have a RAM node */
 	/* TODO : support NUMA  ;) */
-	ram_memory_node = _starpu_register_memory_node(STARPU_CPU_RAM);
+	ram_memory_node = _starpu_register_memory_node(STARPU_CPU_RAM, -1);
 
 	/* We will store all the busid of the different (src, dst) combinations
 	 * in a matrix which we initialize here. */
@@ -688,7 +691,7 @@ static void _starpu_init_workers_binding(struct starpu_machine_config_s *config)
 					npreferred = config->topology.nhwcpus;
 				}
 				is_a_set_of_accelerators = 0;
-				memory_node = _starpu_register_memory_node(STARPU_CUDA_RAM);
+				memory_node = _starpu_register_memory_node(STARPU_CUDA_RAM, workerarg->devid);
 
 				_starpu_register_bus(0, memory_node);
 				_starpu_register_bus(memory_node, 0);
@@ -704,7 +707,7 @@ static void _starpu_init_workers_binding(struct starpu_machine_config_s *config)
 					npreferred = config->topology.nhwcpus;
 				}
 				is_a_set_of_accelerators = 0;
-				memory_node = _starpu_register_memory_node(STARPU_OPENCL_RAM);
+				memory_node = _starpu_register_memory_node(STARPU_OPENCL_RAM, workerarg->devid);
 				_starpu_register_bus(0, memory_node);
 				_starpu_register_bus(memory_node, 0);
 				break;
@@ -773,6 +776,16 @@ void _starpu_destroy_topology(struct starpu_machine_config_s *config __attribute
 {
 	/* cleanup StarPU internal data structures */
 	_starpu_deinit_memory_nodes();
+
+	unsigned worker;
+	for (worker = 0; worker < config->topology.nworkers; worker++)
+	{
+#ifdef STARPU_HAVE_HWLOC
+		struct starpu_worker_s *workerarg = &config->workers[worker];
+		hwloc_bitmap_free(workerarg->initial_hwloc_cpu_set);
+		hwloc_bitmap_free(workerarg->current_hwloc_cpu_set);
+#endif
+	}
 
 #ifdef STARPU_HAVE_HWLOC
 	hwloc_topology_destroy(config->topology.hwtopology);

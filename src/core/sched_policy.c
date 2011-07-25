@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -22,8 +22,7 @@
 #include <common/utils.h>
 #include <core/sched_policy.h>
 #include <profiling/profiling.h>
-
-//static struct starpu_sched_policy_s policy;
+#include <common/barrier.h>
 
 static int use_prefetch = 0;
 
@@ -38,7 +37,6 @@ int starpu_get_prefetch_flag(void)
 
 extern struct starpu_sched_policy_s _starpu_sched_ws_policy;
 extern struct starpu_sched_policy_s _starpu_sched_prio_policy;
-extern struct starpu_sched_policy_s _starpu_sched_no_prio_policy;
 extern struct starpu_sched_policy_s _starpu_sched_random_policy;
 extern struct starpu_sched_policy_s _starpu_sched_dm_policy;
 extern struct starpu_sched_policy_s _starpu_sched_dmda_policy;
@@ -49,12 +47,9 @@ extern struct starpu_sched_policy_s _starpu_sched_parallel_heft_policy;
 extern struct starpu_sched_policy_s _starpu_sched_pgreedy_policy;
 extern struct starpu_sched_policy_s heft_policy;
 
-#define NPREDEFINED_POLICIES	12
-
-static struct starpu_sched_policy_s *predefined_policies[NPREDEFINED_POLICIES] = {
+static struct starpu_sched_policy_s *predefined_policies[] = {
 	&_starpu_sched_ws_policy,
 	&_starpu_sched_prio_policy,
-	&_starpu_sched_no_prio_policy,
 	&_starpu_sched_dm_policy,
 	&_starpu_sched_dmda_policy,
 	&heft_policy,
@@ -94,9 +89,8 @@ static void load_sched_policy(struct starpu_sched_policy_s *sched_policy, struct
 	policy->init_sched = sched_policy->init_sched;
 	policy->deinit_sched = sched_policy->deinit_sched;
 	policy->push_task = sched_policy->push_task;
-	policy->push_prio_task = sched_policy->push_prio_task;
 	policy->pop_task = sched_policy->pop_task;
-        policy->post_exec_hook = sched_policy->post_exec_hook;
+    policy->post_exec_hook = sched_policy->post_exec_hook;
 	policy->pop_every_task = sched_policy->pop_every_task;
 	policy->push_task_notify = sched_policy->push_task_notify;
 	policy->policy_name = sched_policy->policy_name;
@@ -110,7 +104,7 @@ static struct starpu_sched_policy_s *find_sched_policy_from_name(const char *pol
 		return NULL;
 
 	unsigned i;
-	for (i = 0; i < NPREDEFINED_POLICIES; i++)
+	for (i = 0; i < sizeof(predefined_policies)/sizeof(predefined_policies[0]); i++)
 	{
 		struct starpu_sched_policy_s *p;
 		p = predefined_policies[i];
@@ -122,6 +116,7 @@ static struct starpu_sched_policy_s *find_sched_policy_from_name(const char *pol
 			}
 		}
 	}
+	fprintf(stderr, "Warning: scheduling policy \"%s\" was not found, try \"help\" to get a list\n", policy_name);
 
 	/* nothing was found */
 	return NULL;
@@ -135,7 +130,7 @@ static void display_sched_help_message(void)
 
 		/* display the description of all predefined policies */
 		unsigned i;
-		for (i = 0; i < NPREDEFINED_POLICIES; i++)
+		for (i = 0; i < sizeof(predefined_policies)/sizeof(predefined_policies[0]); i++)
 		{
 			struct starpu_sched_policy_s *p;
 			p = predefined_policies[i];
@@ -187,7 +182,6 @@ void _starpu_init_sched_policy(struct starpu_machine_config_s *config, struct st
 	use_prefetch = starpu_get_env_number("STARPU_PREFETCH");
 	if (use_prefetch == -1)
 		use_prefetch = 1;
-  
 
 	/* By default, we don't calibrate */
 	unsigned do_calibrate = 0;
@@ -228,8 +222,8 @@ static int _starpu_push_task_on_specific_worker(struct starpu_task *task, int wo
 	int is_basic_worker = (workerid < nbasic_workers);
 
 	unsigned memory_node; 
-	struct starpu_worker_s *worker;
-	struct starpu_combined_worker_s *combined_worker;
+	struct starpu_worker_s *worker = NULL;
+	struct starpu_combined_worker_s *combined_worker = NULL;
 
 	if (is_basic_worker)
 	{
@@ -447,3 +441,5 @@ int starpu_push_local_task(int workerid, struct starpu_task *task, int back)
 
 	return _starpu_push_local_task(worker, task, back);
 }
+
+

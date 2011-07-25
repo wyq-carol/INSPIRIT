@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2009, 2010-2011  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -27,6 +27,7 @@
 #include <math.h>
 
 #include <starpu.h>
+#include <starpu_cuda.h>
 #include <starpu_opencl.h>
 #include <common/config.h>
 #include <core/workers.h>
@@ -65,6 +66,7 @@ static int cuda_affinity_matrix[STARPU_MAXCUDADEVS][MAXCPUS];
 static double cudadev_timing_htod[STARPU_MAXNODES] = {0.0};
 static double cudadev_timing_dtoh[STARPU_MAXNODES] = {0.0};
 static struct dev_timing cudadev_timing_per_cpu[STARPU_MAXNODES*MAXCPUS];
+static size_t cuda_size = SIZE;
 #endif
 #ifdef STARPU_USE_OPENCL
 static int opencl_affinity_matrix[STARPU_MAXOPENCLDEVS][MAXCPUS];
@@ -98,10 +100,16 @@ static void measure_bandwidth_between_host_and_dev_on_cpu_with_cuda(int dev, int
 	/* hack to avoid third party libs to rebind threads */
 	_starpu_bind_thread_on_cpu(config, cpu);
 
+        /* Get the maximum size which can be allocated on the device */
+	struct cudaDeviceProp prop;
+	cudaError_t cures;
+	cures = cudaGetDeviceProperties(&prop, dev);
+	if (STARPU_UNLIKELY(cures)) STARPU_CUDA_REPORT_ERROR(cures);
+        if (cuda_size > prop.totalGlobalMem/4) cuda_size = prop.totalGlobalMem/4;
 
 	/* Allocate a buffer on the device */
 	unsigned char *d_buffer;
-	cudaMalloc((void **)&d_buffer, SIZE);
+	cudaMalloc((void **)&d_buffer, cuda_size);
 	assert(d_buffer);
 
 	/* hack to avoid third party libs to rebind threads */
@@ -110,7 +118,7 @@ static void measure_bandwidth_between_host_and_dev_on_cpu_with_cuda(int dev, int
 
 	/* Allocate a buffer on the host */
 	unsigned char *h_buffer;
-	cudaHostAlloc((void **)&h_buffer, SIZE, 0);
+	cudaHostAlloc((void **)&h_buffer, cuda_size, 0);
 	assert(h_buffer);
 
 	/* hack to avoid third party libs to rebind threads */
@@ -118,8 +126,8 @@ static void measure_bandwidth_between_host_and_dev_on_cpu_with_cuda(int dev, int
 
 
 	/* Fill them */
-	memset(h_buffer, 0, SIZE);
-	cudaMemset(d_buffer, 0, SIZE);
+	memset(h_buffer, 0, cuda_size);
+	cudaMemset(d_buffer, 0, cuda_size);
 
 	/* hack to avoid third party libs to rebind threads */
 	_starpu_bind_thread_on_cpu(config, cpu);
@@ -134,7 +142,7 @@ static void measure_bandwidth_between_host_and_dev_on_cpu_with_cuda(int dev, int
 	gettimeofday(&start, NULL);
 	for (iter = 0; iter < NITER; iter++)
 	{
-		cudaMemcpy(d_buffer, h_buffer, SIZE, cudaMemcpyHostToDevice);
+		cudaMemcpy(d_buffer, h_buffer, cuda_size, cudaMemcpyHostToDevice);
 		cudaThreadSynchronize();
 	}
 	gettimeofday(&end, NULL);
@@ -146,7 +154,7 @@ static void measure_bandwidth_between_host_and_dev_on_cpu_with_cuda(int dev, int
 	gettimeofday(&start, NULL);
 	for (iter = 0; iter < NITER; iter++)
 	{
-		cudaMemcpy(h_buffer, d_buffer, SIZE, cudaMemcpyDeviceToHost);
+		cudaMemcpy(h_buffer, d_buffer, cuda_size, cudaMemcpyDeviceToHost);
 		cudaThreadSynchronize();
 	}
 	gettimeofday(&end, NULL);
@@ -183,7 +191,7 @@ static void measure_bandwidth_between_host_and_dev_on_cpu_with_opencl(int dev, i
         starpu_opencl_get_device(dev, &device);
 	err = clGetDeviceInfo(device, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(maxMemAllocSize), &maxMemAllocSize, NULL);
         if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
-        if (opencl_size > (size_t)maxMemAllocSize) opencl_size = maxMemAllocSize;
+        if (opencl_size > (size_t)maxMemAllocSize/4) opencl_size = maxMemAllocSize/4;
 
 	/* hack to avoid third party libs to rebind threads */
 	_starpu_bind_thread_on_cpu(config, cpu);
@@ -378,12 +386,12 @@ static void measure_bandwidth_between_host_and_dev(int dev, double *dev_timing_h
 
 		double bandwidth_sum2 = bandwidth_dtoh*bandwidth_dtoh + bandwidth_htod*bandwidth_htod;
 
-		_STARPU_DISP("BANDWIDTH GPU %d CPU %d - htod %lf - dtoh %lf - %lf\n", dev, current_cpu, bandwidth_htod, bandwidth_dtoh, sqrt(bandwidth_sum2));
+		_STARPU_DISP("BANDWIDTH GPU %d CPU %u - htod %f - dtoh %f - %f\n", dev, current_cpu, bandwidth_htod, bandwidth_dtoh, sqrt(bandwidth_sum2));
 	}
 
 	unsigned best_cpu = dev_timing_per_cpu[(dev+1)*MAXCPUS+0].cpu_id;
 
-	_STARPU_DISP("BANDWIDTH GPU %d BEST CPU %d\n", dev, best_cpu);
+	_STARPU_DISP("BANDWIDTH GPU %d BEST CPU %u\n", dev, best_cpu);
 #endif
 
 	/* The results are sorted in a decreasing order, so that the best
@@ -396,7 +404,7 @@ static void measure_bandwidth_between_host_and_dev(int dev, double *dev_timing_h
 static void benchmark_all_gpu_devices(void)
 {
 #if defined(STARPU_USE_CUDA) || defined(STARPU_USE_OPENCL)
-	int i, ret;
+	int i;
 
 	_STARPU_DEBUG("Benchmarking the speed of the bus\n");
 
@@ -409,6 +417,7 @@ static void benchmark_all_gpu_devices(void)
 #ifdef __linux__
 	/* Save the current cpu binding */
 	cpu_set_t former_process_affinity;
+	int ret;
 	ret = sched_getaffinity(0, sizeof(former_process_affinity), &former_process_affinity);
 	if (ret)
 	{
@@ -466,7 +475,11 @@ static void get_bus_path(const char *type, char *path, size_t maxlen)
 	strncat(path, type, maxlen);
 
 	char hostname[32];
-	gethostname(hostname, 32);
+	char *forced_hostname = getenv("STARPU_HOSTNAME");
+	if (forced_hostname && forced_hostname[0])
+		snprintf(hostname, sizeof(hostname), forced_hostname);
+	else
+		gethostname(hostname, sizeof(hostname));
 	strncat(path, ".", maxlen);
 	strncat(path, hostname, maxlen);
 }
@@ -574,7 +587,7 @@ static void write_bus_affinity_file_content(void)
 
         fprintf(f, "# GPU\t");
 	for (cpu = 0; cpu < ncpus; cpu++)
-		fprintf(f, "CPU%d\t", cpu);
+		fprintf(f, "CPU%u\t", cpu);
 	fprintf(f, "\n");
 
 #ifdef STARPU_USE_CUDA
@@ -656,7 +669,7 @@ static void get_latency_path(char *path, size_t maxlen)
 	get_bus_path("latency", path, maxlen);
 }
 
-static void load_bus_latency_file_content(void)
+static int load_bus_latency_file_content(void)
 {
 	int n;
 	unsigned src, dst;
@@ -675,17 +688,29 @@ static void load_bus_latency_file_content(void)
 		{
 			double latency;
 
-			n = fscanf(f, "%lf\t", &latency);
-			STARPU_ASSERT(n == 1);
+			n = fscanf(f, "%lf", &latency);
+			if (n != 1) {
+				fclose(f);
+				return 0;
+			}
+			n = getc(f);
+			if (n != '\t') {
+				fclose(f);
+				return 0;
+			}
 
 			latency_matrix[src][dst] = latency;
 		}
 
-		n = fscanf(f, "\n");
-		STARPU_ASSERT(n == 0);
+		n = getc(f);
+		if (n != '\n') {
+			fclose(f);
+			return 0;
+		}
 	}
 
 	fclose(f);
+	return 1;
 }
 
 static void write_bus_latency_file_content(void)
@@ -735,7 +760,7 @@ static void write_bus_latency_file_content(void)
                                 latency = ((src && dst)?2000.0:500.0);
 			}
 
-			fprintf(f, "%lf\t", latency);
+			fprintf(f, "%f\t", latency);
 		}
 
 		fprintf(f, "\n");
@@ -760,13 +785,12 @@ static void load_bus_latency_file(void)
 	get_latency_path(path, 256);
 
 	res = access(path, F_OK);
-	if (res)
+	if (res || !load_bus_latency_file_content())
 	{
-		/* File does not exist yet */
+		/* File does not exist yet or is bogus */
 		generate_bus_latency_file();
 	}
 
-	load_bus_latency_file_content();
 }
 
 
@@ -778,7 +802,7 @@ static void get_bandwidth_path(char *path, size_t maxlen)
 	get_bus_path("bandwidth", path, maxlen);
 }
 
-static void load_bus_bandwidth_file_content(void)
+static int load_bus_bandwidth_file_content(void)
 {
 	int n;
 	unsigned src, dst;
@@ -803,17 +827,30 @@ static void load_bus_bandwidth_file_content(void)
 		{
 			double bandwidth;
 
-			n = fscanf(f, "%lf\t", &bandwidth);
-			STARPU_ASSERT(n == 1);
+			n = fscanf(f, "%lf", &bandwidth);
+			if (n != 1) {
+				fprintf(stderr,"didn't get a number\n");
+				fclose(f);
+				return 0;
+			}
+			n = getc(f);
+			if (n != '\t') {
+				fclose(f);
+				return 0;
+			}
 
 			bandwidth_matrix[src][dst] = bandwidth;
 		}
 
-		n = fscanf(f, "\n");
-		STARPU_ASSERT(n == 0);
+		n = getc(f);
+		if (n != '\n') {
+			fclose(f);
+			return 0;
+		}
 	}
 
 	fclose(f);
+	return 1;
 }
 
 static void write_bus_bandwidth_file_content(void)
@@ -858,7 +895,7 @@ static void write_bus_bandwidth_file_content(void)
 				time_src_to_ram = (src==0)?0.0:cudadev_timing_dtoh[src];
                                 time_ram_to_dst = (dst==0)?0.0:cudadev_timing_htod[dst];
 				timing =time_src_to_ram + time_ram_to_dst;
-				bandwidth = 1.0*SIZE/timing;
+				bandwidth = 1.0*cuda_size/timing;
 #endif
 #ifdef STARPU_USE_OPENCL
                                 if (src > ncuda)
@@ -875,7 +912,7 @@ static void write_bus_bandwidth_file_content(void)
 			        bandwidth = 0.0;
 			}
 
-			fprintf(f, "%lf\t", bandwidth);
+			fprintf(f, "%f\t", bandwidth);
 		}
 
 		fprintf(f, "\n");
@@ -900,13 +937,11 @@ static void load_bus_bandwidth_file(void)
 	get_bandwidth_path(path, 256);
 
 	res = access(path, F_OK);
-	if (res)
+	if (res || !load_bus_bandwidth_file_content())
 	{
-		/* File does not exist yet */
+		/* File does not exist yet or is bogus */
 		generate_bus_bandwidth_file();
 	}
-
-	load_bus_bandwidth_file_content();
 }
 
 /*
@@ -961,17 +996,17 @@ static void check_bus_config_file()
 
                 // Checking if both configurations match
                 if (read_cpus != ncpus) {
-			fprintf(stderr, "Current configuration does not match the performance model (CPUS: (stored) %u != (current) %u), recalibrating...", read_cpus, ncpus);
+			fprintf(stderr, "Current configuration does not match the bus performance model (CPUS: (stored) %u != (current) %u), recalibrating...", read_cpus, ncpus);
                         starpu_force_bus_sampling();
 			fprintf(stderr, "done\n");
                 }
                 else if (read_cuda != ncuda) {
-                        fprintf(stderr, "Current configuration does not match the performance model (CUDA: (stored) %d != (current) %d), recalibrating...", read_cuda, ncuda);
+                        fprintf(stderr, "Current configuration does not match the bus performance model (CUDA: (stored) %d != (current) %d), recalibrating...", read_cuda, ncuda);
                         starpu_force_bus_sampling();
 			fprintf(stderr, "done\n");
                 }
                 else if (read_opencl != nopencl) {
-                        fprintf(stderr, "Current configuration does not match the performance model (OpenCL: (stored) %d != (current) %d), recalibrating...", read_opencl, nopencl);
+                        fprintf(stderr, "Current configuration does not match the bus performance model (OpenCL: (stored) %d != (current) %d), recalibrating...", read_opencl, nopencl);
                         starpu_force_bus_sampling();
 			fprintf(stderr, "done\n");
                 }

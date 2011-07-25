@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2010, 2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,7 +18,6 @@
 
 #include <math.h>
 #include <starpu.h>
-#include <starpu_profiling.h>
 #include <common/config.h>
 #include <common/utils.h>
 #include <core/debug.h>
@@ -27,13 +26,13 @@
 #include "driver_opencl.h"
 #include "driver_opencl_utils.h"
 #include <common/utils.h>
-#include <profiling/profiling.h>
 
 static pthread_mutex_t big_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static cl_context contexts[STARPU_MAXOPENCLDEVS];
 static cl_device_id devices[STARPU_MAXOPENCLDEVS];
 static cl_command_queue queues[STARPU_MAXOPENCLDEVS];
+static cl_command_queue transfer_queues[STARPU_MAXOPENCLDEVS];
 static cl_uint nb_devices = -1;
 static int init_done = 0;
 extern char *_starpu_opencl_program_dir;
@@ -122,9 +121,17 @@ cl_int _starpu_opencl_init_context(int devid)
         contexts[devid] = clCreateContext(NULL, 1, &devices[devid], NULL, NULL, &err);
         if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
 
-        // Create queue for the given device
+        // Create execution queue for the given device
         queues[devid] = clCreateCommandQueue(contexts[devid], devices[devid], 0, &err);
         if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
+
+        // Create transfer queue for the given device
+        cl_command_queue_properties props;
+        clGetDeviceInfo(devices[devid], CL_DEVICE_QUEUE_PROPERTIES, sizeof(props), &props, NULL);
+        props &= CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE;
+        transfer_queues[devid] = clCreateCommandQueue(contexts[devid], devices[devid], props, &err);
+        if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
+
 	PTHREAD_MUTEX_UNLOCK(&big_lock);
 
 	limit_gpu_mem_if_needed(devid);
@@ -146,6 +153,9 @@ cl_int _starpu_opencl_deinit_context(int devid)
         if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
 
         err = clReleaseCommandQueue(queues[devid]);
+        if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
+
+        err = clReleaseCommandQueue(transfer_queues[devid]);
         if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
 
         contexts[devid] = NULL;
@@ -176,7 +186,7 @@ cl_int _starpu_opencl_copy_ram_to_opencl_async_sync(void *ptr, cl_mem buffer, si
         cl_bool blocking;
 
         blocking = (event == NULL) ? CL_TRUE : CL_FALSE;
-        err = clEnqueueWriteBuffer(queues[worker->devid], buffer, blocking, offset, size, ptr, 0, NULL, event);
+        err = clEnqueueWriteBuffer(transfer_queues[worker->devid], buffer, blocking, offset, size, ptr, 0, NULL, event);
         if (STARPU_LIKELY(err == CL_SUCCESS)) {
                 *ret = (event == NULL) ? 0 : -EAGAIN;
                 return CL_SUCCESS;
@@ -184,7 +194,7 @@ cl_int _starpu_opencl_copy_ram_to_opencl_async_sync(void *ptr, cl_mem buffer, si
         else {
                 if (event != NULL) {
                         /* The asynchronous copy has failed, try to copy synchronously */
-                        err = clEnqueueWriteBuffer(queues[worker->devid], buffer, CL_TRUE, offset, size, ptr, 0, NULL, NULL);
+                        err = clEnqueueWriteBuffer(transfer_queues[worker->devid], buffer, CL_TRUE, offset, size, ptr, 0, NULL, NULL);
                 }
                 if (STARPU_LIKELY(err == CL_SUCCESS)) {
                         *ret = 0;
@@ -204,7 +214,7 @@ cl_int _starpu_opencl_copy_ram_to_opencl(void *ptr, cl_mem buffer, size_t size, 
         cl_bool blocking;
 
         blocking = (event == NULL) ? CL_TRUE : CL_FALSE;
-        err = clEnqueueWriteBuffer(queues[worker->devid], buffer, blocking, offset, size, ptr, 0, NULL, event);
+        err = clEnqueueWriteBuffer(transfer_queues[worker->devid], buffer, blocking, offset, size, ptr, 0, NULL, event);
         if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
 
         return CL_SUCCESS;
@@ -217,7 +227,7 @@ cl_int _starpu_opencl_copy_opencl_to_ram_async_sync(cl_mem buffer, void *ptr, si
         cl_bool blocking;
 
         blocking = (event == NULL) ? CL_TRUE : CL_FALSE;
-        err = clEnqueueReadBuffer(queues[worker->devid], buffer, blocking, offset, size, ptr, 0, NULL, event);
+        err = clEnqueueReadBuffer(transfer_queues[worker->devid], buffer, blocking, offset, size, ptr, 0, NULL, event);
         if (STARPU_LIKELY(err == CL_SUCCESS)) {
                 *ret = (event == NULL) ? 0 : -EAGAIN;
                 return CL_SUCCESS;
@@ -225,7 +235,7 @@ cl_int _starpu_opencl_copy_opencl_to_ram_async_sync(cl_mem buffer, void *ptr, si
         else {
                 if (event != NULL)
                         /* The asynchronous copy has failed, try to copy synchronously */
-                        err = clEnqueueReadBuffer(queues[worker->devid], buffer, CL_TRUE, offset, size, ptr, 0, NULL, NULL);
+                        err = clEnqueueReadBuffer(transfer_queues[worker->devid], buffer, CL_TRUE, offset, size, ptr, 0, NULL, NULL);
                 if (STARPU_LIKELY(err == CL_SUCCESS)) {
                         *ret = 0;
                         return CL_SUCCESS;
@@ -246,7 +256,7 @@ cl_int _starpu_opencl_copy_opencl_to_ram(cl_mem buffer, void *ptr, size_t size, 
         cl_bool blocking;
 
         blocking = (event == NULL) ? CL_TRUE : CL_FALSE;
-        err = clEnqueueReadBuffer(queues[worker->devid], buffer, blocking, offset, size, ptr, 0, NULL, event);
+        err = clEnqueueReadBuffer(transfer_queues[worker->devid], buffer, blocking, offset, size, ptr, 0, NULL, event);
         if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
 
         return CL_SUCCESS;
@@ -262,7 +272,7 @@ cl_int _starpu_opencl_copy_rect_opencl_to_ram(cl_mem buffer, void *ptr, const si
         cl_bool blocking;
 
         blocking = (event == NULL) ? CL_TRUE : CL_FALSE;
-        err = clEnqueueReadBufferRect(queues[worker->devid], buffer, blocking, buffer_origin, host_origin, region, buffer_row_pitch,
+        err = clEnqueueReadBufferRect(transfer_queues[worker->devid], buffer, blocking, buffer_origin, host_origin, region, buffer_row_pitch,
                                       buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, 0, NULL, event);
         if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
 
@@ -278,7 +288,7 @@ cl_int _starpu_opencl_copy_rect_ram_to_opencl(void *ptr, cl_mem buffer, const si
         cl_bool blocking;
 
         blocking = (event == NULL) ? CL_TRUE : CL_FALSE;
-        err = clEnqueueWriteBufferRect(queues[worker->devid], buffer, blocking, buffer_origin, host_origin, region, buffer_row_pitch,
+        err = clEnqueueWriteBufferRect(transfer_queues[worker->devid], buffer, blocking, buffer_origin, host_origin, region, buffer_row_pitch,
                                        buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, 0, NULL, event);
         if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
 
@@ -300,7 +310,7 @@ void _starpu_opencl_init(void)
 
                 // Get Platforms
                 err = clGetPlatformIDs(STARPU_OPENCL_PLATFORM_MAX, platform_id, &nb_platforms);
-                if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
+                if (err != CL_SUCCESS) nb_platforms=0;
                 _STARPU_DEBUG("Platforms detected: %d\n", nb_platforms);
 
                 // Get devices
@@ -308,28 +318,40 @@ void _starpu_opencl_init(void)
                 {
                         for (i=0; i<nb_platforms; i++) {
                                 cl_uint num;
+				int platform_valid = 1;
+				char name[1024], vendor[1024];
 
+				err = clGetPlatformInfo(platform_id[i], CL_PLATFORM_NAME, 1024, name, NULL);
+				if (err != CL_SUCCESS) {
+					STARPU_OPENCL_REPORT_ERROR_WITH_MSG("clGetPlatformInfo NAME", err);
+					platform_valid = 0;
+				}
+				else {
+					err = clGetPlatformInfo(platform_id[i], CL_PLATFORM_VENDOR, 1024, vendor, NULL);
+					if (err != CL_SUCCESS) {
+						STARPU_OPENCL_REPORT_ERROR_WITH_MSG("clGetPlatformInfo VENDOR", err);
+						platform_valid = 0;
+					}
+				}
 #ifdef STARPU_VERBOSE
-                                {
-                                        char name[1024], vendor[1024];
-                                        err = clGetPlatformInfo(platform_id[i], CL_PLATFORM_NAME, 1024, name, NULL);
-                                        if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
-                                        err = clGetPlatformInfo(platform_id[i], CL_PLATFORM_VENDOR, 1024, vendor, NULL);
-                                        if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
-                                        _STARPU_DEBUG("Platform: %s - %s\n", name, vendor);
-                                }
+				if (platform_valid)
+					_STARPU_DEBUG("Platform: %s - %s\n", name, vendor);
+				else
+					_STARPU_DEBUG("Platform invalid\n");
 #endif
-                                err = clGetDeviceIDs(platform_id[i], device_type, STARPU_MAXOPENCLDEVS-nb_devices, &devices[nb_devices], &num);
-                                if (err == CL_DEVICE_NOT_FOUND) {
-                                        _STARPU_DEBUG("  No devices detected on this platform\n");
-                                }
-                                else {
-                                        if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
-                                        _STARPU_DEBUG("  %d devices detected\n", num);
-                                        nb_devices += num;
-                                }
-                        }
-                }
+				if (platform_valid) {
+					err = clGetDeviceIDs(platform_id[i], device_type, STARPU_MAXOPENCLDEVS-nb_devices, &devices[nb_devices], &num);
+					if (err == CL_DEVICE_NOT_FOUND) {
+						_STARPU_DEBUG("  No devices detected on this platform\n");
+					}
+					else {
+						if (err != CL_SUCCESS) STARPU_OPENCL_REPORT_ERROR(err);
+						_STARPU_DEBUG("  %d devices detected\n", num);
+						nb_devices += num;
+					}
+				}
+			}
+		}
 
                 // Get location of OpenCl kernel source files
                 _starpu_opencl_program_dir = getenv("STARPU_OPENCL_PROGRAM_DIR");
@@ -338,6 +360,7 @@ void _starpu_opencl_init(void)
                 for(i=0 ; i<nb_devices ; i++) {
                         contexts[i] = NULL;
                         queues[i] = NULL;
+                        transfer_queues[i] = NULL;
                 }
 
                 init_done=1;
@@ -404,7 +427,7 @@ void *_starpu_opencl_worker(void *arg)
 
 		task = _starpu_pop_task(args);
 		
-                if (task == NULL) 
+        if (task == NULL) 
 		{
 			if (_starpu_worker_can_block(memnode))
 				_starpu_block_worker(workerid, args->sched_cond, args->sched_mutex);
@@ -491,15 +514,10 @@ static int _starpu_opencl_execute_job(starpu_job_t j, struct starpu_worker_s *ar
 
 	struct timespec codelet_start, codelet_end;
 
-	unsigned calibrate_model = 0;
 	int workerid = args->workerid;
-
 	STARPU_ASSERT(task);
 	struct starpu_codelet_t *cl = task->cl;
 	STARPU_ASSERT(cl);
-
-	if (cl->model && cl->model->benchmarking)
-		calibrate_model = 1;
 
 	ret = _starpu_fetch_task_input(task, mask);
 	if (ret != 0) {
@@ -509,37 +527,18 @@ static int _starpu_opencl_execute_job(starpu_job_t j, struct starpu_worker_s *ar
 		return -EAGAIN;
 	}
 
-	STARPU_TRACE_START_CODELET_BODY(j);
-
-	struct starpu_task_profiling_info *profiling_info;
-	int profiling = starpu_profiling_status_get();
-	profiling_info = task->profiling_info;
-
-	if ((profiling && profiling_info) || calibrate_model)
-	{
-		starpu_clock_gettime(&codelet_start);
-		_starpu_worker_register_executing_start_date(workerid, &codelet_start);
-	}
-
-	args->status = STATUS_EXECUTING;
-	task->status = STARPU_TASK_RUNNING;	
+	_starpu_driver_start_job(args, j, &codelet_start, 0);
 
 	cl_func func = cl->opencl_func;
 	STARPU_ASSERT(func);
-	func(task->interface, task->cl_arg);
+	func(task->interfaces, task->cl_arg);
 
-	cl->per_worker_stats[workerid]++;
+	_starpu_driver_end_job(args, j, &codelet_end, 0);
 
-	if ((profiling && profiling_info) || calibrate_model)
-		starpu_clock_gettime(&codelet_end);
-
-	STARPU_TRACE_END_CODELET_BODY(j);
-	args->status = STATUS_UNKNOWN;
+	_starpu_driver_update_job_feedback(j, args, args->perf_arch,
+							&codelet_start, &codelet_end);
 
 	_starpu_push_task_output(task, mask);
-
-	_starpu_driver_update_job_feedback(j, args, profiling_info, args->perf_arch,
-							&codelet_start, &codelet_end);
 
 	return EXIT_SUCCESS;
 }

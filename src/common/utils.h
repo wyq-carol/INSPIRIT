@@ -27,15 +27,15 @@
 #include <stdlib.h>
 
 #ifdef STARPU_VERBOSE
-#  define _STARPU_DEBUG(fmt, args ...) do { if (!getenv("STARPU_SILENT")) {fprintf(stderr, "[starpu][%s] " fmt ,__func__ ,##args); }} while(0)
+#  define _STARPU_DEBUG(fmt, args ...) do { if (!getenv("STARPU_SILENT")) {fprintf(stderr, "[starpu][%s] " fmt ,__func__ ,##args); fflush(stderr); }} while(0)
 #else
 #  define _STARPU_DEBUG(fmt, args ...)
 #endif
 
 #ifdef STARPU_VERBOSE0
-#  define _STARPU_LOG_IN()             fprintf(stderr, "[starpu][%ld][%s] -->\n", pthread_self(), __func__ );
-#  define _STARPU_LOG_OUT()            fprintf(stderr, "[starpu][%ld][%s] <--\n", pthread_self(), __func__ );
-#  define _STARPU_LOG_OUT_TAG(outtag)  fprintf(stderr, "[starpu][%ld][%s] <-- (%s)\n", pthread_self(), __func__, outtag);
+#  define _STARPU_LOG_IN()             do { if (!getenv("STARPU_SILENT")) {fprintf(stderr, "[starpu][%ld][%s] -->\n", pthread_self(), __func__ ); }} while(0)
+#  define _STARPU_LOG_OUT()            do { if (!getenv("STARPU_SILENT")) {fprintf(stderr, "[starpu][%ld][%s] <--\n", pthread_self(), __func__ ); }} while(0)
+#  define _STARPU_LOG_OUT_TAG(outtag)  do { if (!getenv("STARPU_SILENT")) {fprintf(stderr, "[starpu][%ld][%s] <-- (%s)\n", pthread_self(), __func__, outtag); }} while(0)
 #else
 #  define _STARPU_LOG_IN()
 #  define _STARPU_LOG_OUT()

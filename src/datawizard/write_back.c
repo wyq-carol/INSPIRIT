@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2009, 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -16,6 +16,7 @@
  */
 
 #include <datawizard/datawizard.h>
+#include <datawizard/write_back.h>
 
 void _starpu_write_through_data(starpu_data_handle handle, uint32_t requesting_node, 
 					   uint32_t write_through_mask)
@@ -25,9 +26,6 @@ void _starpu_write_through_data(starpu_data_handle handle, uint32_t requesting_n
 		return;
 	}
 
-	while (_starpu_spin_trylock(&handle->header_lock))
-		_starpu_datawizard_progress(requesting_node, 1);
-
 	/* first commit all changes onto the nodes specified by the mask */
 	uint32_t node;
 	for (node = 0; node < STARPU_MAXNODES; node++)
@@ -36,30 +34,23 @@ void _starpu_write_through_data(starpu_data_handle handle, uint32_t requesting_n
 			/* we need to commit the buffer on that node */
 			if (node != requesting_node) 
 			{
-				uint32_t handling_node =
-					_starpu_select_node_to_handle_request(requesting_node, node);
+				while (_starpu_spin_trylock(&handle->header_lock))
+					_starpu_datawizard_progress(requesting_node, 1);
 
 				starpu_data_request_t r;
+				r = create_request_to_fetch_data(handle, &handle->per_node[node],
+								STARPU_R, 0, NULL, NULL);
 
-				/* check that there is not already a similar
-				 * request that we should reuse */
-				r = _starpu_search_existing_data_request(&handle->per_node[node], STARPU_R);
-				if (!r) {
-					/* there was no existing request so we create one now */
-					r = _starpu_create_data_request(handle, &handle->per_node[requesting_node],
-							&handle->per_node[node], handling_node, STARPU_R, 0, 1);
-					_starpu_post_data_request(r, handling_node);
-				}
-				else {
-					/* if there is already a similar request, it is
-					 * useless to post another one */
-					_starpu_spin_unlock(&r->lock);
+			        /* If no request was created, the handle was already up-to-date on the
+			         * node */
+			        if (r)
+				{
+				        _starpu_spin_unlock(&handle->header_lock);
+        				_starpu_wait_data_request_completion(r, 1);
 				}
 			}
 		}
 	}
-
-	_starpu_spin_unlock(&handle->header_lock);
 }
 
 void starpu_data_set_wt_mask(starpu_data_handle handle, uint32_t wt_mask)

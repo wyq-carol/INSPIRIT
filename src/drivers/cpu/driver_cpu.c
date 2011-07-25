@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2010, 2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,8 +18,6 @@
 
 #include <math.h>
 #include <starpu.h>
-#include <starpu_profiling.h>
-#include <profiling/profiling.h>
 #include <drivers/driver_common/driver_common.h>
 #include <common/utils.h>
 #include <core/debug.h>
@@ -40,9 +38,6 @@ static int execute_job_on_cpu(starpu_job_t j, struct starpu_worker_s *cpu_args, 
 	STARPU_ASSERT(cl);
 	STARPU_ASSERT(cl->cpu_func);
 
-	if (cl->model && cl->model->benchmarking)
-		calibrate_model = 1;
-
 	if (rank == 0)
 	{
 		ret = _starpu_fetch_task_input(task, 0);
@@ -50,7 +45,6 @@ static int execute_job_on_cpu(starpu_job_t j, struct starpu_worker_s *cpu_args, 
 		{
 			/* there was not enough memory so the codelet cannot be executed right now ... */
 			/* push the codelet back and try another one ... */
-			STARPU_ASSERT(ret == 0);
 			return -EAGAIN;
 		}
 	}
@@ -58,52 +52,27 @@ static int execute_job_on_cpu(starpu_job_t j, struct starpu_worker_s *cpu_args, 
 	if (is_parallel_task)
 		PTHREAD_BARRIER_WAIT(&j->before_work_barrier);
 
-	STARPU_TRACE_START_CODELET_BODY(j);
+	_starpu_driver_start_job(cpu_args, j, &codelet_start, rank);
 
-	struct starpu_task_profiling_info *profiling_info;
-	int profiling = starpu_profiling_status_get();
-
-	if (rank == 0)
-	{
-		profiling_info = task->profiling_info;
-	
-		if ((profiling && profiling_info) || calibrate_model)
-		{
-			starpu_clock_gettime(&codelet_start);
-			_starpu_worker_register_executing_start_date(workerid, &codelet_start);
-		}
-
-	}
-	
-	cpu_args->status = STATUS_EXECUTING;
-	task->status = STARPU_TASK_RUNNING;	
-	
 	/* In case this is a Fork-join parallel task, the worker does not
 	 * execute the kernel at all. */
 	if ((rank == 0) || (cl->type != STARPU_FORKJOIN))
 	{
 		cl_func func = cl->cpu_func;
-		func(task->interface, task->cl_arg);
+		STARPU_ASSERT(func);
+		func(task->interfaces, task->cl_arg);
 	}
-	
+
+	_starpu_driver_end_job(cpu_args, j, &codelet_end, rank);
+
 	if (is_parallel_task)
 		PTHREAD_BARRIER_WAIT(&j->after_work_barrier);
 
-	STARPU_TRACE_END_CODELET_BODY(j);
-
-	cpu_args->status = STATUS_UNKNOWN;
-
 	if (rank == 0)
 	{
-		cl->per_worker_stats[workerid]++;
-		
-		if ((profiling && profiling_info) || calibrate_model)
-			starpu_clock_gettime(&codelet_end);
-
-		_starpu_push_task_output(task, 0);
-
-		_starpu_driver_update_job_feedback(j, cpu_args, profiling_info,
+		_starpu_driver_update_job_feedback(j, cpu_args,
 				perf_arch, &codelet_start, &codelet_end);
+		_starpu_push_task_output(task, 0);
 	}
 
 	return 0;
@@ -163,17 +132,6 @@ void *_starpu_cpu_worker(void *arg)
 		{
 			PTHREAD_MUTEX_LOCK(sched_mutex);
 			if (_starpu_worker_can_block(memnode)){
-/* 			struct starpu_sched_ctx **sched_ctx = cpu_arg->sched_ctx; */
-/* 			int i = 0; */
-/* 			int sleep = 0; */
-/* 			for(i = 0; i < cpu_arg->nctxs; i++){ */
-/* 			  if(sched_ctx[i]->sched_ctx_id  == 2 ){ */
-/* 			    sleep = 1; */
-/* 			    break; */
-/* 			  } */
-/* 			} */
-
-/* 			if(sleep) */
 				_starpu_block_worker(workerid, sched_cond, sched_mutex);
 			}
 
@@ -228,7 +186,7 @@ void *_starpu_cpu_worker(void *arg)
 
 		struct starpu_sched_ctx *local_sched_ctx = _starpu_get_sched_ctx(j->task->sched_ctx);
 
-                res = execute_job_on_cpu(j, cpu_arg, is_parallel_task, rank, perf_arch);
+        res = execute_job_on_cpu(j, cpu_arg, is_parallel_task, rank, perf_arch);
 
 		_starpu_set_current_task(NULL);
 
@@ -259,4 +217,5 @@ void *_starpu_cpu_worker(void *arg)
 	STARPU_TRACE_WORKER_DEINIT_END(STARPU_FUT_CPU_KEY);
 
 	pthread_exit(NULL);
+	return NULL;
 }

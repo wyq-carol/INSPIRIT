@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2009, 2010, 2011  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -24,6 +24,7 @@
 #include <common/utils.h>
 #include <profiling/profiling.h>
 #include <profiling/bound.h>
+#include <starpu_top.h>
 
 size_t _starpu_job_get_data_size(starpu_job_t j)
 {
@@ -68,7 +69,7 @@ starpu_job_t __attribute__((malloc)) _starpu_job_create(struct starpu_task *task
 	job->terminated = 0;
 
 #ifndef STARPU_USE_FXT
-	if (_starpu_bound_recording)
+	if (_starpu_bound_recording || starpu_top_status_get())
 #endif
 		job->job_id = STARPU_ATOMIC_ADD(&job_cnt, 1);
 #ifdef STARPU_USE_FXT
@@ -227,7 +228,6 @@ void _starpu_handle_job_termination(starpu_job_t j, unsigned job_is_already_lock
 		/* We reuse the same job structure */
 		int ret = _starpu_submit_job(j, 1);
 		STARPU_ASSERT(!ret);
-		printf("did not decrement\n");
 	}	
 	else {
 		_starpu_decrement_nsubmitted_tasks();
@@ -270,7 +270,9 @@ static unsigned _starpu_not_all_tag_deps_are_fulfilled(starpu_job_t j)
 	return ret;
 }
 
+#ifdef STARPU_DEVEL
 #warning TODO remove the job_is_already_locked parameter
+#endif
 static unsigned _starpu_not_all_task_deps_are_fulfilled(starpu_job_t j, unsigned job_is_already_locked)
 {
 	unsigned ret;
@@ -304,7 +306,9 @@ static unsigned _starpu_not_all_task_deps_are_fulfilled(starpu_job_t j, unsigned
  *	In order, we enforce tag, task and data dependencies. The task is
  *	passed to the scheduler only once all these constraints are fulfilled.
  */
+#ifdef STARPU_DEVEL
 #warning TODO remove the job_is_already_locked parameter
+#endif
 unsigned _starpu_enforce_deps_and_schedule(starpu_job_t j, unsigned job_is_already_locked)
 {
 	unsigned ret;
@@ -335,7 +339,9 @@ unsigned _starpu_enforce_deps_and_schedule(starpu_job_t j, unsigned job_is_alrea
 }
 
 /* Tag deps are already fulfilled */
+#ifdef STARPU_DEVEL
 #warning TODO remove the job_is_already_locked parameter
+#endif
 unsigned _starpu_enforce_deps_starting_from_task(starpu_job_t j, unsigned job_is_already_locked)
 {
 	unsigned ret;
@@ -372,6 +378,7 @@ int _starpu_push_local_task(struct starpu_worker_s *worker, struct starpu_task *
 		return -ENODEV;
 
 	PTHREAD_MUTEX_LOCK(worker->sched_mutex);
+
 	if (back)
 		starpu_task_list_push_back(&worker->local_tasks, task);
 	else
@@ -393,10 +400,11 @@ const char *_starpu_get_model_name(starpu_job_t j)
             && task->cl->model
             && task->cl->model->symbol)
                 return task->cl->model->symbol;
-#ifdef STARPU_USE_FXT
         else {
+#ifdef STARPU_USE_FXT
                 return j->model_name;
-        }
+#else
+                return NULL;
 #endif
-        return NULL;
+        }
 }

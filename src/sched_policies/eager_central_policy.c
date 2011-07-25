@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
  * Copyright (C) 2010  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
@@ -97,13 +97,6 @@ static int push_task_eager_policy(struct starpu_task *task, unsigned sched_ctx_i
 	return _starpu_fifo_push_task(fifo, sched_ctx->sched_mutex[0], sched_ctx->sched_cond[0], task);
 }
 
-static int push_prio_task_eager_policy(struct starpu_task *task, unsigned sched_ctx_id)
-{
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
-	struct starpu_fifo_taskq_s *fifo = (struct starpu_fifo_taskq_s*)sched_ctx->policy_data;
-	return _starpu_fifo_push_prio_task(fifo, sched_ctx->sched_mutex[0], sched_ctx->sched_cond[0], task);
-}
-
 static struct starpu_task *pop_every_task_eager_policy(unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
@@ -136,26 +129,9 @@ struct starpu_sched_policy_s _starpu_sched_eager_policy = {
 	.init_sched_for_workers = initialize_eager_center_policy_for_workers,
 	.deinit_sched = deinitialize_eager_center_policy,
 	.push_task = push_task_eager_policy,
-	.push_task_notify = NULL,
-	.push_prio_task = push_prio_task_eager_policy,
 	.pop_task = pop_task_eager_policy,
 	.post_exec_hook = NULL,
 	.pop_every_task = pop_every_task_eager_policy,
 	.policy_name = "eager",
 	.policy_description = "greedy policy"
-};
-
-struct starpu_sched_policy_s _starpu_sched_no_prio_policy = {
-	.init_sched = initialize_eager_center_policy,
-	.init_sched_for_workers = initialize_eager_center_policy_for_workers,
-	.deinit_sched = deinitialize_eager_center_policy,
-	.push_task = push_task_eager_policy,
-	.push_task_notify = NULL,
-	/* we use the same method in spite of the priority */
-	.push_prio_task = push_task_eager_policy,
-	.pop_task = pop_task_eager_policy,
-	.post_exec_hook = NULL,
-	.pop_every_task = pop_every_task_eager_policy,
-	.policy_name = "no-prio",
-	.policy_description = "eager without priority"
 };

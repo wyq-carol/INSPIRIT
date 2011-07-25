@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2010, 2011  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -214,6 +214,7 @@ static struct starpu_task *dmda_pop_every_task(unsigned sched_ctx_id)
 	return new_list;
 }
 
+static
 int _starpu_fifo_push_sorted_task(struct starpu_fifo_taskq_s *fifo_queue, pthread_mutex_t *sched_mutex, pthread_cond_t *sched_cond, struct starpu_task *task)
 {
 	struct starpu_task_list *list = &fifo_queue->taskq;
@@ -301,17 +302,12 @@ static int push_task_on_best_worker(struct starpu_task *task, int best_workerid,
 	if (starpu_get_prefetch_flag())
 		starpu_prefetch_task_input_on_node(task, memory_node);
 
-	switch (prio) {
-		case 1:
-			return _starpu_fifo_push_prio_task(dt->queue_array[best_workerid_ctx],
-				sched_ctx->sched_mutex[best_workerid_ctx], sched_ctx->sched_cond[best_workerid_ctx], task);
-		case 2:
-			return _starpu_fifo_push_sorted_task(dt->queue_array[best_workerid_ctx],
-				sched_ctx->sched_mutex[best_workerid_ctx], sched_ctx->sched_cond[best_workerid_ctx], task);
-		default:
-			return _starpu_fifo_push_task(dt->queue_array[best_workerid_ctx],
-				sched_ctx->sched_mutex[best_workerid_ctx], sched_ctx->sched_cond[best_workerid_ctx], task);
-	}
+	if (prio)
+		return _starpu_fifo_push_sorted_task(dt->queue_array[best_workerid_ctx],
+			sched_ctx->sched_mutex[best_workerid_ctx], sched_ctx->sched_cond[best_workerid_ctx], task);
+	else
+		return _starpu_fifo_push_task(dt->queue_array[best_workerid_ctx],
+			sched_ctx->sched_mutex[best_workerid_ctx], sched_ctx->sched_cond[best_workerid_ctx], task);
 }
 
 static int _dm_push_task(struct starpu_task *task, unsigned prio, struct starpu_sched_ctx *sched_ctx)
@@ -335,7 +331,7 @@ static int _dm_push_task(struct starpu_task *task, unsigned prio, struct starpu_
 	unsigned nworkers = sched_ctx->nworkers_in_ctx;
 	for (worker_in_ctx = 0; worker_in_ctx < nworkers; worker_in_ctx++)
 	{
-                worker = sched_ctx->workerid[worker_in_ctx];
+        worker = sched_ctx->workerid[worker_in_ctx];
 		double exp_end;
 		
 		fifo = dt->queue_array[worker_in_ctx];
@@ -421,7 +417,7 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio, struct starp
 
 	double best_exp_end = 10e240;
 	double model_best = 0.0;
-	double penality_best = 0.0;
+	//double penality_best = 0.0;
 
 	int ntasks_best = -1;
 	double ntasks_best_end = 0.0;
@@ -432,7 +428,7 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio, struct starp
 
 	for (worker_in_ctx = 0; worker_in_ctx < nworkers_in_ctx; worker_in_ctx++)
 	{
-                worker = sched_ctx->workerid[worker_in_ctx];
+        worker = sched_ctx->workerid[worker_in_ctx];
 
 		fifo = dt->queue_array[worker_in_ctx];
 
@@ -528,7 +524,7 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio, struct starp
 				best = worker;
 				best_in_ctx = worker_in_ctx;
 
-	//			_STARPU_DEBUG("best fitness (worker %d) %le = alpha*(%le) + beta(%le) +gamma(%le)\n", worker, best_fitness, exp_end[worker] - best_exp_end, local_data_penalty[worker], local_power[worker]);
+	//			_STARPU_DEBUG("best fitness (worker %d) %e = alpha*(%e) + beta(%e) +gamma(%e)\n", worker, best_fitness, exp_end[worker] - best_exp_end, local_data_penalty[worker], local_power[worker]);
 			}
 		}
 	}
@@ -542,12 +538,12 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio, struct starp
 		 * so we force this measurement */
 		best = forced_best;
 		model_best = 0.0;
-		penality_best = 0.0;
+		//penality_best = 0.0;
 	}
 	else 
 	{
-		model_best = local_task_length[best_in_ctx];
-		penality_best = local_data_penalty[best_in_ctx];
+		model_best = local_task_length[best];
+		//penality_best = local_data_penalty[best];
 	}
 
 	/* we should now have the best worker in variable "best" */
@@ -560,12 +556,6 @@ static int dmda_push_sorted_task(struct starpu_task *task, unsigned sched_ctx_id
 	return _dmda_push_task(task, 2, sched_ctx);
 }
 
-static int dm_push_prio_task(struct starpu_task *task, unsigned sched_ctx_id)
-{
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
-	return _dm_push_task(task, 1, sched_ctx);
-}
-
 static int dm_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
@@ -573,12 +563,6 @@ static int dm_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 		return _dm_push_task(task, 1, sched_ctx);
 
 	return _dm_push_task(task, 0, sched_ctx);
-}
-
-static int dmda_push_prio_task(struct starpu_task *task, unsigned sched_ctx_id)
-{
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
-	return _dmda_push_task(task, 1, sched_ctx);
 }
 
 static int dmda_push_task(struct starpu_task *task, unsigned sched_ctx_id)
@@ -690,7 +674,6 @@ struct starpu_sched_policy_s _starpu_sched_dm_policy = {
 	.init_sched = initialize_dmda_policy,
 	.deinit_sched = deinitialize_dmda_policy,
 	.push_task = dm_push_task, 
-	.push_prio_task = dm_push_prio_task,
 	.pop_task = dmda_pop_task,
 	.post_exec_hook = NULL,
 	.pop_every_task = dmda_pop_every_task,
@@ -703,7 +686,6 @@ struct starpu_sched_policy_s _starpu_sched_dmda_policy = {
 	.init_sched = initialize_dmda_policy,
 	.deinit_sched = deinitialize_dmda_policy,
 	.push_task = dmda_push_task, 
-	.push_prio_task = dmda_push_prio_task, 
 	.pop_task = dmda_pop_task,
 	.post_exec_hook = NULL,
 	.pop_every_task = dmda_pop_every_task,
@@ -716,7 +698,6 @@ struct starpu_sched_policy_s _starpu_sched_dmda_sorted_policy = {
 	.init_sched = initialize_dmda_sorted_policy,
 	.deinit_sched = deinitialize_dmda_policy,
 	.push_task = dmda_push_sorted_task, 
-	.push_prio_task = dmda_push_sorted_task, 
 	.pop_task = dmda_pop_ready_task,
 	.post_exec_hook = NULL,
 	.pop_every_task = dmda_pop_every_task,
@@ -729,7 +710,6 @@ struct starpu_sched_policy_s _starpu_sched_dmda_ready_policy = {
 	.init_sched = initialize_dmda_policy,
 	.deinit_sched = deinitialize_dmda_policy,
 	.push_task = dmda_push_task, 
-	.push_prio_task = dmda_push_prio_task, 
 	.pop_task = dmda_pop_ready_task,
 	.post_exec_hook = NULL,
 	.pop_every_task = dmda_pop_every_task,

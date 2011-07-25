@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2009, 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -31,7 +31,7 @@ struct malloc_pinned_codelet_struct {
 #endif
 
 //#ifdef STARPU_USE_OPENCL
-//static void malloc_pinned_opencl_codelet(void *buffers[] __attribute__((unused)), void *arg)
+//static void malloc_pinned_opencl_codelet(void *buffers[] STARPU_ATTRIBUTE_UNUSED, void *arg)
 //{
 //	struct malloc_pinned_codelet_struct *s = arg;
 //        //        *(s->ptr) = malloc(s->dim);
@@ -40,7 +40,7 @@ struct malloc_pinned_codelet_struct {
 //#endif
 
 #ifdef STARPU_USE_CUDA
-static void malloc_pinned_cuda_codelet(void *buffers[] __attribute__((unused)), void *arg)
+static void malloc_pinned_cuda_codelet(void *buffers[] STARPU_ATTRIBUTE_UNUSED, void *arg)
 {
 	struct malloc_pinned_codelet_struct *s = arg;
 
@@ -67,7 +67,7 @@ static starpu_codelet malloc_pinned_cl = {
 };
 #endif
 
-int starpu_data_malloc_pinned_if_possible(void **A, size_t dim)
+int starpu_malloc(void **A, size_t dim)
 {
 	if (STARPU_UNLIKELY(!_starpu_worker_may_perform_blocking_calls()))
 		return -EDEADLK;
@@ -132,7 +132,7 @@ int starpu_data_malloc_pinned_if_possible(void **A, size_t dim)
 }
 
 #ifdef STARPU_USE_CUDA
-static void free_pinned_cuda_codelet(void *buffers[] __attribute__((unused)), void *arg)
+static void free_pinned_cuda_codelet(void *buffers[] STARPU_ATTRIBUTE_UNUSED, void *arg)
 {
 	cudaError_t cures;
 	cures = cudaFreeHost(arg);
@@ -142,7 +142,7 @@ static void free_pinned_cuda_codelet(void *buffers[] __attribute__((unused)), vo
 #endif
 
 //#ifdef STARPU_USE_OPENCL
-//static void free_pinned_opencl_codelet(void *buffers[] __attribute__((unused)), void *arg)
+//static void free_pinned_opencl_codelet(void *buffers[] STARPU_ATTRIBUTE_UNUSED, void *arg)
 //{
 //        //        free(arg);
 //        int err = clReleaseMemObject(arg);
@@ -166,7 +166,7 @@ static starpu_codelet free_pinned_cl = {
 };
 #endif
 
-int starpu_data_free_pinned_if_possible(void *A)
+int starpu_free(void *A)
 {
 	if (STARPU_UNLIKELY(!_starpu_worker_may_perform_blocking_calls()))
 		return -EDEADLK;

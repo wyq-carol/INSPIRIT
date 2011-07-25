@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2010, 2011  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -24,6 +24,7 @@
 #include <core/perfmodel/perfmodel.h>
 #include <starpu_parameters.h>
 #include <starpu_task_bundle.h>
+#include <starpu_top.h>
 
 typedef struct {
 	double alpha;
@@ -37,6 +38,21 @@ double exp_end[STARPU_NMAXWORKERS];
 double exp_len[STARPU_NMAXWORKERS];
 double ntasks[STARPU_NMAXWORKERS];
 
+
+const float alpha_minimum=0;
+const float alpha_maximum=10.0;
+const float beta_minimum=0;
+const float beta_maximum=10.0;
+const float gamma_minimum=0;
+const float gamma_maximum=10000.0;
+const float idle_power_minimum=0;
+const float idle_power_maximum=10000.0;
+
+void param_modified(struct starputop_param_t* d){
+	//just to show parameter modification
+	fprintf(stderr,"%s has been modified : alpha=%f|beta=%f|gamma=%f|idle_power=%f !\n", 
+		d->name, alpha,beta,_gamma,idle_power);
+}
 static void heft_init_for_workers(unsigned sched_ctx_id, unsigned nnew_workers)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
@@ -102,6 +118,11 @@ static void heft_init(unsigned sched_ctx_id)
 	const char *strval_idle_power = getenv("STARPU_IDLE_POWER");
 	if (strval_idle_power)
 		hd->idle_power = atof(strval_idle_power);
+
+	starputop_register_parameter_float("HEFT_ALPHA", &hd->alpha, alpha_minimum,alpha_maximum,param_modified);
+	starputop_register_parameter_float("HEFT_BETA", &hd->beta, beta_minimum,beta_maximum,param_modified);
+	starputop_register_parameter_float("HEFT_GAMMA", &hd->_gamma, gamma_minimum,gamma_maximum,param_modified);
+	starputop_register_parameter_float("HEFT_IDLE_POWER", &hd->idle_power, idle_power_minimum,idle_power_maximum,param_modified);
 
 	unsigned workerid_ctx;
 
@@ -181,28 +202,32 @@ static int push_task_on_best_worker(struct starpu_task *task, int best_workerid,
 	PTHREAD_MUTEX_LOCK(best_worker->sched_mutex);
 	exp_end[best_workerid] += predicted;
 	exp_len[best_workerid] += predicted;
-
 	ntasks[best_workerid]++;
 	PTHREAD_MUTEX_UNLOCK(best_worker->sched_mutex);
 
 	task->predicted = predicted;
+
+	if (starpu_top_status_get())
+		starputop_task_prevision(task, best_workerid, 
+					(unsigned long long)(exp_end[best_workerid]-predicted)/1000,
+					(unsigned long long)exp_end[best_workerid]/1000);
 
 	if (starpu_get_prefetch_flag())
 	{
 		unsigned memory_node = starpu_worker_get_memory_node(best_workerid);
 		starpu_prefetch_task_input_on_node(task, memory_node);
 	}
-	
+
 	return starpu_push_local_task(best_workerid, task, prio);
 }
 
 static void compute_all_performance_predictions(struct starpu_task *task,
-						double *local_task_length, double *exp_end,
-						double *max_exp_endp, double *best_exp_endp,
-						double *local_data_penalty,
-						double *local_power, int *forced_best,
-						struct starpu_task_bundle *bundle,
-						struct starpu_sched_ctx *sched_ctx )
+					double *local_task_length, double *exp_end,
+					double *max_exp_endp, double *best_exp_endp,
+					double *local_data_penalty,
+					double *local_power, int *forced_best,
+					struct starpu_task_bundle *bundle,
+					struct starpu_sched_ctx *sched_ctx )
 {
   int calibrating = 0;
   double max_exp_end = DBL_MIN;
@@ -223,7 +248,7 @@ static void compute_all_performance_predictions(struct starpu_task *task,
       exp_start[worker] = STARPU_MAX(exp_start[worker], starpu_timing_now());
       exp_end[worker_in_ctx] = exp_start[worker] + exp_len[worker];
       if (exp_end[worker_in_ctx] > max_exp_end)
- 	max_exp_end = exp_end[worker_in_ctx];
+ 		max_exp_end = exp_end[worker_in_ctx];
 
       if (!starpu_worker_may_execute_task(worker, task))
 	{
@@ -245,8 +270,6 @@ static void compute_all_performance_predictions(struct starpu_task *task,
 	local_data_penalty[worker_in_ctx] = starpu_task_expected_data_transfer_time(memory_node, task);
 	local_power[worker_in_ctx] = starpu_task_expected_power(task, perf_arch);
       }
-
-      //      printf("%d: local task len = %2.2f perf model %d\n", worker, local_task_length[worker_in_ctx], task->cl->model->type);
 
       double ntasks_end = ntasks[worker] / starpu_worker_get_relative_speedup(perf_arch);
 
@@ -318,9 +341,9 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio, unsigned sch
 	struct starpu_task_bundle *bundle = task->bundle;
 
 	compute_all_performance_predictions(task, local_task_length, exp_end,
-					    &max_exp_end, &best_exp_end,
-					    local_data_penalty,
-					    local_power, &forced_best, bundle, sched_ctx);
+					&max_exp_end, &best_exp_end,
+					local_data_penalty,
+					local_power, &forced_best, bundle, sched_ctx);
 
 	/* If there is no prediction available for that task with that arch we
 	 * want to speed-up calibration time so we force this measurement */
@@ -400,11 +423,6 @@ static int _heft_push_task(struct starpu_task *task, unsigned prio, unsigned sch
 	return push_task_on_best_worker(task, best, model_best, prio);
 }
 
-static int heft_push_prio_task(struct starpu_task *task, unsigned sched_ctx_id)
-{
-        return _heft_push_task(task, 1, sched_ctx_id);
-}
-
 static int heft_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	if (task->priority > 0)
@@ -424,13 +442,11 @@ struct starpu_sched_policy_s heft_policy = {
 	.init_sched = heft_init,
 	.deinit_sched = heft_deinit,
 	.push_task = heft_push_task, 
-	.push_prio_task = heft_push_prio_task, 
 	.push_task_notify = heft_push_task_notify,
 	.pop_task = NULL,
 	.pop_every_task = NULL,
 	.post_exec_hook = heft_post_exec_hook,
 	.policy_name = "heft",
 	.policy_description = "Heterogeneous Earliest Finish Task",
-	.init_sched_for_workers = heft_init_for_workers
-	
+	.init_sched_for_workers = heft_init_for_workers	
 };

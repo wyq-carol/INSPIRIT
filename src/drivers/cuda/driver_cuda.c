@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2009, 2010, 2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,7 +18,6 @@
 
 #include <starpu.h>
 #include <starpu_cuda.h>
-#include <starpu_profiling.h>
 #include <common/utils.h>
 #include <common/config.h>
 #include <core/debug.h>
@@ -26,7 +25,6 @@
 #include "driver_cuda.h"
 #include <core/sched_policy.h>
 #include <core/sched_ctx.h>
-#include <profiling/profiling.h>
 
 /* the number of CUDA devices */
 static int ncudagpus;
@@ -109,9 +107,7 @@ static void init_context(int devid)
 		STARPU_CUDA_REPORT_ERROR(cures);
 
 	/* force CUDA to initialize the context for real */
-	cures = cudaFree(0);
-	if (STARPU_UNLIKELY(cures))
-		STARPU_CUDA_REPORT_ERROR(cures);
+	cudaFree(0);
 
 	limit_gpu_mem_if_needed(devid);
 
@@ -147,7 +143,11 @@ unsigned _starpu_get_cuda_device_count(void)
 	cures = cudaGetDeviceCount(&cnt);
 	if (STARPU_UNLIKELY(cures))
 		 return 0;
-	
+
+	if (cnt > STARPU_MAXCUDADEVS) {
+		fprintf(stderr, "# Warning: %d CUDA devices available. Only %d enabled. Use configure option --enable-maxcudadev=xxx to update the maximum value of supported CUDA devices.\n", cnt, STARPU_MAXCUDADEVS);
+		cnt = STARPU_MAXCUDADEVS;
+	}
 	return (unsigned)cnt;
 }
 
@@ -161,6 +161,7 @@ static int execute_job_on_cuda(starpu_job_t j, struct starpu_worker_s *args)
 {
 	int ret;
 	uint32_t mask = 0;
+	cudaError_t cures;
 
 	STARPU_ASSERT(j);
 	struct starpu_task *task = j->task;
@@ -178,9 +179,8 @@ static int execute_job_on_cuda(starpu_job_t j, struct starpu_worker_s *args)
 		calibrate_model = 1;
 
 	ret = _starpu_fetch_task_input(task, mask);
-
 	if (ret != 0) {
-		/* there was not enough memory, so th input of
+		/* there was not enough memory, so the input of
 		 * the codelet cannot be fetched ... put the 
 		 * codelet back, and try it later */
 		return -EAGAIN;
@@ -188,43 +188,27 @@ static int execute_job_on_cuda(starpu_job_t j, struct starpu_worker_s *args)
 
 	if (calibrate_model)
 	{
-		cudaError_t cures = cudaStreamSynchronize(starpu_cuda_get_local_transfer_stream());
+		cures = cudaStreamSynchronize(starpu_cuda_get_local_transfer_stream());
 		if (STARPU_UNLIKELY(cures))
 			STARPU_CUDA_REPORT_ERROR(cures);
 	}
 
-	STARPU_TRACE_START_CODELET_BODY(j);
+	_starpu_driver_start_job(args, j, &codelet_start, 0);
 
-	struct starpu_task_profiling_info *profiling_info;
-	int profiling = starpu_profiling_status_get();
-	profiling_info = task->profiling_info;
-
-	if ((profiling && profiling_info) || calibrate_model)
-	{
-		starpu_clock_gettime(&codelet_start);
-		_starpu_worker_register_executing_start_date(workerid, &codelet_start);
-	}
-
-	args->status = STATUS_EXECUTING;
-	task->status = STARPU_TASK_RUNNING;	
+#ifdef HAVE_CUDA_MEMCPY_PEER
+	/* We make sure we do manipulate the proper device */
+	cures = cudaSetDevice(args->devid);
+#endif
 
 	cl_func func = cl->cuda_func;
 	STARPU_ASSERT(func);
-	func(task->interface, task->cl_arg);
+	func(task->interfaces, task->cl_arg);
 
-	cl->per_worker_stats[workerid]++;
+	_starpu_driver_end_job(args, j, &codelet_end, 0);
 
-
-	if ((profiling && profiling_info) || calibrate_model)
-		starpu_clock_gettime(&codelet_end);
-
-	STARPU_TRACE_END_CODELET_BODY(j);	
-	args->status = STATUS_UNKNOWN;
+	_starpu_driver_update_job_feedback(j, args, args->perf_arch, &codelet_start, &codelet_end);
 
 	_starpu_push_task_output(task, mask);
-
-	_starpu_driver_update_job_feedback(j, args, profiling_info, args->perf_arch,
-			&codelet_start, &codelet_end);
 
 	return 0;
 }
@@ -260,8 +244,11 @@ void *_starpu_cuda_worker(void *arg)
 	struct cudaDeviceProp prop;
 	cudaGetDeviceProperties(&prop, devid);
 	strncpy(devname, prop.name, 128);
-	snprintf(args->name, 32, "CUDA %d (%s)", args->devid, devname);
-
+#if CUDA_VERSION >= 3020
+	snprintf(args->name, 48, "CUDA %d (%s %02x:%02x.0)", args->devid, devname, prop.pciBusID, prop.pciDeviceID);
+#else
+	snprintf(args->name, 48, "CUDA %d (%s)", args->devid, devname);
+#endif
 	_STARPU_DEBUG("cuda (%s) dev id %d thread is ready to run on CPU %d !\n", devname, devid, args->bindid);
 
 	STARPU_TRACE_WORKER_INIT_END
@@ -277,7 +264,7 @@ void *_starpu_cuda_worker(void *arg)
 	int res;
 
 	pthread_cond_t *sched_cond = args->sched_cond;
-        pthread_mutex_t *sched_mutex = args->sched_mutex;
+    pthread_mutex_t *sched_mutex = args->sched_mutex;
 
 	while (_starpu_machine_is_running())
 	{
@@ -287,7 +274,7 @@ void *_starpu_cuda_worker(void *arg)
 
 		task = _starpu_pop_task(args);
 
-                if (!task) 
+        if (!task) 
 		{
 			PTHREAD_MUTEX_LOCK(sched_mutex);
 			if (_starpu_worker_can_block(memnode))
@@ -368,4 +355,44 @@ void *_starpu_cuda_worker(void *arg)
 
 	return NULL;
 
+}
+
+void starpu_cublas_report_error(const char *func, cublasStatus status)
+{
+	char *errormsg;
+	switch (status) {
+		case CUBLAS_STATUS_SUCCESS:
+			errormsg = "success";
+			break;
+		case CUBLAS_STATUS_NOT_INITIALIZED:
+			errormsg = "not initialized";
+			break;
+		case CUBLAS_STATUS_ALLOC_FAILED:
+			errormsg = "alloc failed";
+			break;
+		case CUBLAS_STATUS_INVALID_VALUE:
+			errormsg = "invalid value";
+			break;
+		case CUBLAS_STATUS_ARCH_MISMATCH:
+			errormsg = "arch mismatch";
+			break;
+		case CUBLAS_STATUS_EXECUTION_FAILED:
+			errormsg = "execution failed";
+			break;
+		case CUBLAS_STATUS_INTERNAL_ERROR:
+			errormsg = "internal error";
+			break;
+		default:
+			errormsg = "unknown error";
+			break;
+	}
+	printf("oops in %s ... %s \n", func, errormsg);
+	assert(0);
+}
+
+void starpu_cuda_report_error(const char *func, cudaError_t status)
+{
+	const char *errormsg = cudaGetErrorString(status);
+	printf("oops in %s ... %s \n", func, errormsg);
+	assert(0);
 }

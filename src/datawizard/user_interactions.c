@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2009, 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2009-2011  Université de Bordeaux 1
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -31,7 +31,7 @@ int starpu_data_request_allocation(starpu_data_handle handle, uint32_t node)
 
 	STARPU_ASSERT(handle);
 
-	r = _starpu_create_data_request(handle, NULL, &handle->per_node[node], node, 0, 0, 1);
+	r = _starpu_create_data_request(handle, NULL, &handle->per_node[node], node, 0, 0);
 
 	/* we do not increase the refcnt associated to the request since we are
 	 * not waiting for its termination */
@@ -125,7 +125,9 @@ int starpu_data_acquire_cb(starpu_data_handle handle,
 	PTHREAD_MUTEX_INIT(&wrapper->lock, NULL);
 	wrapper->finished = 0;
 
+#ifdef STARPU_DEVEL
 #warning TODO instead of having the is_prefetch argument, _starpu_fetch_data shoud consider two flags: async and detached
+#endif
 	_starpu_spin_lock(&handle->header_lock);
 	handle->per_node[0].refcnt++;
 	_starpu_spin_unlock(&handle->header_lock);
@@ -305,6 +307,7 @@ static void _prefetch_data_on_node(void *arg)
 
 }
 
+static
 int _starpu_prefetch_data_on_node_with_mode(starpu_data_handle handle, unsigned node, unsigned async, starpu_access_mode mode)
 {
 	STARPU_ASSERT(handle);
@@ -413,7 +416,9 @@ void starpu_data_set_default_sequential_consistency_flag(unsigned flag)
 /* Query the status of the handle on the specified memory node. */
 void starpu_data_query_status(starpu_data_handle handle, int memory_node, int *is_allocated, int *is_valid, int *is_requested)
 {
+#ifdef STARPU_DEVEL
 #warning FIXME
+#endif
 //	_starpu_spin_lock(&handle->header_lock);
 
 	if (is_allocated)
@@ -423,7 +428,21 @@ void starpu_data_query_status(starpu_data_handle handle, int memory_node, int *i
 		*is_valid = (handle->per_node[memory_node].state != STARPU_INVALID);
 
 	if (is_requested)
-		*is_requested = handle->per_node[memory_node].requested;
+	{
+		int requested = 0;
+
+		unsigned node;
+		for (node = 0; node < STARPU_MAXNODES; node++)
+		{
+			if (handle->per_node[memory_node].requested[node])
+			{
+				requested = 1;
+				break;
+			}
+		}
+
+		*is_requested = requested;
+	}
 
 //	_starpu_spin_unlock(&handle->header_lock);
 }

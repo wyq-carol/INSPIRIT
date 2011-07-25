@@ -16,6 +16,7 @@
 
 #include <core/workers.h>
 #include <sched_policies/fifo_queues.h>
+#include <common/barrier.h>
 
 /* the former is the actual queue, the latter some container */
 static struct starpu_fifo_taskq_s *fifo;
@@ -42,7 +43,7 @@ static void initialize_pgreedy_policy(unsigned sched_ctx_id)
 	fifo = _starpu_create_fifo();
 
 	struct starpu_machine_config_s *config = _starpu_get_machine_config();
-        struct starpu_machine_topology_s *topology = &config->topology;
+    struct starpu_machine_topology_s *topology = &config->topology;
 
 	_starpu_sched_find_worker_combinations(topology);
 
@@ -244,7 +245,6 @@ struct starpu_sched_policy_s _starpu_sched_pgreedy_policy = {
 	.init_sched = initialize_pgreedy_policy,
 	.deinit_sched = deinitialize_pgreedy_policy,
 	.push_task = push_task_pgreedy_policy,
-	.push_prio_task = push_task_pgreedy_policy,
 	.pop_task = pop_task_pgreedy_policy,
 	.post_exec_hook = NULL,
 	.pop_every_task = NULL,

@@ -72,14 +72,6 @@ static double per_arch_task_expected_perf(struct starpu_perfmodel_t *model, enum
 	double exp = -1.0;
 	double (*per_arch_cost_model)(struct starpu_buffer_descr_t *);
 	
-	if (!model->is_loaded)
-	{
-		model->benchmarking = _starpu_get_calibrate_flag();
-		
-		_starpu_register_model(model);
-		model->is_loaded = 1;
-	}
-
 	per_arch_cost_model = model->per_arch[arch].cost_model;
 
 	if (per_arch_cost_model)
@@ -134,6 +126,33 @@ static double common_task_expected_perf(struct starpu_perfmodel_t *model, enum s
 	return -1.0;
 }
 
+void _starpu_load_perfmodel(struct starpu_perfmodel_t *model)
+{
+	if (!model || model->is_loaded)
+		return;
+
+	switch (model->type) {
+		case STARPU_PER_ARCH:
+		case STARPU_COMMON:
+			break;
+
+		case STARPU_HISTORY_BASED:
+		case STARPU_NL_REGRESSION_BASED:
+			_starpu_load_history_based_model(model, 1);
+			break;
+
+		case STARPU_REGRESSION_BASED:
+			_starpu_load_history_based_model(model, 0);
+			break;
+
+		default:
+			STARPU_ABORT();
+	}
+
+	_starpu_register_model(model);
+	model->is_loaded = 1;
+}
+
 static double starpu_model_expected_perf(struct starpu_task *task, struct starpu_perfmodel_t *model, enum starpu_perf_archtype arch)
 {
 	if (model) {
@@ -146,8 +165,8 @@ static double starpu_model_expected_perf(struct starpu_task *task, struct starpu
 				return common_task_expected_perf(model, arch, task);
 
 			case STARPU_HISTORY_BASED:
-			    return _starpu_history_based_job_expected_perf(model, arch, j);
-			  
+				return _starpu_history_based_job_expected_perf(model, arch, j);
+
 			case STARPU_REGRESSION_BASED:
 				return _starpu_regression_based_job_expected_perf(model, arch, j);
 

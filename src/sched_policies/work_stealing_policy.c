@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -129,7 +129,9 @@ static struct starpu_deque_jobq_s *select_workerq(work_stealing_data *ws, unsign
 
 #endif
 
+#ifdef STARPU_DEVEL
 #warning TODO rewrite ... this will not scale at all now
+#endif
 static struct starpu_task *ws_pop_task(unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
@@ -252,7 +254,6 @@ struct starpu_sched_policy_s _starpu_sched_ws_policy = {
 	.init_sched = initialize_ws_policy,
 	.deinit_sched = NULL,
 	.push_task = ws_push_task,
-	.push_prio_task = ws_push_task,
 	.pop_task = ws_pop_task,
 	.post_exec_hook = NULL,
 	.pop_every_task = NULL,

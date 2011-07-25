@@ -282,7 +282,11 @@ static void get_model_debug_path(struct starpu_perfmodel_t *model, const char *a
 	strncat(path, model->symbol, maxlen);
 	
 	char hostname[32];
-	gethostname(hostname, 32);
+	char *forced_hostname = getenv("STARPU_HOSTNAME");
+	if (forced_hostname && forced_hostname[0])
+		snprintf(hostname, sizeof(hostname), forced_hostname);
+	else
+		gethostname(hostname, sizeof(hostname));
 	strncat(path, ".", maxlen);
 	strncat(path, hostname, maxlen);
 	strncat(path, ".", maxlen);
@@ -326,7 +330,11 @@ static void get_model_path(struct starpu_perfmodel_t *model, char *path, size_t 
 	strncat(path, model->symbol, maxlen);
 	
 	char hostname[32];
-	gethostname(hostname, 32);
+	char *forced_hostname = getenv("STARPU_HOSTNAME");
+	if (forced_hostname && forced_hostname[0])
+		snprintf(hostname, sizeof(hostname), forced_hostname);
+	else
+		gethostname(hostname, sizeof(hostname));
 	strncat(path, ".", maxlen);
 	strncat(path, hostname, maxlen);
 }
@@ -392,7 +400,7 @@ void _starpu_deinitialize_registered_performance_models(void)
  * was loaded or not (this is very likely to have been already loaded). If the
  * model was not loaded yet, we take the lock in write mode, and if the model
  * is still not loaded once we have the lock, we do load it.  */
-static void load_history_based_model(struct starpu_perfmodel_t *model, unsigned scan_history)
+void _starpu_load_history_based_model(struct starpu_perfmodel_t *model, unsigned scan_history)
 {
 
 	STARPU_ASSERT(model);
@@ -496,15 +504,8 @@ int starpu_list_models(void)
         dp = opendir(path);
         if (dp != NULL) {
                 while ((ep = readdir(dp))) {
-#ifdef DT_REG
-                        if (ep->d_type == DT_REG)
-#else
-			if (strcmp(ep->d_name, ".")
-			 && strcmp(ep->d_name, ".."))
-#endif
-			{
+                        if (strcmp(ep->d_name, ".") && strcmp(ep->d_name, ".."))
                                 fprintf(stdout, "file: <%s>\n", ep->d_name);
-                        }
                 }
                 closedir (dp);
                 return 0;
@@ -608,12 +609,10 @@ double _starpu_regression_based_job_expected_perf(struct starpu_perfmodel_t *mod
 	size_t size = _starpu_job_get_data_size(j);
 	struct starpu_regression_model_t *regmodel;
 
-	load_history_based_model(model, 0);
-
 	regmodel = &model->per_arch[arch].regression;
 
 	if (regmodel->valid)
-		exp = regmodel->alpha*pow(size, regmodel->beta);
+                exp = regmodel->alpha*pow((double)size, regmodel->beta);
 
 	return exp;
 }
@@ -624,12 +623,10 @@ double _starpu_non_linear_regression_based_job_expected_perf(struct starpu_perfm
 	size_t size = _starpu_job_get_data_size(j);
 	struct starpu_regression_model_t *regmodel;
 
-	load_history_based_model(model, 0);
-
 	regmodel = &model->per_arch[arch].regression;
 
 	if (regmodel->nl_valid)
-		exp = regmodel->a*pow(size, regmodel->b) + regmodel->c;
+		exp = regmodel->a*pow((double)size, regmodel->b) + regmodel->c;
 
 	return exp;
 }
@@ -641,19 +638,13 @@ double _starpu_history_based_job_expected_perf(struct starpu_perfmodel_t *model,
 	struct starpu_history_entry_t *entry;
 	struct starpu_htbl32_node_s *history;
 
-	load_history_based_model(model, 1);
-
-	if (STARPU_UNLIKELY(!j->footprint_is_computed))
-		_starpu_compute_buffers_footprint(j);
-		
-	uint32_t key = j->footprint;
+	uint32_t key = _starpu_compute_buffers_footprint(j);
 
 	per_arch_model = &model->per_arch[arch];
 
 	history = per_arch_model->history;
 	if (!history)
 		return -1.0;
-    
 
 	PTHREAD_RWLOCK_RDLOCK(&model->model_rwlock);
 	entry = _starpu_htbl_search_32(history, key);
@@ -662,17 +653,15 @@ double _starpu_history_based_job_expected_perf(struct starpu_perfmodel_t *model,
 	exp = entry?entry->mean:-1.0;
 
 	if (entry && entry->nsample < STARPU_CALIBRATION_MINIMUM)
-	  {
 		/* TODO: report differently if we've scheduled really enough
 		 * of that task and the scheduler should perhaps put it aside */
 		/* Not calibrated enough */
 		return -1.0;
-	  }
 
 	return exp;
 }
 
-void _starpu_update_perfmodel_history(starpu_job_t j, struct starpu_perfmodel_t *model, enum starpu_perf_archtype arch, unsigned cpuid __attribute__((unused)), double measured)
+void _starpu_update_perfmodel_history(starpu_job_t j, struct starpu_perfmodel_t *model, enum starpu_perf_archtype arch, unsigned cpuid STARPU_ATTRIBUTE_UNUSED, double measured)
 {
 	if (model)
 	{
@@ -682,7 +671,7 @@ void _starpu_update_perfmodel_history(starpu_job_t j, struct starpu_perfmodel_t 
 
 		if (model->type == STARPU_HISTORY_BASED || model->type == STARPU_NL_REGRESSION_BASED)
 		{
-			uint32_t key = j->footprint;
+			uint32_t key = _starpu_compute_buffers_footprint(j);
 			struct starpu_history_entry_t *entry;
 
 			struct starpu_htbl32_node_s *history;
@@ -738,7 +727,7 @@ void _starpu_update_perfmodel_history(starpu_job_t j, struct starpu_perfmodel_t 
 			/* update the regression model */
 			size_t job_size = _starpu_job_get_data_size(j);
 			double logy, logx;
-			logx = log(job_size);
+			logx = log((double)job_size);
 			logy = log(measured);
 
 			reg_model->sumlnx += logx;
@@ -767,7 +756,7 @@ void _starpu_update_perfmodel_history(starpu_job_t j, struct starpu_perfmodel_t 
 
 		STARPU_ASSERT(j->footprint_is_computed);
 
-		fprintf(debug_file, "0x%x\t%lu\t%lf\t%lf\t%d\t\t", j->footprint, (unsigned long) _starpu_job_get_data_size(j), measured, task->predicted, cpuid);
+		fprintf(debug_file, "0x%x\t%lu\t%f\t%f\t%d\t\t", j->footprint, (unsigned long) _starpu_job_get_data_size(j), measured, task->predicted, cpuid);
 		unsigned i;
 			
 		for (i = 0; i < task->cl->nbuffers; i++)

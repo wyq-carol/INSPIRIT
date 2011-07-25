@@ -1,8 +1,8 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2009, 2010, 2011  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
- * Copyright (C) 2010  Institut National de Recherche en Informatique et Automatique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Institut National de Recherche en Informatique et Automatique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -155,7 +155,7 @@ static void _starpu_launch_drivers(struct starpu_machine_config_s *config)
 
 		workerarg->worker_size = 1;
 		workerarg->combined_workerid = workerarg->workerid;
-		workerarg->current_rank = 1;
+		workerarg->current_rank = 0;
 
 		/* mutex + cond only for the local list */
 		/* we have a single local list */
@@ -175,7 +175,7 @@ static void _starpu_launch_drivers(struct starpu_machine_config_s *config)
 	
 		workerarg->status = STATUS_INITIALIZING;
 
-		_STARPU_DEBUG("initialising worker %d\n", worker);
+		_STARPU_DEBUG("initialising worker %u\n", worker);
 
 		_starpu_init_worker_queue(workerarg);
 
@@ -297,8 +297,10 @@ int starpu_conf_init(struct starpu_conf *conf)
 	conf->use_explicit_workers_cuda_gpuid = 0; /* TODO */
 	conf->use_explicit_workers_opencl_gpuid = 0; /* TODO */
 
+	conf->single_combined_worker = starpu_get_env_number("STARPU_SINGLE_COMBINED_WORKER");
+
 	return 0;
-};
+}
 
 int starpu_init(struct starpu_conf *user_conf)
 {
@@ -330,6 +332,8 @@ int starpu_init(struct starpu_conf *user_conf)
 #endif
 	
 	_starpu_open_debug_logfile();
+
+	_starpu_data_interface_init();
 
 	_starpu_timing_init();
 
@@ -364,8 +368,6 @@ int starpu_init(struct starpu_conf *user_conf)
 	else
 	  _starpu_create_sched_ctx(user_conf->sched_policy_name, NULL, -1, 1, "init");
 
-	//_starpu_init_sched_policy(&config, &sched_ctx);
-
 	_starpu_initialize_registered_performance_models();
 
 	/* Launch "basic" workers (ie. non-combined workers) */
@@ -386,7 +388,7 @@ int starpu_init(struct starpu_conf *user_conf)
 
 static void _starpu_terminate_workers(struct starpu_machine_config_s *config)
 {
-	int status __attribute__((unused));
+	int status STARPU_ATTRIBUTE_UNUSED;
 	unsigned workerid;
 
 	for (workerid = 0; workerid < config->topology.nworkers; workerid++)
@@ -426,7 +428,7 @@ static void _starpu_terminate_workers(struct starpu_machine_config_s *config)
 #endif
 			}
 		}
-		//		worker->status = STATUS_JOINED;
+
 		STARPU_ASSERT(starpu_task_list_empty(&worker->local_tasks));
 		starpu_job_list_delete(worker->terminated_jobs);
 	}
@@ -437,7 +439,7 @@ unsigned _starpu_machine_is_running(void)
 	return config.running;
 }
 
-unsigned _starpu_worker_can_block(unsigned memnode __attribute__((unused)))
+unsigned _starpu_worker_can_block(unsigned memnode STARPU_ATTRIBUTE_UNUSED)
 {
 #ifdef STARPU_NON_BLOCKING_DRIVERS
 	return 0;
@@ -507,6 +509,8 @@ void starpu_shutdown(void)
 	_starpu_stop_fxt_profiling();
 #endif
 
+	_starpu_data_interface_shutdown();
+
 	_starpu_close_debug_logfile();
 
 	PTHREAD_MUTEX_LOCK(&init_mutex);
@@ -519,6 +523,27 @@ void starpu_shutdown(void)
 unsigned starpu_worker_get_count(void)
 {
 	return config.topology.nworkers;
+}
+
+int starpu_worker_get_count_by_type(enum starpu_archtype type)
+{
+	switch (type)
+	{
+		case STARPU_CPU_WORKER:
+			return config.topology.ncpus;
+
+		case STARPU_CUDA_WORKER:
+			return config.topology.ncudagpus;
+
+		case STARPU_OPENCL_WORKER:
+			return config.topology.nopenclgpus;
+
+		case STARPU_GORDON_WORKER:
+			return config.topology.ngordon_spus;
+
+		default:
+			return -EINVAL;
+	}
 }
 
 unsigned starpu_combined_worker_get_count(void)
@@ -642,6 +667,28 @@ struct starpu_combined_worker_s *_starpu_get_combined_worker_struct(unsigned id)
 enum starpu_archtype starpu_worker_get_type(int id)
 {
 	return config.workers[id].arch;
+}
+
+int starpu_worker_get_ids_by_type(enum starpu_archtype type, int *workerids, int maxsize)
+{
+	unsigned nworkers = starpu_worker_get_count();
+
+	int cnt = 0;
+
+	unsigned id;
+	for (id = 0; id < nworkers; id++)
+	{
+		if (starpu_worker_get_type(id) == type)
+		{
+			/* Perhaps the array is too small ? */
+			if (cnt >= maxsize)
+				return -ERANGE;
+
+			workerids[cnt++] = id;
+		}
+	}
+
+	return cnt;
 }
 
 void starpu_worker_get_name(int id, char *dst, size_t maxlen)

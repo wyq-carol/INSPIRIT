@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2009, 2010  Université de Bordeaux 1
+ * Copyright (C) 2009-2011  Université de Bordeaux 1
  * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
@@ -134,7 +134,9 @@ static void transfer_subtree_to_node(starpu_data_handle handle, unsigned src_nod
 			src_replicate->state = STARPU_INVALID;
 			dst_replicate->state = STARPU_OWNER;
 
+#ifdef STARPU_DEVEL
 #warning we should use requests during memory reclaim
+#endif
 			/* TODO use request !! */
 			src_replicate->refcnt++;
 			dst_replicate->refcnt++;
@@ -201,7 +203,9 @@ static size_t free_memory_on_node(starpu_mem_chunk_t mc, uint32_t node)
 //	while (_starpu_spin_trylock(&handle->header_lock))
 //		_starpu_datawizard_progress(_starpu_get_local_memory_node());
 
+#ifdef STARPU_DEVEL
 #warning can we block here ?
+#endif
 //	_starpu_spin_lock(&handle->header_lock);
 
 	if (mc->automatically_allocated && 
@@ -209,6 +213,18 @@ static size_t free_memory_on_node(starpu_mem_chunk_t mc, uint32_t node)
 	{
 		if (handle && !data_was_deleted)
 			STARPU_ASSERT(replicate->allocated);
+
+#if defined(STARPU_USE_CUDA) && defined(HAVE_CUDA_MEMCPY_PEER)
+		if (_starpu_get_node_kind(node) == STARPU_CUDA_RAM)
+		{
+			/* To facilitate the design of interface, we set the
+			 * proper CUDA device in case it is needed. This avoids
+			 * having to set it again in the free method of each
+			 * interface. */
+			cudaError_t err = cudaSetDevice(starpu_memory_node_to_devid(node));
+			STARPU_ASSERT(err == cudaSuccess);
+		}
+#endif
 
 		mc->ops->free_data_on_node(mc->chunk_interface, node);
 
@@ -379,8 +395,8 @@ static unsigned try_to_reuse_mem_chunk(starpu_mem_chunk_t mc, unsigned node, sta
 	return success;
 }
 
-static int _starpu_data_interface_compare(void *interface_a, struct starpu_data_interface_ops_t *ops_a,
-						void *interface_b, struct starpu_data_interface_ops_t *ops_b)
+static int _starpu_data_interface_compare(void *data_interface_a, struct starpu_data_interface_ops_t *ops_a,
+                                          void *data_interface_b, struct starpu_data_interface_ops_t *ops_b)
 {
 	if (ops_a->interfaceid != ops_b->interfaceid)
 		return -1;
@@ -674,6 +690,19 @@ static ssize_t _starpu_allocate_interface(starpu_data_handle handle, struct star
 
 		STARPU_TRACE_START_ALLOC(dst_node);
 		STARPU_ASSERT(replicate->data_interface);
+
+#if defined(STARPU_USE_CUDA) && defined(HAVE_CUDA_MEMCPY_PEER)
+		if (_starpu_get_node_kind(dst_node) == STARPU_CUDA_RAM)
+		{
+			/* To facilitate the design of interface, we set the
+			 * proper CUDA device in case it is needed. This avoids
+			 * having to set it again in the malloc method of each
+			 * interface. */
+			cudaError_t err = cudaSetDevice(starpu_memory_node_to_devid(dst_node));
+			STARPU_ASSERT(err == cudaSuccess);
+		}
+#endif
+
 		allocated_memory = handle->ops->allocate_data_on_node(replicate->data_interface, dst_node);
 		STARPU_TRACE_END_ALLOC(dst_node);
 
@@ -720,6 +749,15 @@ int _starpu_allocate_memory_on_node(starpu_data_handle handle, struct starpu_dat
 
 	replicate->allocated = 1;
 	replicate->automatically_allocated = 1;
+
+	if (dst_node == 0)
+	{
+		void *ptr = starpu_handle_to_pointer(handle, 0);
+		if (ptr != NULL)
+		{
+			_starpu_data_register_ram_pointer(handle, ptr);
+		}
+	}
 
 	return 0;
 }

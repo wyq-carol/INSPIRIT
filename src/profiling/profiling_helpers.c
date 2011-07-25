@@ -55,6 +55,7 @@ void starpu_worker_profiling_helper_display_summary(void)
 	int profiling = starpu_profiling_status_get();
 	fprintf(stderr, "\nWorker statistics:\n");
 	fprintf(stderr,   "******************\n");
+	double overall_time = 0;
 
 	int workerid;
 	int worker_cnt = starpu_worker_get_count();
@@ -70,20 +71,32 @@ void starpu_worker_profiling_helper_display_summary(void)
 			double total_time = starpu_timing_timespec_to_us(&info.total_time) / 1000.;
 			double executing_time = starpu_timing_timespec_to_us(&info.executing_time) / 1000.;
 			double sleeping_time = starpu_timing_timespec_to_us(&info.sleeping_time) / 1000.;
+			if (total_time > overall_time)
+				overall_time = total_time;
 
 			fprintf(stderr, "%-32s\n", name);
 			fprintf(stderr, "\t%d task(s)\n\ttotal: %.2lf ms executing: %.2lf ms sleeping: %.2lf\n", info.executed_tasks, total_time, executing_time, sleeping_time);
 			if (info.used_cycles || info.stall_cycles)
 				fprintf(stderr, "\t%lu Mcy %lu Mcy stall\n", info.used_cycles/1000000, info.stall_cycles/1000000);
 			if (info.power_consumed)
-				fprintf(stderr, "\t%lf J consumed\n", info.power_consumed);
+				fprintf(stderr, "\t%f J consumed\n", info.power_consumed);
 		} else {
-			fprintf(stderr, "\t%-32s\tapproximately %d task(s)\n", name, info.executed_tasks);
+			fprintf(stderr, "\t%-32s\t%d task(s)\n", name, info.executed_tasks);
 		}
 
 		sum_consumed += info.power_consumed;
 	}
 
+	if (profiling) {
+		const char *strval_idle_power = getenv("STARPU_IDLE_POWER");
+		if (strval_idle_power) {
+			double idle_power = atof(strval_idle_power); /* Watt */
+			double idle_consumption = idle_power * overall_time / 1000.; /* J */
+
+			fprintf(stderr, "Idle consumption: %.2lf J\n", idle_consumption);
+			sum_consumed += idle_consumption;
+		}
+	}
 	if (profiling && sum_consumed)
 		fprintf(stderr, "Total consumption: %.2lf J\n", sum_consumed);
 }

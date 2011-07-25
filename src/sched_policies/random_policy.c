@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
  * Copyright (C) 2010  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
@@ -65,18 +65,12 @@ static int _random_push_task(struct starpu_task *task, unsigned prio, struct sta
 	return n;
 }
 
-static int random_push_prio_task(struct starpu_task *task, unsigned sched_ctx_id)
-{	
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
-
-        return _random_push_task(task, 1, sched_ctx);
-}
 
 static int random_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 
-        return _random_push_task(task, 0, sched_ctx);
+    return _random_push_task(task, 0, sched_ctx);
 }
 
 static void initialize_random_policy_for_workers(unsigned sched_ctx_id, unsigned nnew_workers) 
@@ -129,8 +123,6 @@ struct starpu_sched_policy_s _starpu_sched_random_policy = {
 	.init_sched_for_workers = initialize_random_policy_for_workers,
 	.deinit_sched = NULL,
 	.push_task = random_push_task,
-	.push_prio_task = random_push_prio_task,
-	.push_task_notify = NULL,
 	.pop_task = NULL,
 	.post_exec_hook = NULL,
 	.pop_every_task = NULL,

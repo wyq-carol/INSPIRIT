@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2010, 2011  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -105,7 +105,7 @@ void _starpu_profiling_init(void)
 		profiling = 1;
 }
 
-void starpu_profiling_terminate(void)
+void _starpu_profiling_terminate(void)
 {
 
 }
@@ -236,7 +236,8 @@ void _starpu_worker_update_profiling_info_executing(int workerid, struct timespe
 	{
 		PTHREAD_MUTEX_LOCK(&worker_info_mutex[workerid]);
 
-		starpu_timespec_accumulate(&worker_info[workerid].executing_time, executing_time);
+		if (executing_time)
+			starpu_timespec_accumulate(&worker_info[workerid].executing_time, executing_time);
 
 		worker_info[workerid].used_cycles += used_cycles;
 		worker_info[workerid].stall_cycles += stall_cycles;

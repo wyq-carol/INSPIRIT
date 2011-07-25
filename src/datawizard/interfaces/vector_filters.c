@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2009, 2010  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -20,7 +20,7 @@
 #include <common/config.h>
 #include <datawizard/filters.h>
 
-void starpu_block_filter_func_vector(void *father_interface, void *child_interface, __attribute__((unused)) struct starpu_data_filter *f, unsigned id, unsigned nchunks)
+void starpu_block_filter_func_vector(void *father_interface, void *child_interface, STARPU_ATTRIBUTE_UNUSED struct starpu_data_filter *f, unsigned id, unsigned nchunks)
 {
         starpu_vector_interface_t *vector_father = father_interface;
         starpu_vector_interface_t *vector_child = child_interface;
@@ -47,7 +47,7 @@ void starpu_block_filter_func_vector(void *father_interface, void *child_interfa
 }
 
 
-void starpu_vector_divide_in_2_filter_func(void *father_interface, void *child_interface, struct starpu_data_filter *f, unsigned id, __attribute__((unused)) unsigned nchunks)
+void starpu_vector_divide_in_2_filter_func(void *father_interface, void *child_interface, struct starpu_data_filter *f, unsigned id, STARPU_ATTRIBUTE_UNUSED unsigned nchunks)
 {
         /* there cannot be more than 2 chunks */
         STARPU_ASSERT(id < 2);
@@ -88,7 +88,7 @@ void starpu_vector_divide_in_2_filter_func(void *father_interface, void *child_i
 }
 
 
-void starpu_vector_list_filter_func(void *father_interface, void *child_interface, struct starpu_data_filter *f, unsigned id, __attribute__((unused)) unsigned nchunks)
+void starpu_vector_list_filter_func(void *father_interface, void *child_interface, struct starpu_data_filter *f, unsigned id, STARPU_ATTRIBUTE_UNUSED unsigned nchunks)
 {
         starpu_vector_interface_t *vector_father = father_interface;
         starpu_vector_interface_t *vector_child = child_interface;
@@ -107,7 +107,7 @@ void starpu_vector_list_filter_func(void *father_interface, void *child_interfac
 	if (vector_father->ptr) {
 	  /* compute the current position */
 	  unsigned i;
-	  for (i = 0; i <= id; i++) 
+	  for (i = 0; i < id; i++) 
 	    current_pos += length_tab[i];
 	  
 	  vector_child->ptr = vector_father->ptr + current_pos*elemsize;
