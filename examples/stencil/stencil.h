@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2010  Centre National de la Recherche Scientifique
- * Copyright (C) 2010  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <starpu.h>
+#include <starpu_top.h>
 #ifdef STARPU_USE_CUDA
 #include <starpu_cuda.h>
 #endif
@@ -44,6 +45,9 @@ extern void life_update(int bz, const TYPE *old, TYPE *newp, int nx, int ny, int
 #define K	1
 
 #define NDIRS 2
+extern starputop_data* starputop_init_loop;
+extern starputop_data* starputop_achieved_loop;
+
 
 /* Split only on the z axis to make things simple */
 typedef enum {
@@ -133,7 +137,15 @@ extern struct timeval *last_tick;
 #ifndef _externC
 #define _externC
 #endif
+
 _externC void cuda_life_update_host(int bz, const TYPE *old, TYPE *newp, int nx, int ny, int nz, int ldy, int ldz, int iter);
 _externC void cuda_shadow_host(int bz, TYPE *ptr, int nx, int ny, int nz, int ldy, int ldz, int i);
 
-#endif // __STENCIL_H__
+_externC void opencl_shadow_init(void);
+_externC void opencl_shadow_free(void);
+_externC void opencl_shadow_host(int bz, TYPE *ptr, int nx, int ny, int nz, int ldy, int ldz, int i);
+_externC void opencl_life_init(void);
+_externC void opencl_life_free(void);
+_externC void opencl_life_update_host(int bz, const TYPE *old, TYPE *newp, int nx, int ny, int nz, int ldy, int ldz, int iter);
+
+#endif /* __STENCIL_H__ */

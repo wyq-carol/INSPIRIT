@@ -1,7 +1,8 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
+ * Copyright (C) 2011  Institut National de Recherche en Informatique et Automatique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -20,6 +21,7 @@
 
 #include <starpu.h>
 #include <starpu_data.h>
+#include <starpu_util.h>
 
 #ifdef STARPU_USE_GORDON
 /* to get the gordon_strideSize_t data structure from gordon */
@@ -28,7 +30,11 @@
 
 #ifdef STARPU_USE_CUDA
 /* to use CUDA streams */
-#include <cuda_runtime.h>
+# ifdef STARPU_DONT_INCLUDE_CUDA_HEADERS
+typedef void *cudaStream_t;
+# else
+#  include <cuda_runtime.h>
+# endif
 #endif
 
 #ifdef __cplusplus
@@ -82,26 +88,47 @@ struct starpu_data_copy_methods {
 };
 
 struct starpu_data_interface_ops_t {
+	/* Register an existing interface into a data handle. */
 	void (*register_data_handle)(starpu_data_handle handle,
-					uint32_t home_node, void *interface);
-	ssize_t (*allocate_data_on_node)(void *interface, uint32_t node);
-	void (*free_data_on_node)(void *interface, uint32_t node);
+					uint32_t home_node, void *data_interface);
+	/* Allocate data for the interface on a given node. */
+	starpu_ssize_t (*allocate_data_on_node)(void *data_interface, uint32_t node);
+	/* Free data of the interface on a given node. */
+	void (*free_data_on_node)(void *data_interface, uint32_t node);
+	/* ram/cuda/spu/opencl synchronous and asynchronous transfer methods */
 	const struct starpu_data_copy_methods *copy_methods;
+	/* Return the current pointer (if any) for the handle on the given node. */
+	void * (*handle_to_pointer)(starpu_data_handle handle, uint32_t node);
+	/* Return an estimation of the size of data, for performance models */
 	size_t (*get_size)(starpu_data_handle handle);
+	/* Return a 32bit footprint which characterizes the data size */
 	uint32_t (*footprint)(starpu_data_handle handle);
-	int (*compare)(void *interface_a, void *interface_b);
+	/* Compare the data size of two interfaces */
+	int (*compare)(void *data_interface_a, void *data_interface_b);
+	/* Dump the sizes of a handle to a file */
 	void (*display)(starpu_data_handle handle, FILE *f);
 #ifdef STARPU_USE_GORDON
-	int (*convert_to_gordon)(void *interface, uint64_t *ptr, gordon_strideSize_t *ss); 
+	/* Convert the data size to the spu size format */
+	int (*convert_to_gordon)(void *data_interface, uint64_t *ptr, gordon_strideSize_t *ss); 
 #endif
 	/* an identifier that is unique to each interface */
 	unsigned interfaceid;
+	/* The size of the interface data descriptor */
 	size_t interface_size;
 };
 
 void starpu_data_register(starpu_data_handle *handleptr, uint32_t home_node,
-				void *interface,
+				void *data_interface,
 				struct starpu_data_interface_ops_t *ops);
+
+/* Return the pointer associated with HANDLE on node NODE or NULL if HANDLE's
+ * interface does not support this operation or data for this handle is not
+ * allocated on that node. */
+void *starpu_handle_to_pointer(starpu_data_handle handle, uint32_t node);
+
+/* Return the local pointer associated with HANDLE or NULL if HANDLE's
+ * interface does not have data allocated locally */
+void *starpu_handle_get_local_ptr(starpu_data_handle handle);
 
 extern struct starpu_data_interface_ops_t _starpu_interface_matrix_ops;
 
@@ -259,7 +286,7 @@ typedef struct starpu_bcsr_interface_s {
 
 	uintptr_t nzval; /* non-zero values */
 	uint32_t *colind; /* position of non-zero entried on the row */
-//	uint32_t *rowind; /* position of non-zero entried on the col */
+/*	uint32_t *rowind; */ /* position of non-zero entried on the col */
 	uint32_t *rowptr; /* index (in nzval) of the first entry of the row */
 
         /* k for k-based indexing (0 or 1 usually) */
@@ -298,8 +325,11 @@ size_t starpu_bcsr_get_elemsize(starpu_data_handle);
 
 unsigned starpu_get_handle_interface_id(starpu_data_handle);
 
+/* Lookup a ram pointer into a StarPU handle */
+extern starpu_data_handle starpu_data_lookup(const void *ptr);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif // __STARPU_DATA_INTERFACES_H__
+#endif /* __STARPU_DATA_INTERFACES_H__ */

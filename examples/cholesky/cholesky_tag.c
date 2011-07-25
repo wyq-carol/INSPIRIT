@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2009, 2010, 2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -49,7 +49,7 @@ static starpu_codelet cl11 =
 
 static struct starpu_task * create_task_11(starpu_data_handle dataA, unsigned k)
 {
-//	printf("task 11 k = %d TAG = %llx\n", k, (TAG11(k)));
+/*	FPRINTF(stdout, "task 11 k = %d TAG = %llx\n", k, (TAG11(k))); */
 
 	struct starpu_task *task = create_task(TAG11(k));
 	
@@ -108,7 +108,7 @@ static void create_task_21(starpu_data_handle dataA, unsigned k, unsigned j)
 
 	int ret = starpu_task_submit(task);
         if (STARPU_UNLIKELY(ret == -ENODEV)) {
-                fprintf(stderr, "No worker may execute this task\n");
+                FPRINTF(stderr, "No worker may execute this task\n");
                 exit(0);
         }
 
@@ -127,7 +127,7 @@ static starpu_codelet cl22 =
 
 static void create_task_22(starpu_data_handle dataA, unsigned k, unsigned i, unsigned j)
 {
-//	printf("task 22 k,i,j = %d,%d,%d TAG = %llx\n", k,i,j, TAG22(k,i,j));
+/*	FPRINTF(stdout, "task 22 k,i,j = %d,%d,%d TAG = %llx\n", k,i,j, TAG22(k,i,j)); */
 
 	struct starpu_task *task = create_task(TAG22(k, i, j));
 
@@ -155,7 +155,7 @@ static void create_task_22(starpu_data_handle dataA, unsigned k, unsigned i, uns
 
 	int ret = starpu_task_submit(task);
         if (STARPU_UNLIKELY(ret == -ENODEV)) {
-                fprintf(stderr, "No worker may execute this task\n");
+                FPRINTF(stderr, "No worker may execute this task\n");
                 exit(0);
         }
 }
@@ -189,7 +189,7 @@ static void _cholesky(starpu_data_handle dataA, unsigned nblocks)
 		else {
 			int ret = starpu_task_submit(task);
                         if (STARPU_UNLIKELY(ret == -ENODEV)) {
-                                fprintf(stderr, "No worker may execute this task\n");
+                                FPRINTF(stderr, "No worker may execute this task\n");
                                 exit(0);
                         }
 
@@ -210,7 +210,7 @@ static void _cholesky(starpu_data_handle dataA, unsigned nblocks)
 	/* schedule the codelet */
 	int ret = starpu_task_submit(entry_task);
         if (STARPU_UNLIKELY(ret == -ENODEV)) {
-                fprintf(stderr, "No worker may execute this task\n");
+                FPRINTF(stderr, "No worker may execute this task\n");
                 exit(0);
         }
 
@@ -224,13 +224,13 @@ static void _cholesky(starpu_data_handle dataA, unsigned nblocks)
 
 
 	double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
-	fprintf(stderr, "Computation took (in ms)\n");
-	printf("%2.2f\n", timing/1000);
+	FPRINTF(stderr, "Computation took (in ms)\n");
+	FPRINTF(stdout, "%2.2f\n", timing/1000);
 
 	unsigned n = starpu_matrix_get_nx(dataA);
 
 	double flop = (1.0f*n*n*n)/3.0f;
-	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	FPRINTF(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
 }
 
 static void initialize_system(float **A, unsigned dim, unsigned pinned)
@@ -241,7 +241,7 @@ static void initialize_system(float **A, unsigned dim, unsigned pinned)
 
 	if (pinned)
 	{
-		starpu_data_malloc_pinned_if_possible((void **)A, (size_t)dim*dim*sizeof(float));
+		starpu_malloc((void **)A, (size_t)dim*dim*sizeof(float));
 	} 
 	else {
 		*A = malloc(dim*dim*sizeof(float));
@@ -258,17 +258,15 @@ static void cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks)
 
 	starpu_data_set_sequential_consistency_flag(dataA, 0);
 
-	struct starpu_data_filter f;
-		f.filter_func = starpu_vertical_block_filter_func;
-		f.nchildren = nblocks;
-		f.get_nchildren = NULL;
-		f.get_child_ops = NULL;
+	struct starpu_data_filter f = {
+		.filter_func = starpu_vertical_block_filter_func,
+		.nchildren = nblocks
+	};
 
-	struct starpu_data_filter f2;
-		f2.filter_func = starpu_block_filter_func;
-		f2.nchildren = nblocks;
-		f2.get_nchildren = NULL;
-		f2.get_child_ops = NULL;
+	struct starpu_data_filter f2 = {
+		.filter_func = starpu_block_filter_func,
+		.nchildren = nblocks
+	};
 
 	starpu_data_map_filters(dataA, 2, &f, &f2);
 
@@ -299,26 +297,26 @@ int main(int argc, char **argv)
 		for (j = 0; j < size; j++)
 		{
 			mat[j +i*size] = (1.0f/(1.0f+i+j)) + ((i == j)?1.0f*size:0.0f);
-			//mat[j +i*size] = ((i == j)?1.0f*size:0.0f);
+			/* mat[j +i*size] = ((i == j)?1.0f*size:0.0f); */
 		}
 	}
 
 
 #ifdef CHECK_OUTPUT
-	printf("Input :\n");
+	FPRINTF(stdout, "Input :\n");
 
 	for (j = 0; j < size; j++)
 	{
 		for (i = 0; i < size; i++)
 		{
 			if (i <= j) {
-				printf("%2.2f\t", mat[j +i*size]);
+				FPRINTF(stdout, "%2.2f\t", mat[j +i*size]);
 			}
 			else {
-				printf(".\t");
+				FPRINTF(stdout, ".\t");
 			}
 		}
-		printf("\n");
+		FPRINTF(stdout, "\n");
 	}
 #endif
 
@@ -326,43 +324,43 @@ int main(int argc, char **argv)
 	cholesky(mat, size, size, nblocks);
 
 #ifdef CHECK_OUTPUT
-	printf("Results :\n");
+	FPRINTF(stdout, "Results :\n");
 
 	for (j = 0; j < size; j++)
 	{
 		for (i = 0; i < size; i++)
 		{
 			if (i <= j) {
-				printf("%2.2f\t", mat[j +i*size]);
+				FPRINTF(stdout, "%2.2f\t", mat[j +i*size]);
 			}
 			else {
-				printf(".\t");
-				mat[j+i*size] = 0.0f; // debug
+				FPRINTF(stdout, ".\t");
+				mat[j+i*size] = 0.0f; /* debug */
 			}
 		}
-		printf("\n");
+		FPRINTF(stdout, "\n");
 	}
 
-	fprintf(stderr, "compute explicit LLt ...\n");
+	FPRINTF(stderr, "compute explicit LLt ...\n");
 	float *test_mat = malloc(size*size*sizeof(float));
 	STARPU_ASSERT(test_mat);
 
 	SSYRK("L", "N", size, size, 1.0f, 
 				mat, size, 0.0f, test_mat, size);
 
-	fprintf(stderr, "comparing results ...\n");
+	FPRINTF(stderr, "comparing results ...\n");
 	for (j = 0; j < size; j++)
 	{
 		for (i = 0; i < size; i++)
 		{
 			if (i <= j) {
-				printf("%2.2f\t", test_mat[j +i*size]);
+				FPRINTF(stdout, "%2.2f\t", test_mat[j +i*size]);
 			}
 			else {
-				printf(".\t");
+				FPRINTF(stdout, ".\t");
 			}
 		}
-		printf("\n");
+		FPRINTF(stdout, "\n");
 	}
 #endif
 

@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,6 +19,8 @@
 #define NX    5
 #define NY    4
 #define PARTS 2
+
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
 
 void cpu_func(void *buffers[], void *cl_arg)
 {
@@ -43,15 +45,15 @@ int main(int argc, char **argv)
 	unsigned i, j, n=1;
         int matrix[NX*NY];
 
-        fprintf(stderr,"IN  Matrix: \n");
+        FPRINTF(stderr,"IN  Matrix: \n");
         for(j=0 ; j<NY ; j++) {
                 for(i=0 ; i<NX ; i++) {
                         matrix[(j*NX)+i] = n++;
-                        fprintf(stderr, "%2d ", matrix[(j*NX)+i]);
+                        FPRINTF(stderr, "%2d ", matrix[(j*NX)+i]);
                 }
-                fprintf(stderr,"\n");
+                FPRINTF(stderr,"\n");
         }
-        fprintf(stderr,"\n");
+        FPRINTF(stderr,"\n");
 
         starpu_data_handle handle;
         starpu_codelet cl = {
@@ -68,9 +70,7 @@ int main(int argc, char **argv)
 	struct starpu_data_filter f =
 	{
 		.filter_func = starpu_block_filter_func,
-		.nchildren = PARTS,
-		.get_nchildren = NULL,
-		.get_child_ops = NULL
+		.nchildren = PARTS
 	};
 	starpu_data_partition(handle, &f);
 
@@ -86,6 +86,7 @@ int main(int argc, char **argv)
                 task->cl_arg = &factor;
                 task->cl_arg_size = sizeof(factor);
 		starpu_task_submit(task);
+		starpu_task_destroy(task);
 	}
 
         /* Unpartition the data, unregister it from StarPU and shutdown */
@@ -94,14 +95,14 @@ int main(int argc, char **argv)
 	starpu_shutdown();
 
         /* Print result matrix */
-        fprintf(stderr,"OUT Matrix: \n");
+        FPRINTF(stderr,"OUT Matrix: \n");
         for(j=0 ; j<NY ; j++) {
                 for(i=0 ; i<NX ; i++) {
-                        fprintf(stderr, "%2d ", matrix[(j*NX)+i]);
+                        FPRINTF(stderr, "%2d ", matrix[(j*NX)+i]);
                 }
-                fprintf(stderr,"\n");
+                FPRINTF(stderr,"\n");
         }
-        fprintf(stderr,"\n");
+        FPRINTF(stderr,"\n");
 
 	return 0;
 }

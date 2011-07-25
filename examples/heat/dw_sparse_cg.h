@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2009, 2010  Université de Bordeaux 1
+ * Copyright (C) 2009, 2010-2011  Université de Bordeaux 1
  * Copyright (C) 2010  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
@@ -101,7 +101,7 @@ static void __attribute__ ((unused)) print_results(float *result, unsigned size)
 
 	for (i = 0; i < STARPU_MIN(size, 16); i++)
 	{
-		printf("%d -> %f\n", i, result[i]);
+		printf("%u -> %f\n", i, result[i]);
 	}
 }
 
@@ -134,4 +134,4 @@ void iteration_cg(void *problem);
 void conjugate_gradient(float *nzvalA, float *vecb, float *vecx, uint32_t nnz,
 			unsigned nrow, uint32_t *colind, uint32_t *rowptr);
 
-#endif // __DW_SPARSE_CG_H__
+#endif /* __DW_SPARSE_CG_H__ */

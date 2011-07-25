@@ -18,6 +18,8 @@
 #include <starpu.h>
 #include <pthread.h>
 
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
+
 static unsigned niter = 50000;
 
 extern void cpu_codelet(void *descr[], __attribute__ ((unused)) void *_args);
@@ -41,6 +43,9 @@ int main(int argc, char **argv)
 
 	starpu_init(NULL);
 
+#ifdef STARPU_SLOW_MACHINE
+	niter /= 100;
+#endif
         if (argc == 2) niter = atoi(argv[1]);
         foo = 0.0f;
 
@@ -48,7 +53,7 @@ int main(int argc, char **argv)
                                       (uintptr_t)&foo, sizeof(float));
 
 #ifdef STARPU_USE_OPENCL
-        starpu_opencl_load_opencl_from_file("examples/basic_examples/variable_kernels_opencl_kernel.cl", &opencl_program);
+        starpu_opencl_load_opencl_from_file("examples/basic_examples/variable_kernels_opencl_kernel.cl", &opencl_program, NULL);
 #endif
 
 	cl.where = STARPU_CPU|STARPU_CUDA|STARPU_OPENCL;
@@ -77,7 +82,7 @@ int main(int argc, char **argv)
 		ret = starpu_task_submit(task);
 		if (STARPU_UNLIKELY(ret == -ENODEV))
 		{
-			fprintf(stderr, "No worker may execute this task\n");
+			FPRINTF(stderr, "No worker may execute this task\n");
 			exit(0);
 		}
 	}
@@ -85,11 +90,9 @@ int main(int argc, char **argv)
 	starpu_task_wait_for_all();
 
 	/* update the array in RAM */
-	starpu_data_acquire(float_array_handle, STARPU_R);
+	starpu_data_unregister(float_array_handle);
 
-	fprintf(stderr, "variable -> %f\n", foo);
-
-	starpu_data_release(float_array_handle);
+	FPRINTF(stderr, "variable -> %f\n", foo);
 
 	starpu_shutdown();
 

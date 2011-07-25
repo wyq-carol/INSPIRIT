@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
  * Copyright (C) 2010  Centre National de la Recherche Scientifique
  *
@@ -92,16 +92,12 @@ static struct starpu_codelet_t ds_codelet = {
 /* each block contains BLOCK_HEIGHT consecutive lines */
 static struct starpu_data_filter filter_y = {
 	.filter_func = starpu_block_filter_func,
-	.nchildren= HEIGHT/BLOCK_HEIGHT,
-	.get_nchildren = NULL,
-	.get_child_ops = NULL
+	.nchildren= HEIGHT/BLOCK_HEIGHT
 };
 	
 static struct starpu_data_filter filter_uv = {
 	.filter_func = starpu_block_filter_func,
-	.nchildren = (HEIGHT/2)/BLOCK_HEIGHT,
-	.get_nchildren = NULL,
-	.get_child_ops = NULL
+	.nchildren = (HEIGHT/2)/BLOCK_HEIGHT
 };
 
 int main(int argc, char **argv)
@@ -111,7 +107,7 @@ int main(int argc, char **argv)
 	
 	parse_args(argc, argv);
 
-//	fprintf(stderr, "Reading input file ...\n");
+/*	fprintf(stderr, "Reading input file ...\n"); */
 
 	/* how many frames ? */
 	struct stat stbuf;
@@ -120,7 +116,7 @@ int main(int argc, char **argv)
 
 	unsigned nframes = filesize/FRAMESIZE; 
 
-//	fprintf(stderr, "filesize %lx (FRAME SIZE %lx NEW SIZE %lx); nframes %d\n", filesize, FRAMESIZE, NEW_FRAMESIZE, nframes);
+/*	fprintf(stderr, "filesize %lx (FRAME SIZE %lx NEW SIZE %lx); nframes %d\n", filesize, FRAMESIZE, NEW_FRAMESIZE, nframes); */
 	assert((filesize % sizeof(struct yuv_frame)) == 0);
 
 	/* fetch input data */
@@ -134,7 +130,7 @@ int main(int argc, char **argv)
 	FILE *f_out = fopen(filename_out, "w+");
 	assert(f_out);
 
-//	fprintf(stderr, "Alloc output file ...\n");
+/*	fprintf(stderr, "Alloc output file ...\n"); */
 	struct yuv_new_frame *yuv_out_buffer = calloc(nframes, NEW_FRAMESIZE);
 	assert(yuv_out_buffer);
 
@@ -199,7 +195,7 @@ int main(int argc, char **argv)
 
 	unsigned ntasks = (nblocks_y + 2*nblocks_uv)*nframes;
 
-	fprintf(stderr, "Start computation: there will be %d tasks for %d frames\n", ntasks, nframes);
+	fprintf(stderr, "Start computation: there will be %u tasks for %u frames\n", ntasks, nframes);
 	gettimeofday(&start, NULL);
 
 	/* do the computation */

@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
  * Copyright (C) 2010  Centre National de la Recherche Scientifique
  *
@@ -30,7 +30,7 @@
 #include <cufft.h>
 #endif
 
-//#define SAVE_RAW	1
+/* #define SAVE_RAW	1 */
 
 #define DEFAULTINPUTFILE	"input.wav"
 #define DEFAULTOUTPUTFILE	"output.wav"
@@ -328,14 +328,14 @@ static void init_problem(void)
 	/* allocate a buffer to store the content of input file */
 	if (use_pin)
 	{
-		starpu_data_malloc_pinned_if_possible((void **)&A, length_data*sizeof(float));
+		starpu_malloc((void **)&A, length_data*sizeof(float));
 	}
 	else {
 		A = malloc(length_data*sizeof(float));
 	}
 
 	/* allocate working buffer (this could be done online, but we'll keep it simple) */
-	//starpu_data_malloc_pinned_if_possible((void **)&outdata, length_data*sizeof(fftwf_complex));
+	/* starpu_data_malloc_pinned_if_possible((void **)&outdata, length_data*sizeof(fftwf_complex)); */
 
 	/* read input data into buffer "A" */
 	read_16bit_wav(infile, length_data, A, infile_raw);
@@ -396,9 +396,7 @@ int main(int argc, char **argv)
 	struct starpu_data_filter f = 
 	{
 		.filter_func = starpu_block_filter_func_vector,
-		.nchildren = niter,
-		.get_nchildren = NULL,
-		.get_child_ops = NULL
+		.nchildren = niter
 	};
 
 	starpu_data_partition(A_handle, &f);

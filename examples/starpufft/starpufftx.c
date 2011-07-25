@@ -310,7 +310,7 @@ STARPUFFT(malloc)(size_t n)
 {
 #ifdef STARPU_USE_CUDA
 	void *res;
-	starpu_data_malloc_pinned_if_possible(&res, n);
+	starpu_malloc(&res, n);
 	return res;
 #else
 #  ifdef STARPU_HAVE_FFTW
@@ -325,7 +325,7 @@ void
 STARPUFFT(free)(void *p)
 {
 #ifdef STARPU_USE_CUDA
-	// TODO: FIXME
+	/* TODO: FIXME */
 #else
 #  ifdef STARPU_HAVE_FFTW
 	_FFTW(free)(p);

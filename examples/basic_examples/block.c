@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2010, 2011  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,6 +19,8 @@
 #include <starpu_opencl.h>
 #include <pthread.h>
 #include <math.h>
+
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
 
 extern void cpu_codelet(void *descr[], void *_args);
 #ifdef STARPU_USE_CUDA
@@ -52,24 +54,23 @@ int execute_on(uint32_t where, device_func func, float *block, int pnx, int pny,
         task->buffers[0].handle = block_handle;
         task->buffers[0].mode = STARPU_RW;
 	task->cl_arg = &multiplier;
+	task->cl_arg_size = sizeof(multiplier);
 
         int ret = starpu_task_submit(task);
         if (STARPU_UNLIKELY(ret == -ENODEV)) {
-                fprintf(stderr, "No worker may execute this task\n");
+                FPRINTF(stderr, "No worker may execute this task\n");
                 return 1;
 	}
 
 	starpu_task_wait_for_all();
 
 	/* update the array in RAM */
-        starpu_data_acquire(block_handle, STARPU_R);
+	starpu_data_unregister(block_handle);
 
         for(i=0 ; i<pnx*pny*pnz; i++) {
-          fprintf(stderr, "%f ", block[i]);
+          FPRINTF(stderr, "%f ", block[i]);
         }
-        fprintf(stderr, "\n");
-
-        starpu_data_release(block_handle);
+        FPRINTF(stderr, "\n");
 
         return 0;
 }
@@ -98,7 +99,7 @@ int main(int argc, char **argv)
         ret = execute_on(STARPU_CPU, cpu_codelet, block, nx, ny, nz, 1.0);
         if (!ret) multiplier *= 1.0;
 #ifdef STARPU_USE_OPENCL
-        starpu_opencl_load_opencl_from_file("examples/basic_examples/block_opencl_kernel.cl", &opencl_code);
+        starpu_opencl_load_opencl_from_file("examples/basic_examples/block_opencl_kernel.cl", &opencl_code, NULL);
         ret = execute_on(STARPU_OPENCL, opencl_codelet, block, nx, ny, nz, 2.0);
         if (!ret) multiplier *= 2.0;
 #endif
@@ -107,7 +108,7 @@ int main(int argc, char **argv)
         if (!ret) multiplier *= 3.0;
 #endif
 
-        // Check result is correct
+        /* Check result is correct */
         ret=1;
         for(i=0 ; i<nx*ny*nz ; i++) {
           if (block[i] != (i+1) * multiplier) {
@@ -116,7 +117,9 @@ int main(int argc, char **argv)
           }
         }
 
-        fprintf(stderr,"TEST %s\n", ret==1?"PASSED":"FAILED");
+        FPRINTF(stderr,"TEST %s\n", ret==1?"PASSED":"FAILED");
+	free(block);
+
         starpu_shutdown();
 
 	return 0;

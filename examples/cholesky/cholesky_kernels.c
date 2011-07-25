@@ -20,6 +20,10 @@
 #include "../common/blas.h"
 #ifdef STARPU_USE_CUDA
 #include <starpu_cuda.h>
+#ifdef STARPU_HAVE_MAGMA
+#include "magma.h"
+#include "magma_lapack.h"
+#endif
 #endif
 
 /*
@@ -28,7 +32,7 @@
 
 static inline void chol_common_cpu_codelet_update_u22(void *descr[], int s, __attribute__((unused)) void *_args)
 {
-	//printf("22\n");
+	/* printf("22\n"); */
 	float *left 	= (float *)STARPU_MATRIX_GET_PTR(descr[0]);
 	float *right 	= (float *)STARPU_MATRIX_GET_PTR(descr[1]);
 	float *center 	= (float *)STARPU_MATRIX_GET_PTR(descr[2]);
@@ -88,7 +92,7 @@ void chol_cublas_codelet_update_u22(void *descr[], void *_args)
 {
 	chol_common_cpu_codelet_update_u22(descr, 1, _args);
 }
-#endif// STARPU_USE_CUDA
+#endif /* STARPU_USE_CUDA */
 
 /* 
  * U21
@@ -96,7 +100,7 @@ void chol_cublas_codelet_update_u22(void *descr[], void *_args)
 
 static inline void chol_common_codelet_update_u21(void *descr[], int s, __attribute__((unused)) void *_args)
 {
-//	printf("21\n");
+/*	printf("21\n"); */
 	float *sub11;
 	float *sub21;
 
@@ -143,7 +147,7 @@ void chol_cublas_codelet_update_u21(void *descr[], void *_args)
 
 static inline void chol_common_codelet_update_u11(void *descr[], int s, __attribute__((unused)) void *_args) 
 {
-//	printf("11\n");
+/*	printf("11\n"); */
 	float *sub11;
 
 	sub11 = (float *)STARPU_MATRIX_GET_PTR(descr[0]); 
@@ -179,13 +183,27 @@ static inline void chol_common_codelet_update_u11(void *descr[], int s, __attrib
 			break;
 #ifdef STARPU_USE_CUDA
 		case 1:
+#ifdef STARPU_HAVE_MAGMA
 			{
+			int ret;
+			int info;
+			ret = magma_spotrf_gpu('L', nx, sub11, ld, &info);
+			if (ret != MAGMA_SUCCESS) {
+				fprintf(stderr, "Error in Magma: %d\n", ret);
+				STARPU_ABORT();
+			}
+			cudaError_t cures = cudaThreadSynchronize();
+			STARPU_ASSERT(!cures);
+			}
+#else
+			{
+
 			float *lambda11;
 			cudaHostAlloc((void **)&lambda11, sizeof(float), 0);
 
 			for (z = 0; z < nx; z++)
 			{
-
+				
 				cudaMemcpyAsync(lambda11, &sub11[z+z*ld], sizeof(float), cudaMemcpyDeviceToHost, starpu_cuda_get_local_stream());
 				cudaStreamSynchronize(starpu_cuda_get_local_stream());
 
@@ -193,7 +211,7 @@ static inline void chol_common_codelet_update_u11(void *descr[], int s, __attrib
 				
 				*lambda11 = sqrt(*lambda11);
 
-//				cublasSetVector(1, sizeof(float), lambda11, sizeof(float), &sub11[z+z*ld], sizeof(float));
+/*				cublasSetVector(1, sizeof(float), lambda11, sizeof(float), &sub11[z+z*ld], sizeof(float)); */
 				cudaMemcpyAsync(&sub11[z+z*ld], lambda11, sizeof(float), cudaMemcpyHostToDevice, starpu_cuda_get_local_stream());
 
 				cublasSscal(nx - z - 1, 1.0f/(*lambda11), &sub11[(z+1)+z*ld], 1);
@@ -206,8 +224,7 @@ static inline void chol_common_codelet_update_u11(void *descr[], int s, __attrib
 			cudaStreamSynchronize(starpu_cuda_get_local_stream());
 			cudaFreeHost(lambda11);
 			}
-		
-
+#endif
 			break;
 #endif
 		default:
@@ -227,4 +244,4 @@ void chol_cublas_codelet_update_u11(void *descr[], void *_args)
 {
 	chol_common_codelet_update_u11(descr, 1, _args);
 }
-#endif// STARPU_USE_CUDA
+#endif/* STARPU_USE_CUDA */

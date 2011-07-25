@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,7 +18,7 @@
 #ifndef __STARPU_CUDA_H__
 #define __STARPU_CUDA_H__
 
-#ifdef STARPU_USE_CUDA
+#if defined STARPU_USE_CUDA && !defined STARPU_DONT_INCLUDE_CUDA_HEADERS
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
@@ -29,55 +29,13 @@
 extern "C" {
 #endif
 
-#if defined(__CUDACC__) && defined(STARPU_HAVE_WINDOWS)
-#define STARPU_CUBLAS_OOPS() do { \
-		printf("oops  %s \n", errormsg); \
-		*(int*)NULL = 0; \
-	} while (0);
-#else
-#define STARPU_CUBLAS_OOPS() do { \
-		printf("oops  in %s ... %s \n", __func__, errormsg); \
-		assert(0);						\
-	} while (0);
-#endif
+void starpu_cublas_report_error(const char *func, cublasStatus status);
+#define STARPU_CUBLAS_REPORT_ERROR(status) \
+	starpu_cublas_report_error(__starpu_func__, status)
 
-#define STARPU_CUBLAS_REPORT_ERROR(status) 					\
-	do {								\
-		char *errormsg;						\
-		switch (status) {					\
-			case CUBLAS_STATUS_SUCCESS:			\
-				errormsg = "success";			\
-				break;					\
-			case CUBLAS_STATUS_NOT_INITIALIZED:		\
-				errormsg = "not initialized";		\
-				break;					\
-			case CUBLAS_STATUS_ALLOC_FAILED:		\
-				errormsg = "alloc failed";		\
-				break;					\
-			case CUBLAS_STATUS_INVALID_VALUE:		\
-				errormsg = "invalid value";		\
-				break;					\
-			case CUBLAS_STATUS_ARCH_MISMATCH:		\
-				errormsg = "arch mismatch";		\
-				break;					\
-			case CUBLAS_STATUS_EXECUTION_FAILED:		\
-				errormsg = "execution failed";		\
-				break;					\
-			case CUBLAS_STATUS_INTERNAL_ERROR:		\
-				errormsg = "internal error";		\
-				break;					\
-			default:					\
-				errormsg = "unknown error";		\
-				break;					\
-		}							\
-		STARPU_CUBLAS_OOPS();					\
-	} while (0)
-
-#define STARPU_CUDA_REPORT_ERROR(status) 				\
-	do {								\
-		const char *errormsg = cudaGetErrorString(status);	\
-		STARPU_CUBLAS_OOPS();					\
-	} while (0)
+void starpu_cuda_report_error(const char *func, cudaError_t status);
+#define STARPU_CUDA_REPORT_ERROR(status) \
+	starpu_cuda_report_error(__starpu_func__, status)
 
 cudaStream_t starpu_cuda_get_local_stream(void);
 
@@ -85,6 +43,6 @@ cudaStream_t starpu_cuda_get_local_stream(void);
 }
 #endif
 
-#endif // STARPU_USE_CUDA
-#endif // __STARPU_CUDA_H__
+#endif /* STARPU_USE_CUDA && !STARPU_DONT_INCLUDE_CUDA_HEADERS */
+#endif /* __STARPU_CUDA_H__ */
 

@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2009, 2010  Université de Bordeaux 1
+ * Copyright (C) 2009-2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
  * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
@@ -66,7 +66,7 @@ int my_distrib(int x, int y, int nb_nodes) {
  *	code to bootstrap the factorization
  *	and construct the DAG
  */
-static void dw_cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks, int rank, int nodes)
+static void dw_cholesky(float ***matA, unsigned size, unsigned ld, unsigned nblocks, int rank, int nodes)
 {
 	struct timeval start;
 	struct timeval end;
@@ -79,29 +79,31 @@ static void dw_cholesky(float *matA, unsigned size, unsigned ld, unsigned nblock
         data_handles = malloc(nblocks*sizeof(starpu_data_handle *));
         for(x=0 ; x<nblocks ; x++) data_handles[x] = malloc(nblocks*sizeof(starpu_data_handle));
 
-	gettimeofday(&start, NULL);
         for(x = 0; x < nblocks ;  x++) {
                 for (y = 0; y < nblocks; y++) {
                         int mpi_rank = my_distrib(x, y, nodes);
                         if (mpi_rank == rank) {
                                 //fprintf(stderr, "[%d] Owning data[%d][%d]\n", rank, x, y);
-                                starpu_matrix_data_register(&data_handles[x][y], 0, (uintptr_t)&(matA[((size/nblocks)*y) + ((size/nblocks)*x) * ld]),
+                                starpu_matrix_data_register(&data_handles[x][y], 0, (uintptr_t)matA[x][y],
                                                             ld, size/nblocks, size/nblocks, sizeof(float));
                         }
-                        else if (rank == mpi_rank+1 || rank == mpi_rank-1) {
+			/* TODO: make better test to only registering what is needed */
+                        else {
                                 /* I don't own that index, but will need it for my computations */
                                 //fprintf(stderr, "[%d] Neighbour of data[%d][%d]\n", rank, x, y);
                                 starpu_matrix_data_register(&data_handles[x][y], -1, (uintptr_t)NULL,
                                                             ld, size/nblocks, size/nblocks, sizeof(float));
                         }
-                        else {
-                                /* I know it's useless to allocate anything for this */
-                                data_handles[x][y] = NULL;
-                        }
                         if (data_handles[x][y])
+			{
                                 starpu_data_set_rank(data_handles[x][y], mpi_rank);
+                                starpu_data_set_tag(data_handles[x][y], (y*nblocks)+x);
+			}
                 }
         }
+
+	starpu_mpi_barrier(MPI_COMM_WORLD);
+	gettimeofday(&start, NULL);
 
 	for (k = 0; k < nblocks; k++)
         {
@@ -142,28 +144,26 @@ static void dw_cholesky(float *matA, unsigned size, unsigned ld, unsigned nblock
 
         starpu_task_wait_for_all();
 
+        for(x = 0; x < nblocks ;  x++) {
+                for (y = 0; y < nblocks; y++) {
+                        if (data_handles[x][y])
+                                starpu_data_unregister(data_handles[x][y]);
+                }
+		free(data_handles[x]);
+        }
+	free(data_handles);
+
+	starpu_mpi_barrier(MPI_COMM_WORLD);
 	gettimeofday(&end, NULL);
 
-	double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
-	fprintf(stderr, "Computation took (in ms)\n");
-	printf("%2.2f\n", timing/1000);
-
-	double flop = (1.0f*size*size*size)/3.0f;
-	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
-}
-
-void initialize_system(float **A, unsigned dim, unsigned pinned, int *rank, int *nodes)
-{
-	starpu_init(NULL);
-	starpu_mpi_initialize_extended(1, rank, nodes);
-	starpu_helper_cublas_init();
-
-	if (pinned)
+	if (rank == 0)
 	{
-		starpu_data_malloc_pinned_if_possible((void **)A, (size_t)dim*dim*sizeof(float));
-	}
-	else {
-		*A = malloc(dim*dim*sizeof(float));
+		double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
+		fprintf(stderr, "Computation took (in ms)\n");
+		fprintf(stdout, "%2.2f\n", timing/1000);
+	
+		double flop = (1.0f*size*size*size)/3.0f;
+		fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
 	}
 }
 
@@ -174,66 +174,104 @@ int main(int argc, char **argv)
 	 *	Hilbert matrix : h(i,j) = 1/(i+j+1)
 	 * */
 
-	float *mat;
+	float ***bmat;
         int rank, nodes;
 
 	parse_args(argc, argv);
-	mat = malloc(size*size*sizeof(float));
-	initialize_system(&mat, size, pinned, &rank, &nodes);
 
-	unsigned i,j;
-	for (i = 0; i < size; i++)
+	struct starpu_conf conf;
+	starpu_conf_init(&conf);
+	
+	conf.sched_policy_name = "heft";
+	conf.calibrate = 1;
+
+	starpu_init(&conf);
+	starpu_mpi_initialize_extended(&rank, &nodes);
+	starpu_helper_cublas_init();
+
+	unsigned i,j,x,y;
+        bmat = malloc(nblocks * sizeof(float *));
+        for(x=0 ; x<nblocks ; x++)
 	{
-		for (j = 0; j < size; j++)
+                bmat[x] = malloc(nblocks * sizeof(float *));
+                for(y=0 ; y<nblocks ; y++)
 		{
-			mat[j +i*size] = (1.0f/(1.0f+i+j)) + ((i == j)?1.0f*size:0.0f);
-			//mat[j +i*size] = ((i == j)?1.0f*size:0.0f);
+                        starpu_malloc((void **)&bmat[x][y], BLOCKSIZE*BLOCKSIZE*sizeof(float));
+			for (i = 0; i < BLOCKSIZE; i++)
+			{
+				for (j = 0; j < BLOCKSIZE; j++)
+				{
+                                        bmat[x][y][j +i*BLOCKSIZE] = (1.0f/(1.0f+(i+(x*BLOCKSIZE)+j+(y*BLOCKSIZE)))) + ((i+(x*BLOCKSIZE) == j+(y*BLOCKSIZE))?1.0f*size:0.0f);
+					//mat[j +i*size] = ((i == j)?1.0f*size:0.0f);
+				}
+			}
 		}
 	}
 
 
-        //#define PRINT_OUTPUT
-#ifdef PRINT_OUTPUT
-	printf("[%d] Input :\n", rank);
+        if (display) {
+                printf("[%d] Input :\n", rank);
 
-	for (j = 0; j < size; j++)
-	{
-		for (i = 0; i < size; i++)
+		for(y=0 ; y<nblocks ; y++)
 		{
-			if (i <= j) {
-				printf("%2.2f\t", mat[j +i*size]);
-			}
-			else {
-				printf(".\t");
+			for(x=0 ; x<nblocks ; x++)
+			{
+                                printf("Block %d,%d :\n", x, y);
+				for (j = 0; j < BLOCKSIZE; j++)
+				{
+					for (i = 0; i < BLOCKSIZE; i++)
+					{
+						if (i <= j) {
+							printf("%2.2f\t", bmat[y][x][j +i*BLOCKSIZE]);
+						}
+						else {
+							printf(".\t");
+						}
+					}
+					printf("\n");
+				}
 			}
 		}
-		printf("\n");
 	}
-#endif
 
-	dw_cholesky(mat, size, size, nblocks, rank, nodes);
+	dw_cholesky(bmat, size, size/nblocks, nblocks, rank, nodes);
 
-        starpu_helper_cublas_shutdown();
 	starpu_mpi_shutdown();
-	starpu_shutdown();
 
-#ifdef PRINT_OUTPUT
-	printf("[%d] Results :\n", rank);
-
-	for (j = 0; j < size; j++)
-	{
-		for (i = 0; i < size; i++)
+        if (display) {
+                printf("[%d] Results :\n", rank);
+		for(y=0 ; y<nblocks ; y++)
 		{
-			if (i <= j) {
-				printf("%2.2f\t", mat[j +i*size]);
-			}
-			else {
-				printf(".\t");
+			for(x=0 ; x<nblocks ; x++)
+			{
+                                printf("Block %d,%d :\n", x, y);
+				for (j = 0; j < BLOCKSIZE; j++)
+				{
+					for (i = 0; i < BLOCKSIZE; i++)
+					{
+						if (i <= j) {
+							printf("%2.2f\t", bmat[y][x][j +i*BLOCKSIZE]);
+						}
+						else {
+							printf(".\t");
+						}
+					}
+					printf("\n");
+				}
 			}
 		}
-		printf("\n");
 	}
-#endif
+
+	float *rmat = malloc(size*size*sizeof(float));
+        for(x=0 ; x<nblocks ; x++) {
+                for(y=0 ; y<nblocks ; y++) {
+                        for (i = 0; i < BLOCKSIZE; i++) {
+                                for (j = 0; j < BLOCKSIZE; j++) {
+                                        rmat[j+(y*BLOCKSIZE)+(i+(x*BLOCKSIZE))*size] = bmat[x][y][j +i*BLOCKSIZE];
+                                }
+                        }
+                }
+        }
 
 	fprintf(stderr, "[%d] compute explicit LLt ...\n", rank);
 	for (j = 0; j < size; j++)
@@ -241,7 +279,7 @@ int main(int argc, char **argv)
 		for (i = 0; i < size; i++)
 		{
 			if (i > j) {
-				mat[j+i*size] = 0.0f; // debug
+				rmat[j+i*size] = 0.0f; // debug
 			}
 		}
 	}
@@ -249,26 +287,26 @@ int main(int argc, char **argv)
 	STARPU_ASSERT(test_mat);
 
 	SSYRK("L", "N", size, size, 1.0f,
-				mat, size, 0.0f, test_mat, size);
+				rmat, size, 0.0f, test_mat, size);
 
 	fprintf(stderr, "[%d] comparing results ...\n", rank);
-#ifdef PRINT_OUTPUT
-	for (j = 0; j < size; j++)
-	{
-		for (i = 0; i < size; i++)
+        if (display) {
+                for (j = 0; j < size; j++)
 		{
-			if (i <= j) {
-				printf("%2.2f\t", test_mat[j +i*size]);
-			}
-			else {
-				printf(".\t");
-			}
-		}
-		printf("\n");
-	}
-#endif
+                        for (i = 0; i < size; i++)
+			{
+                                if (i <= j) {
+                                        printf("%2.2f\t", test_mat[j +i*size]);
+                                }
+                                else {
+                                        printf(".\t");
+                                }
+                        }
+                        printf("\n");
+                }
+        }
 
-        int x, y;
+	int correctness = 1;
         for(x = 0; x < nblocks ;  x++)
 	{
                 for (y = 0; y < nblocks; y++)
@@ -285,7 +323,8 @@ int main(int argc, char **argv)
                                                         float err = abs(test_mat[j +i*size] - orig);
                                                         if (err > 0.00001) {
                                                                 fprintf(stderr, "[%d] Error[%d, %d] --> %2.2f != %2.2f (err %2.2f)\n", rank, i, j, test_mat[j +i*size], orig, err);
-                                                                assert(0);
+								correctness = 0;
+								break;
                                                         }
                                                 }
                                         }
@@ -294,5 +333,21 @@ int main(int argc, char **argv)
                 }
         }
 
+        for(x=0 ; x<nblocks ; x++)
+	{
+                for(y=0 ; y<nblocks ; y++)
+		{
+                        starpu_free((void *)bmat[x][y]);
+		}
+		free(bmat[x]);
+	}
+	free(bmat);
+	free(rmat);
+	free(test_mat);
+
+        starpu_helper_cublas_shutdown();
+	starpu_shutdown();
+
+	assert(correctness);
 	return 0;
 }

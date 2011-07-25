@@ -48,8 +48,8 @@ lib_LTLIBRARIES = libstarpu.la
 
 libstarpu_la_CPPFLAGS = -I$(top_srcdir)/include/
 
-libstarpu_la_CFLAGS = -W -Wall -Wextra $(HWLOC_CFLAGS)
-libstarpu_la_LIBADD = -lm $(HWLOC_LIBS)
+libstarpu_la_CFLAGS = $(GLOBAL_AM_CFLAGS) $(HWLOC_CFLAGS) $(STARPU_CUDA_CPPFLAGS) $(STARPU_OPENCL_CPPFLAGS) $(FXT_CFLAGS)
+libstarpu_la_LIBADD = -lm $(HWLOC_LIBS) $(STARPU_CUDA_LDFLAGS) $(STARPU_OPENCL_LDFLAGS) $(FXT_LIBS) $(STARPU_GLPK_LDFLAGS)
 libstarpu_la_LDFLAGS = $(ldflags) -version-number 0:0:0 -no-undefined
 
 noinst_HEADERS = 						\
@@ -93,6 +93,7 @@ noinst_HEADERS = 						\
 	common/fxt.h						\
 	common/utils.h						\
 	common/barrier.h					\
+	common/uthash.h						\
 	common/barrier_counter.h				\
 	drivers/driver_common/driver_common.h			\
 	drivers/cpu/driver_cpu.h				\
@@ -102,10 +103,13 @@ noinst_HEADERS = 						\
 	drivers/opencl/driver_opencl.h				\
 	drivers/opencl/driver_opencl_utils.h			\
 	debug/starpu_debug_helpers.h				\
+	debug/traces/starpu_fxt.h				\
 	profiling/bound.h					\
 	profiling/profiling.h					\
 	util/starpu_insert_task_utils.h				\
-	starpu_parameters.h
+	starpu_parameters.h					\
+	top/starputop_message_queue.h				\
+	top/starputop_connection.h
 
 libstarpu_la_SOURCES = 						\
 	common/barrier.c					\
@@ -189,11 +193,19 @@ libstarpu_la_SOURCES = 						\
 	util/starpu_insert_task.c				\
 	util/starpu_insert_task_utils.c				\
 	util/starpu_task_list.c					\
+	debug/traces/starpu_fxt.c				\
+	debug/traces/starpu_fxt_mpi.c				\
+	debug/traces/starpu_fxt_dag.c				\
+	debug/traces/starpu_paje.c				\
 	debug/latency.c						\
 	debug/structures_size.c					\
 	profiling/profiling.c					\
 	profiling/bound.c					\
-	profiling/profiling_helpers.c
+	profiling/profiling_helpers.c				\
+	top/starpu_top.c					\
+	top/starputop_task.c					\
+	top/starputop_message_queue.c				\
+	top/starputop_connection.c
 
 if STARPU_USE_CPU
 libstarpu_la_SOURCES += drivers/cpu/driver_cpu.c

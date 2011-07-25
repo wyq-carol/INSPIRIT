@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -31,12 +31,14 @@
 #include <stdint.h>
 #include <starpu.h>
 
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
+
 /* When the task is done, task->callback_func(task->callback_arg) is called. Any
  * callback function must have the prototype void (*)(void *).
  * NB: Callback are NOT allowed to perform potentially blocking operations */
 void callback_func(void *callback_arg)
 {
-	printf("Callback function got argument %p\n", callback_arg);
+        FPRINTF(stdout, "Callback function got argument %p\n", callback_arg);
 }
 
 /* Every implementation of a codelet must have this prototype, the first
@@ -52,22 +54,16 @@ void cpu_func(void *buffers[], void *cl_arg)
 {
 	struct params *params = cl_arg;
 
-	printf("Hello world (params = {%i, %f} )\n", params->i, params->f);
+	FPRINTF(stdout, "Hello world (params = {%i, %f} )\n", params->i, params->f);
 }
 
-starpu_codelet cl =
-{
-	/* this codelet may only be executed on a CPU, and its cpu
- 	 * implementation is function "cpu_func" */
-	.where = STARPU_CPU,
-	.cpu_func = cpu_func,
-	/* the codelet does not manipulate any data that is managed
-	 * by our DSM */
-	.nbuffers = 0
-};
+starpu_codelet cl;
 
 int main(int argc, char **argv)
 {
+	struct starpu_task *task;
+	struct params params = {1, 2.0f};
+
 	/* initialize StarPU : passing a NULL argument means that we use
  	* default configuration for the scheduling policies and the number of
 	* processors/accelerators */
@@ -76,7 +72,15 @@ int main(int argc, char **argv)
 	/* create a new task that is non-blocking by default : the task is not
 	 * submitted to the scheduler until the starpu_task_submit function is
 	 * called */
-	struct starpu_task *task = starpu_task_create();
+	task = starpu_task_create();
+
+	/* this codelet may only be executed on a CPU, and its cpu
+ 	 * implementation is function "cpu_func" */
+	cl.where = STARPU_CPU;
+	cl.cpu_func = cpu_func;
+	/* the codelet does not manipulate any data that is managed
+	 * by our DSM */
+	cl.nbuffers = 0;
 
 	/* the task uses codelet "cl" */
 	task->cl = &cl;
@@ -89,7 +93,6 @@ int main(int argc, char **argv)
 	 * is read-only so that any modification is not passed to other copies
 	 * of the buffer.  For this reason, a buffer passed as a codelet
 	 * argument (cl_arg) is NOT a valid synchronization medium! */
-	struct params params = { 1, 2.0f };
 	task->cl_arg = &params;
 	task->cl_arg_size = sizeof(params);
 		
@@ -103,6 +106,9 @@ int main(int argc, char **argv)
 	
 	/* submit the task to StarPU */
 	starpu_task_submit(task);
+
+	/* destroy the task */
+	starpu_task_destroy(task);
 	
 	/* terminate StarPU: statistics and other debug outputs are not
 	 * guaranteed to be generated unless this function is called. Once it

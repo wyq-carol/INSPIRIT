@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2009, 2010  Université de Bordeaux 1
+ * Copyright (C) 2009, 2010-2011  Université de Bordeaux 1
  * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
@@ -20,6 +20,7 @@
 #include <starpu_mpi_datatype.h>
 //#define STARPU_MPI_VERBOSE	1
 #include <starpu_mpi_private.h>
+#include <starpu_profiling.h>
 
 /* TODO find a better way to select the polling method (perhaps during the
  * configuration) */
@@ -574,7 +575,9 @@ static void test_detached_requests(void)
 		if (flag)
 			starpu_mpi_req_list_erase(detached_requests, req);
 
+#ifdef STARPU_DEVEL
 #warning TODO fix memleak
+#endif
 		/* Detached requests are automatically allocated by the lib */
 		//if (req->detached)
 		//	free(req);
@@ -617,7 +620,9 @@ static void *progress_thread_func(void *arg)
         _STARPU_DEBUG("Initialize mpi: %d\n", initialize_mpi);
 
         if (initialize_mpi) {
+#ifdef STARPU_DEVEL
 #warning get real argc and argv from the application
+#endif
                 int argc = 0;
                 char **argv = NULL;
                 int thread_support;
@@ -727,13 +732,8 @@ static void _starpu_mpi_add_sync_point_in_fxt(void)
 #endif
 }
 
-
-int starpu_mpi_initialize(void)
-{
-        return starpu_mpi_initialize_extended(0, NULL, NULL);
-}
-
-int starpu_mpi_initialize_extended(int initialize_mpi, int *rank, int *world_size)
+static
+int _starpu_mpi_initialize(int initialize_mpi, int *rank, int *world_size)
 {
 	PTHREAD_MUTEX_INIT(&mutex, NULL);
 	PTHREAD_COND_INIT(&cond, NULL);
@@ -751,11 +751,17 @@ int starpu_mpi_initialize_extended(int initialize_mpi, int *rank, int *world_siz
 		PTHREAD_COND_WAIT(&cond, &mutex);
 	PTHREAD_MUTEX_UNLOCK(&mutex);
 
-        if (initialize_mpi) {
+        if (rank && world_size) {
                 _STARPU_DEBUG("Calling MPI_Comm_rank\n");
                 MPI_Comm_rank(MPI_COMM_WORLD, rank);
                 MPI_Comm_size(MPI_COMM_WORLD, world_size);
         }
+
+#ifdef STARPU_USE_FXT
+	int prank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &prank);
+	starpu_set_profiling_id(prank);
+#endif //STARPU_USE_FXT
 
 #ifdef USE_STARPU_ACTIVITY
 	hookid = starpu_progression_hook_register(progression_hook_func, NULL);
@@ -765,6 +771,16 @@ int starpu_mpi_initialize_extended(int initialize_mpi, int *rank, int *world_siz
 	_starpu_mpi_add_sync_point_in_fxt();
 
 	return 0;
+}
+
+int starpu_mpi_initialize(void)
+{
+        return _starpu_mpi_initialize(0, NULL, NULL);
+}
+
+int starpu_mpi_initialize_extended(int *rank, int *world_size)
+{
+        return _starpu_mpi_initialize(1, rank, world_size);
 }
 
 int starpu_mpi_shutdown(void)

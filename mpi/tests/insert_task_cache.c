@@ -49,7 +49,7 @@ int main(int argc, char **argv)
         starpu_data_handle data_handles[X][Y];
 
 	starpu_init(NULL);
-	starpu_mpi_initialize_extended(1, &rank, &size);
+	starpu_mpi_initialize_extended(&rank, &size);
 
         for(x = 0; x < X; x++) {
                 for (y = 0; y < Y; y++) {
@@ -84,7 +84,10 @@ int main(int argc, char **argv)
                                 data_handles[x][y] = NULL;
                         }
                         if (data_handles[x][y])
+			{
                                 starpu_data_set_rank(data_handles[x][y], mpi_rank);
+                                starpu_data_set_tag(data_handles[x][y], (y*X)+x);
+			}
                 }
         }
 
@@ -98,8 +101,8 @@ int main(int argc, char **argv)
 
         for(x = 0; x < X; x++) {
                 for (y = 0; y < Y; y++) {
-                        if (!data_handles[x][y])
-                                starpu_data_release(data_handles[x][y]);
+                        if (data_handles[x][y])
+                                starpu_data_unregister(data_handles[x][y]);
                 }
         }
 	starpu_mpi_shutdown();

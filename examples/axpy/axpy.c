@@ -1,8 +1,8 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2009, 2010  Université de Bordeaux 1
+ * Copyright (C) 2009, 2010-2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -35,6 +35,8 @@
 #define N	(16*1024*1024)
 
 #define NBLOCKS	8
+
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
 
 TYPE *vec_x, *vec_y;
 
@@ -93,21 +95,21 @@ int main(int argc, char **argv)
 		vec_a = malloc(N*sizeof(TYPE));
 		vec_b = malloc(N*sizeof(TYPE));
 	*/
-	starpu_data_malloc_pinned_if_possible((void **)&vec_x, N*sizeof(TYPE));
+	starpu_malloc((void **)&vec_x, N*sizeof(TYPE));
 	assert(vec_x);
 
-	starpu_data_malloc_pinned_if_possible((void **)&vec_y, N*sizeof(TYPE));
+	starpu_malloc((void **)&vec_y, N*sizeof(TYPE));
 	assert(vec_y);
 
 	unsigned i;
 	for (i = 0; i < N; i++)
 	{
-		vec_x[i] = 1.0f;//(TYPE)starpu_drand48();
-		vec_y[i] = 4.0f;//(TYPE)starpu_drand48();
+		vec_x[i] = 1.0f; /*(TYPE)starpu_drand48(); */
+		vec_y[i] = 4.0f; /*(TYPE)starpu_drand48(); */
 	}
 
-	fprintf(stderr, "BEFORE x[0] = %2.2f\n", vec_x[0]);
-	fprintf(stderr, "BEFORE y[0] = %2.2f\n", vec_y[0]);
+	FPRINTF(stderr, "BEFORE x[0] = %2.2f\n", vec_x[0]);
+	FPRINTF(stderr, "BEFORE y[0] = %2.2f\n", vec_y[0]);
 
 	/* Declare the data to StarPU */
 	starpu_vector_data_register(&handle_x, 0, (uintptr_t)vec_x, N, sizeof(TYPE));
@@ -116,9 +118,7 @@ int main(int argc, char **argv)
 	/* Divide the vector into blocks */
 	struct starpu_data_filter block_filter = {
 		.filter_func = starpu_block_filter_func_vector,
-		.nchildren = NBLOCKS,
-		.get_nchildren = NULL,
-		.get_child_ops = NULL
+		.nchildren = NBLOCKS
 	};
 
 	starpu_data_partition(handle_x, &block_filter);
@@ -151,16 +151,21 @@ int main(int argc, char **argv)
 
 	starpu_task_wait_for_all();
 
+	starpu_data_unpartition(handle_x, 0);
 	starpu_data_unpartition(handle_y, 0);
+	starpu_data_unregister(handle_x);
 	starpu_data_unregister(handle_y);
 
 	gettimeofday(&end, NULL);
         double timing = (double)((end.tv_sec - start.tv_sec)*1000000 +
                                         (end.tv_usec - start.tv_usec));
 
-	fprintf(stderr, "timing -> %2.2f us %2.2f MB/s\n", timing, 3*N*sizeof(TYPE)/timing);
+	FPRINTF(stderr, "timing -> %2.2f us %2.2f MB/s\n", timing, 3*N*sizeof(TYPE)/timing);
 
-	fprintf(stderr, "AFTER y[0] = %2.2f (ALPHA = %2.2f)\n", vec_y[0], alpha);
+	FPRINTF(stderr, "AFTER y[0] = %2.2f (ALPHA = %2.2f)\n", vec_y[0], alpha);
+
+	starpu_free((void *)vec_x);
+	starpu_free((void *)vec_y);
 
 	/* Stop StarPU */
 	starpu_shutdown();

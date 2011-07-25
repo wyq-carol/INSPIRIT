@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -22,13 +22,15 @@
 #include <cublas.h>
 #endif
 
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
+
 static float *x;
 static float *y;
 static starpu_data_handle *x_handles;
 static starpu_data_handle *y_handles;
 
 static unsigned nblocks = 4096;
-static unsigned entries_per_bock = 1024;
+static unsigned entries_per_block = 1024;
 
 #define DOT_TYPE double
 
@@ -75,9 +77,16 @@ void redux_cpu_func(void *descr[], void *cl_arg)
 	*dota = *dota + *dotb;
 }
 
+#ifdef STARPU_USE_CUDA
+extern void redux_cuda_func(void *descr[], void *_args);
+#endif
+
 static struct starpu_codelet_t redux_codelet = {
-	.where = STARPU_CPU,
+	.where = STARPU_CPU|STARPU_CUDA,
 	.cpu_func = redux_cpu_func,
+#ifdef STARPU_USE_CUDA
+	.cuda_func = redux_cuda_func,
+#endif
 	.nbuffers = 2
 };
 
@@ -118,11 +127,11 @@ void dot_cuda_func(void *descr[], void *cl_arg)
 
 	cudaMemcpy(&current_dot, dot, sizeof(DOT_TYPE), cudaMemcpyDeviceToHost);
 
-	int ret = cudaThreadSynchronize();
+	cudaThreadSynchronize();
 
 	local_dot = (DOT_TYPE)cublasSdot(n, local_x, 1, local_y, 1);
 
-	//fprintf(stderr, "current_dot %f local dot %f -> %f\n", current_dot, local_dot, current_dot + local_dot);
+	/* FPRINTF(stderr, "current_dot %f local dot %f -> %f\n", current_dot, local_dot, current_dot + local_dot); */
 	current_dot += local_dot;
 
 	cudaThreadSynchronize();
@@ -146,15 +155,13 @@ static struct starpu_codelet_t dot_codelet = {
  *	Tasks initialization
  */
 
-extern void starpu_data_end_reduction_mode(starpu_data_handle handle);
-
 int main(int argc, char **argv)
 {
 	starpu_init(NULL);
 
 	starpu_helper_cublas_init();
 
-	unsigned long nelems = nblocks*entries_per_bock;
+	unsigned long nelems = nblocks*entries_per_block;
 	size_t size = nelems*sizeof(float);
 
 	x = malloc(size);
@@ -182,9 +189,9 @@ int main(int argc, char **argv)
 	for (block = 0; block < nblocks; block++)
 	{
 		starpu_vector_data_register(&x_handles[block], 0,
-			(uintptr_t)&x[entries_per_bock*block], entries_per_bock, sizeof(float));
+			(uintptr_t)&x[entries_per_block*block], entries_per_block, sizeof(float));
 		starpu_vector_data_register(&y_handles[block], 0,
-			(uintptr_t)&y[entries_per_bock*block], entries_per_bock, sizeof(float));
+			(uintptr_t)&y[entries_per_block*block], entries_per_block, sizeof(float));
 	}
 
 	starpu_variable_data_register(&dot_handle, 0, (uintptr_t)&dot, sizeof(DOT_TYPE));
@@ -199,6 +206,7 @@ int main(int argc, char **argv)
 		struct starpu_task *task = starpu_task_create();
 
 		task->cl = &dot_codelet;
+		task->destroy = 1;
 
 		task->buffers[0].handle = x_handles[block];
 		task->buffers[0].mode = STARPU_R;
@@ -208,16 +216,33 @@ int main(int argc, char **argv)
 		task->buffers[2].mode = STARPU_REDUX;
 
 		int ret = starpu_task_submit(task);
+		if (ret == -ENODEV) goto enodev;
 		STARPU_ASSERT(!ret);
 	}
 
+	for (block = 0; block < nblocks; block++)
+	{
+		starpu_data_unregister(x_handles[block]);
+		starpu_data_unregister(y_handles[block]);
+	}
 	starpu_data_unregister(dot_handle);
 
-	fprintf(stderr, "Reference : %e vs. %e (Delta %e)\n", reference_dot, dot, reference_dot - dot);
+	FPRINTF(stderr, "Reference : %e vs. %e (Delta %e)\n", reference_dot, dot, reference_dot - dot);
 
 	starpu_helper_cublas_shutdown();
 
 	starpu_shutdown();
 
+	free(x);
+	free(y);
+	free(x_handles);
+	free(y_handles);
+
 	return 0;
+
+enodev:
+	fprintf(stderr, "WARNING: No one can execute this task\n");
+	/* yes, we do not perform the computation but we did detect that no one
+ 	 * could perform the kernel, so this is not an error from StarPU */
+	return 77;
 }

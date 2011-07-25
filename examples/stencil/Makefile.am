@@ -13,14 +13,15 @@
 #
 # See the GNU Lesser General Public License in COPYING.LGPL for more details.
 
-AM_CFLAGS = $(HWLOC_CFLAGS)
+AM_CFLAGS = $(HWLOC_CFLAGS) $(STARPU_CUDA_CPPFLAGS) $(STARPU_OPENCL_CPPFLAGS)
 LIBS = $(top_builddir)/src/libstarpu.la $(HWLOC_LIBS) @LIBS@
 AM_CPPFLAGS = -I$(top_srcdir)/include/ -I$(top_srcdir)/examples/ -I$(top_builddir)/include
+AM_LDFLAGS = $(STARPU_CUDA_LDFLAGS) $(STARPU_OPENCL_LDFLAGS)
 
-# if USE_MPI
-# LIBS += $(top_builddir)/mpi/libstarpumpi.la
-# AM_CPPFLAGS += -I$(top_srcdir)/mpi/
-# endif
+if USE_MPI
+LIBS += $(top_builddir)/mpi/libstarpumpi.la
+AM_CPPFLAGS += -I$(top_srcdir)/mpi/
+endif
 
 CC = $(CC_OR_MPICC)
 
@@ -33,6 +34,7 @@ NVCCFLAGS += $(HWLOC_CFLAGS)
 	$(NVCC) -cubin $< -o $@ --compiler-options -fno-strict-aliasing  $(NVCCFLAGS)
 
 .cu.o:
+	$(MKDIR_P) `dirname $@`
 	$(NVCC) $< -c -o $@ --compiler-options -fno-strict-aliasing  $(NVCCFLAGS) -I$(top_srcdir)/include/ -I$(top_builddir)/include/
 
 
@@ -45,7 +47,7 @@ endif
 check_PROGRAMS =				\
 	stencil
 
-examplebindir = $(libdir)/starpu/examples/
+examplebindir = $(libdir)/starpu/examples/stencil
 
 examplebin_PROGRAMS =				\
 	stencil
@@ -65,6 +67,12 @@ if STARPU_USE_CUDA
 stencil_SOURCES +=				\
 	life_cuda.cu				\
 	shadow.cu
+endif
+
+if STARPU_USE_OPENCL
+stencil_SOURCES +=				\
+	life_opencl.c				\
+	shadow_opencl.c
 endif
 
 outs =						\

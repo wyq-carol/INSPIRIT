@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2010, 2011  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -29,14 +29,15 @@ int use_x11 = 1;
 #endif
 
 int demo = 0;
+static double demozoom = 0.05;
 
 /* NB: The X11 code is inspired from the http://locklessinc.com/articles/mandelbrot/ article */
 
 static int nblocks = 20;
 static int height = 400;
 static int width = 640;
-static int maxIt = 20000; // max number of iteration in the Mandelbrot function
-static int niter = -1; // number of loops in case we don't use X11, -1 means infinite
+static int maxIt = 20000; /* max number of iteration in the Mandelbrot function */
+static int niter = -1; /* number of loops in case we don't use X11, -1 means infinite */
 static int use_spmd = 0;
 
 static double leftX = -0.745;
@@ -233,7 +234,7 @@ static void compute_block_opencl(void *descr[], void *cl_arg)
 {
 	int iby, block_size;
 	double stepX, stepY;
-	int *pcnt; // unused for CUDA tasks
+	int *pcnt; /* unused for CUDA tasks */
 	starpu_unpack_cl_args(cl_arg, &iby, &block_size, &stepX, &stepY, &pcnt);
 
 	cl_mem data = (cl_mem)STARPU_VECTOR_GET_PTR(descr[0]);
@@ -247,15 +248,15 @@ static void compute_block_opencl(void *descr[], void *cl_arg)
 
 	starpu_opencl_load_kernel(&kernel, &queue, &opencl_programs, "mandelbrot_kernel", devid);
 
-	clSetKernelArg(kernel, 0, sizeof(cl_mem), &data);
-	clSetKernelArg(kernel, 1, sizeof(double), &leftX);
-	clSetKernelArg(kernel, 2, sizeof(double), &topY);
-	clSetKernelArg(kernel, 3, sizeof(double), &stepX);
-	clSetKernelArg(kernel, 4, sizeof(double), &stepY);
-	clSetKernelArg(kernel, 5, sizeof(int), &maxIt);
-	clSetKernelArg(kernel, 6, sizeof(int), &iby);
-	clSetKernelArg(kernel, 7, sizeof(int), &block_size);
-	clSetKernelArg(kernel, 8, sizeof(int), &width);
+	clSetKernelArg(kernel, 0, sizeof(data), &data);
+	clSetKernelArg(kernel, 1, sizeof(leftX), &leftX);
+	clSetKernelArg(kernel, 2, sizeof(topY), &topY);
+	clSetKernelArg(kernel, 3, sizeof(stepX), &stepX);
+	clSetKernelArg(kernel, 4, sizeof(stepY), &stepY);
+	clSetKernelArg(kernel, 5, sizeof(maxIt), &maxIt);
+	clSetKernelArg(kernel, 6, sizeof(iby), &iby);
+	clSetKernelArg(kernel, 7, sizeof(block_size), &block_size);
+	clSetKernelArg(kernel, 8, sizeof(width), &width);
 
 	unsigned dim = 16;
 	size_t local[2] = {dim, 1};
@@ -278,7 +279,7 @@ static void compute_block(void *descr[], void *cl_arg)
 
 	int iby, block_size;
 	double stepX, stepY;
-	int *pcnt; // unused for sequential tasks
+	int *pcnt; /* unused for sequential tasks */
 	starpu_unpack_cl_args(cl_arg, &iby, &block_size, &stepX, &stepY, &pcnt);
 
 	unsigned *data = (unsigned *)STARPU_VECTOR_GET_PTR(descr[0]);
@@ -291,7 +292,7 @@ static void compute_block(void *descr[], void *cl_arg)
 		{
 			double cx = leftX + ix * stepX;
 			double cy = topY - iy * stepY;
-			// Z = X+I*Y
+			/* Z = X+I*Y */
 			double x = 0;
 			double y = 0;
 			int it;
@@ -300,13 +301,13 @@ static void compute_block(void *descr[], void *cl_arg)
 				double x2 = x*x;
 				double y2 = y*y;
 
-				// Stop iterations when |Z| > 2
+				/* Stop iterations when |Z| > 2 */
 				if (x2 + y2 > 4.0)
 					break;
 
 				double twoxy = 2.0*x*y;
 
-				// Z = Z^2 + C
+				/* Z = Z^2 + C */
 				x = x2 - y2 + cx;
 				y = twoxy + cy;
 			}
@@ -327,8 +328,8 @@ static void compute_block_spmd(void *descr[], void *cl_arg)
 
 	unsigned *data = (unsigned *)STARPU_VECTOR_GET_PTR(descr[0]);
 
-	int ix, iy; // global coordinates
-	int local_iy; // current line
+	int ix, iy; /* global coordinates */
+	int local_iy; /* current line */
 
 	while (1)
 	{
@@ -342,7 +343,7 @@ static void compute_block_spmd(void *descr[], void *cl_arg)
 		{
 			double cx = leftX + ix * stepX;
 			double cy = topY - iy * stepY;
-			// Z = X+I*Y
+			/* Z = X+I*Y */
 			double x = 0;
 			double y = 0;
 			int it;
@@ -351,13 +352,13 @@ static void compute_block_spmd(void *descr[], void *cl_arg)
 				double x2 = x*x;
 				double y2 = y*y;
 
-				// Stop iterations when |Z| > 2
+				/* Stop iterations when |Z| > 2 */
 				if (x2 + y2 > 4.0)
 					break;
 
 				double twoxy = 2.0*x*y;
 
-				// Z = Z^2 + C
+				/* Z = Z^2 + C */
 				x = x2 - y2 + cx;
 				y = twoxy + cy;
 			}
@@ -396,7 +397,7 @@ static void parse_args(int argc, char **argv)
 	int i;
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "-h") == 0) {
-			fprintf(stderr, "Usage: %s [-h] [ -width 800] [-height 600] [-nblocks 16] [-no-x11] [-pos leftx:rightx:bottomy:topy] [-niter 1000] [-spmd]\n", argv[0]);
+			fprintf(stderr, "Usage: %s [-h] [ -width 800] [-height 600] [-nblocks 16] [-no-x11] [-pos leftx:rightx:bottomy:topy] [-niter 1000] [-spmd] [-demo] [-demozoom 0.2]\n", argv[0]);
 			exit(-1);
 		}
 
@@ -434,6 +435,11 @@ static void parse_args(int argc, char **argv)
 
 		}
 
+		if (strcmp(argv[i], "-demozoom") == 0) {
+			char *argptr;
+			demozoom = strtof(argv[++i], &argptr);
+		}
+
 		if (strcmp(argv[i], "-no-x11") == 0) {
 #ifdef STARPU_HAVE_X11
 			use_x11 = 0;
@@ -461,7 +467,7 @@ int main(int argc, char **argv)
 	starpu_init(&conf);
 
 	unsigned *buffer;
-	starpu_data_malloc_pinned_if_possible((void **)&buffer, height*width*sizeof(unsigned));
+	starpu_malloc((void **)&buffer, height*width*sizeof(unsigned));
 
 #ifdef STARPU_HAVE_X11
 	if (use_x11)
@@ -472,7 +478,7 @@ int main(int argc, char **argv)
 	STARPU_ASSERT((height % nblocks) == 0);
 
 #ifdef STARPU_USE_OPENCL
-	starpu_opencl_load_opencl_from_string(mandelbrot_opencl_src, &opencl_programs);
+	starpu_opencl_load_opencl_from_string(mandelbrot_opencl_src, &opencl_programs, NULL);
 #endif
 
 	starpu_data_handle block_handles[nblocks];
@@ -520,24 +526,24 @@ int main(int argc, char **argv)
 
 		for (iby = 0; iby < nblocks; iby++)
 		{
-			starpu_data_acquire(block_handles[iby], STARPU_R);
 #ifdef STARPU_HAVE_X11
 			if (use_x11)
 			{
+				starpu_data_acquire(block_handles[iby], STARPU_R);
 				XPutImage(dpy, win, gc, bitmap,
 					0, iby*block_size,
 					0, iby*block_size,
 					width, block_size);
+				starpu_data_release(block_handles[iby]);
 			}
 #endif
-			starpu_data_release(block_handles[iby]);
 		}
 
 
 		if (demo)
 		{
 			/* Zoom in */
-			double zoom_factor = 0.05;
+			double zoom_factor = demozoom;
 			double widthX = rightX - leftX;
 			double heightY = topY - bottomY;
 
@@ -554,7 +560,7 @@ int main(int argc, char **argv)
 				gettimeofday(&end, NULL);
 				double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
 
-				fprintf(stderr, "Time to generate %d frames : %f s\n", iter, timing/1000000.0);
+				fprintf(stderr, "Time to generate %u frames : %f s\n", iter, timing/1000000.0);
 				fprintf(stderr, "Average FPS: %f\n", ((double)iter*1e+6)/timing);
 
 				/* Reset counters */
@@ -583,7 +589,7 @@ int main(int argc, char **argv)
 	for (iby = 0; iby < nblocks; iby++)
 		starpu_data_unregister(block_handles[iby]);
 
-//	starpu_data_free_pinned_if_possible(buffer);
+/*	starpu_data_free_pinned_if_possible(buffer); */
 
 	starpu_shutdown();
 

@@ -52,7 +52,7 @@ int main(int argc, char **argv)
         starpu_data_handle data_handles[4];
 
 	starpu_init(NULL);
-	starpu_mpi_initialize_extended(1, &rank, &size);
+	starpu_mpi_initialize_extended(&rank, &size);
 
         if (rank > 1) {
                 starpu_mpi_shutdown();
@@ -65,20 +65,24 @@ int main(int argc, char **argv)
                         x[i] = 10*(i+1);
                         starpu_variable_data_register(&data_handles[i], 0, (uintptr_t)&x[i], sizeof(x[i]));
                         starpu_data_set_rank(data_handles[i], rank);
+			starpu_data_set_tag(data_handles[i], i);
                 }
                 y = -1;
                 starpu_variable_data_register(&data_handles[3], -1, (uintptr_t)NULL, sizeof(int));
                 starpu_data_set_rank(data_handles[3], 1);
+		starpu_data_set_tag(data_handles[3], 3);
         }
         else if (rank == 1) {
                 for(i=0 ; i<3 ; i++) {
                         x[i] = -1;
                         starpu_variable_data_register(&data_handles[i], -1, (uintptr_t)NULL, sizeof(int));
                         starpu_data_set_rank(data_handles[i], 0);
+			starpu_data_set_tag(data_handles[i], i);
                 }
                 y=200;
                 starpu_variable_data_register(&data_handles[3], 0, (uintptr_t)&y, sizeof(int));
                 starpu_data_set_rank(data_handles[3], rank);
+		starpu_data_set_tag(data_handles[3], 3);
         }
         fprintf(stderr, "[%d][init] VALUES: %d %d %d %d\n", rank, x[0], x[1], x[2], y);
 
@@ -86,7 +90,7 @@ int main(int argc, char **argv)
                                      STARPU_R, data_handles[0], STARPU_RW, data_handles[1],
                                      STARPU_W, data_handles[2],
                                      STARPU_W, data_handles[3],
-                                     STARPU_EXECUTE, 1, 0);
+                                     STARPU_EXECUTE_ON_NODE, 1, 0);
         assert(err == 0);
         starpu_task_wait_for_all();
 

@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2009, 2010, 2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -42,6 +42,8 @@ static unsigned check = 0;
 static TYPE *A, *B, *C;
 static starpu_data_handle A_handle, B_handle, C_handle;
 
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
+
 static void check_output(void)
 {
 	/* compute C = C - AB */
@@ -52,14 +54,14 @@ static void check_output(void)
 	err = CPU_ASUM(xdim*ydim, C, 1);
 
 	if (err < xdim*ydim*0.001) {
-		fprintf(stderr, "Results are OK\n");
+		FPRINTF(stderr, "Results are OK\n");
 	}
 	else {
 		int max;
 		max = CPU_IAMAX(xdim*ydim, C, 1);
 
-		fprintf(stderr, "There were errors ... err = %f\n", err);
-		fprintf(stderr, "Max error : %e\n", C[max]);
+		FPRINTF(stderr, "There were errors ... err = %f\n", err);
+		FPRINTF(stderr, "Max error : %e\n", C[max]);
 	}
 }
 
@@ -67,9 +69,9 @@ static void init_problem_data(void)
 {
 	unsigned i,j;
 
-	starpu_data_malloc_pinned_if_possible((void **)&A, zdim*ydim*sizeof(TYPE));
-	starpu_data_malloc_pinned_if_possible((void **)&B, xdim*zdim*sizeof(TYPE));
-	starpu_data_malloc_pinned_if_possible((void **)&C, xdim*ydim*sizeof(TYPE));
+	starpu_malloc((void **)&A, zdim*ydim*sizeof(TYPE));
+	starpu_malloc((void **)&B, xdim*zdim*sizeof(TYPE));
+	starpu_malloc((void **)&C, xdim*ydim*sizeof(TYPE));
 
 	/* fill the A and B matrices */
 	for (j=0; j < ydim; j++) {
@@ -100,20 +102,20 @@ static void partition_mult_data(void)
 	starpu_matrix_data_register(&C_handle, 0, (uintptr_t)C, 
 		ydim, ydim, xdim, sizeof(TYPE));
 
-	struct starpu_data_filter f;
-	memset(&f, 0, sizeof(f));
-	f.filter_func = starpu_vertical_block_filter_func;
-	f.nchildren = nslicesx;
+	struct starpu_data_filter vert;
+	memset(&vert, 0, sizeof(vert));
+	vert.filter_func = starpu_vertical_block_filter_func;
+	vert.nchildren = nslicesx;
 		
-	struct starpu_data_filter f2;
-	memset(&f2, 0, sizeof(f2));
-	f2.filter_func = starpu_block_filter_func;
-	f2.nchildren = nslicesy;
+	struct starpu_data_filter horiz;
+	memset(&horiz, 0, sizeof(horiz));
+	horiz.filter_func = starpu_block_filter_func;
+	horiz.nchildren = nslicesy;
 		
-	starpu_data_partition(B_handle, &f);
-	starpu_data_partition(A_handle, &f2);
+	starpu_data_partition(B_handle, &vert);
+	starpu_data_partition(A_handle, &horiz);
 
-	starpu_data_map_filters(C_handle, 2, &f, &f2);
+	starpu_data_map_filters(C_handle, 2, &vert, &horiz);
 }
 
 static void mult_kernel_common(void *descr[], int type)
@@ -145,10 +147,12 @@ static void mult_kernel_common(void *descr[], int type)
 			int block_size = (nyC + worker_size - 1)/worker_size;
 			int new_nyC = STARPU_MIN(nyC, block_size*(rank+1)) - block_size*rank;
 
-			TYPE *new_subA = &subA[block_size*rank];
+			STARPU_ASSERT(nyC = STARPU_MATRIX_GET_NY(descr[1]));
+
+			TYPE *new_subB = &subB[block_size*rank];
 			TYPE *new_subC = &subC[block_size*rank];
 
-			CPU_GEMM("N", "N", nxC, new_nyC, nyA, (TYPE)1.0, new_subA, ldA, subB, ldB, (TYPE)0.0, new_subC, ldC);
+			CPU_GEMM("N", "N", nxC, new_nyC, nyA, (TYPE)1.0, subA, ldA, new_subB, ldB, (TYPE)0.0, new_subC, ldC);
 		}
 	}
 #ifdef STARPU_USE_CUDA
@@ -282,11 +286,11 @@ int main(int argc, char **argv)
 	gettimeofday(&end, NULL);
 	double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
 
-	fprintf(stderr, "Time: %2.2f ms\n", timing/1000.0);
+	FPRINTF(stderr, "Time: %2.2f ms\n", timing/1000.0);
 
 	double flops = 2.0*((unsigned long)niter)*((unsigned long)xdim)
 				*((unsigned long)ydim)*((unsigned long)zdim);
-	fprintf(stderr, "GFlop/s: %.2f\n", flops/timing/1000.0);
+	FPRINTF(stderr, "GFlop/s: %.2f\n", flops/timing/1000.0);
 
 	starpu_data_unpartition(C_handle, 0);
 	starpu_data_unregister(C_handle);

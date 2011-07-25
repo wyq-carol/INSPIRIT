@@ -1,8 +1,8 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2009, 2010  Université de Bordeaux 1
+ * Copyright (C) 2009-2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -624,12 +624,12 @@ void dw_codelet_facto(starpu_data_handle dataA, unsigned nblocks)
 	gettimeofday(&end, NULL);
 
 	double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
-	fprintf(stderr, "Computation took (in ms)\n");
-	printf("%2.2f\n", timing/1000);
+	FPRINTF(stderr, "Computation took (in ms)\n");
+	FPRINTF(stdout, "%2.2f\n", timing/1000);
 
 	unsigned n = starpu_matrix_get_nx(dataA);
 	double flop = (2.0f*n*n*n)/3.0f;
-	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	FPRINTF(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
 }
 
 void dw_codelet_facto_v2(starpu_data_handle dataA, unsigned nblocks)
@@ -666,7 +666,7 @@ void dw_codelet_facto_v2(starpu_data_handle dataA, unsigned nblocks)
 	int ret = starpu_task_submit(task);
 	if (STARPU_UNLIKELY(ret == -ENODEV))
 	{
-		fprintf(stderr, "No worker may execute this task\n");
+		FPRINTF(stderr, "No worker may execute this task\n");
 		exit(0);
 	}
 
@@ -681,12 +681,12 @@ void dw_codelet_facto_v2(starpu_data_handle dataA, unsigned nblocks)
 	gettimeofday(&end, NULL);
 
 	double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
-	fprintf(stderr, "Computation took (in ms)\n");
-	printf("%2.2f\n", timing/1000);
+	FPRINTF(stderr, "Computation took (in ms)\n");
+	FPRINTF(stdout, "%2.2f\n", timing/1000);
 
 	unsigned n = starpu_matrix_get_nx(dataA);
 	double flop = (2.0f*n*n*n)/3.0f;
-	fprintf(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	FPRINTF(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
 }
 
 void initialize_system(float **A, float **B, unsigned dim, unsigned pinned)
@@ -697,8 +697,8 @@ void initialize_system(float **A, float **B, unsigned dim, unsigned pinned)
 
 	if (pinned)
 	{
-		starpu_data_malloc_pinned_if_possible((void **)A, (size_t)dim*dim*sizeof(float));
-		starpu_data_malloc_pinned_if_possible((void **)B, (size_t)dim*sizeof(float));
+		starpu_malloc((void **)A, (size_t)dim*dim*sizeof(float));
+		starpu_malloc((void **)B, (size_t)dim*sizeof(float));
 	} 
 	else {
 		*A = malloc((size_t)dim*dim*sizeof(float));
@@ -714,7 +714,7 @@ void dw_factoLU(float *matA, unsigned size,
 {
 
 #ifdef CHECK_RESULTS
-	fprintf(stderr, "Checking results ...\n");
+	FPRINTF(stderr, "Checking results ...\n");
 	float *Asaved;
 	Asaved = malloc((size_t)ld*ld*sizeof(float));
 
@@ -730,17 +730,15 @@ void dw_factoLU(float *matA, unsigned size,
 	starpu_matrix_data_register(&dataA, 0, (uintptr_t)matA, ld, 
 			size, size, sizeof(float));
 
-	struct starpu_data_filter f;
-		f.filter_func = starpu_vertical_block_filter_func;
-		f.nchildren = nblocks;
-		f.get_nchildren = NULL;
-		f.get_child_ops = NULL;
+	struct starpu_data_filter f = {
+		.filter_func = starpu_vertical_block_filter_func,
+		.nchildren = nblocks
+	};
 
-	struct starpu_data_filter f2;
-		f2.filter_func = starpu_block_filter_func;
-		f2.nchildren = nblocks;
-		f2.get_nchildren = NULL;
-		f2.get_child_ops = NULL;
+	struct starpu_data_filter f2 = {
+		.filter_func = starpu_block_filter_func,
+		.nchildren = nblocks
+	};
 
 	starpu_data_map_filters(dataA, 2, &f, &f2);
 

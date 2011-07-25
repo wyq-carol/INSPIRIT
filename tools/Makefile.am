@@ -1,6 +1,6 @@
 # StarPU --- Runtime system for heterogeneous multicore architectures.
 #
-# Copyright (C) 2009, 2010  Université de Bordeaux 1
+# Copyright (C) 2009-2011  Université de Bordeaux 1
 # Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
 #
 # StarPU is free software; you can redistribute it and/or modify
@@ -16,43 +16,35 @@
 
 SUBDIRS =
 
-AM_CFLAGS = $(HWLOC_CFLAGS)
-LIBS = $(top_builddir)/src/libstarpu.la $(HWLOC_LIBS) @LIBS@
+AM_CFLAGS = $(HWLOC_CFLAGS) $(STARPU_CUDA_CPPFLAGS) $(STARPU_OPENCL_CPPFLAGS)
+LIBS = $(top_builddir)/src/libstarpu.la @LIBS@
 AM_CPPFLAGS = -I$(top_srcdir)/include/ -I$(top_srcdir)/tools/ -I$(top_srcdir)/mpi/ -I$(top_builddir)/src -I$(top_srcdir)/src
 
 bin_PROGRAMS =
 dist_bin_SCRIPTS =
 
+dist_pkgdata_DATA = gdbinit
+
 CLEANFILES = *.gcno *.gcda *.linkinfo
 
 bin_PROGRAMS += starpu_calibrate_bus
 
-starpu_calibrate_bus_SOURCES = starpu_calibrate_bus.c
-
 if STARPU_USE_FXT
-# TODO: prefix with starpu_
 bin_PROGRAMS += starpu_fxt_tool starpu_fxt_stats
 
-starpu_fxt_tool_SOURCES = starpu_fxt_tool.c fxt_tool_common.c fxt_tool_mpi.c dag_dot.c histo_paje.c
-starpu_fxt_tool_CFLAGS = -I$(top_srcdir)/src/
-starpu_fxt_tool_LDADD =
+starpu_fxt_tool_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS) $(FXT_CFLAGS)
+starpu_fxt_tool_LDADD = $(FXT_LIBS)
 
-starpu_fxt_stats_SOURCES = starpu_fxt_stats.c
-starpu_fxt_stats_CFLAGS = -I$(top_srcdir)/src/
+starpu_fxt_stats_CPPFLAGS = $(AM_CFLAGS) $(AM_CPPFLAGS) $(FXT_CFLAGS)
+starpu_fxt_stats_LDADD = $(FXT_LIBS)
 endif
 
-bin_PROGRAMS +=	starpu_perfmodel_display
-starpu_perfmodel_display_SOURCES = starpu_perfmodel_display.c
-
-bin_PROGRAMS += starpu_machine_display
-
-starpu_machine_display_SOURCES = starpu_machine_display.c
+bin_PROGRAMS += \
+	starpu_perfmodel_display	\
+	starpu_perfmodel_plot 		\
+	starpu_machine_display
 
 noinst_PROGRAMS =	cbc2paje lp2paje
-
-noinst_HEADERS = \
-	fxt_tool.h	\
-	histo_paje.h
 
 dist_bin_SCRIPTS +=	\
 	starpu_top.sh

@@ -6,7 +6,7 @@
 #undef STARPU_USE_OPENCL
 #undef STARPU_USE_GORDON
 
-//#undef STARPU_USE_MPI
+#undef STARPU_USE_MPI
 
 #undef STARPU_ATLAS
 #undef STARPU_GOTO
@@ -42,12 +42,10 @@
 #undef STARPU_HAVE_CURAND
 
 #undef STARPU_NMAXBUFS
-#undef STARPU_NMAXCPUS
+#undef STARPU_MAXCPUS
 #undef STARPU_MAXCUDADEVS
 #undef STARPU_MAXOPENCLDEVS
 #undef STARPU_NMAXWORKERS
-
-#undef STARPU_HAVE_HWLOC
 
 #undef STARPU_HAVE_LIBNUMA
 
@@ -56,5 +54,19 @@
 #undef starpu_drand48
 #undef starpu_srand48
 #undef starpu_erand48
+
+#undef starpu_srand48_r
+#undef starpu_erand48_r
+
+#ifdef _MSC_VER
+typedef long starpu_ssize_t;
+#define __starpu_func__ __FUNCTION__
+#else
+#  include <sys/types.h>
+typedef ssize_t starpu_ssize_t;
+#define __starpu_func__ __func__
+#endif
+
+#undef STARPU_SLOW_MACHINE
 
 #endif

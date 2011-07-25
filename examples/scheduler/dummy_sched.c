@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -19,6 +19,7 @@
 #include <starpu.h>
 
 #define NTASKS	32000
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
 
 struct starpu_task_list sched_list;
 
@@ -38,7 +39,7 @@ static void init_dummy_sched(struct starpu_machine_topology_s *topology,
 	for (workerid = 0; workerid < topology->nworkers; workerid++)
 		starpu_worker_set_sched_condition(workerid, &sched_cond, &sched_mutex);
 
-	fprintf(stderr, "Initialising Dummy scheduler\n");
+	FPRINTF(stderr, "Initialising Dummy scheduler\n");
 }
 
 static void deinit_dummy_sched(struct starpu_machine_topology_s *topology,
@@ -49,7 +50,7 @@ static void deinit_dummy_sched(struct starpu_machine_topology_s *topology,
 	pthread_cond_destroy(&sched_cond);
 	pthread_mutex_destroy(&sched_mutex);
 
-	fprintf(stderr, "Destroying Dummy scheduler\n");
+	FPRINTF(stderr, "Destroying Dummy scheduler\n");
 }
 
 static int push_task_dummy(struct starpu_task *task)
@@ -80,7 +81,6 @@ static struct starpu_sched_policy_s dummy_sched_policy = {
 	.init_sched = init_dummy_sched,
 	.deinit_sched = deinit_dummy_sched,
 	.push_task = push_task_dummy,
-	.push_prio_task = NULL,
 	.pop_task = pop_task_dummy,
 	.post_exec_hook = NULL,
 	.pop_every_task = NULL,
@@ -118,10 +118,16 @@ static starpu_codelet dummy_codelet =
 
 int main(int argc, char **argv)
 {
+	int ntasks = NTASKS;
+
 	starpu_init(&conf);
 
+#ifdef STARPU_SLOW_MACHINE
+	ntasks /= 100;
+#endif
+
 	unsigned i;
-	for (i = 0; i < NTASKS; i++)
+	for (i = 0; i < ntasks; i++)
 	{
 		struct starpu_task *task = starpu_task_create();
 	

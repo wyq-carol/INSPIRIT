@@ -84,6 +84,9 @@ struct starpu_bus_profiling_info {
 	int transfer_count;
 };
 
+/* This function sets the ID used for profiling trace filename */
+void starpu_set_profiling_id(int new_id);
+
 /* This function sets the profiling status:
  * - enable with STARPU_PROFILING_ENABLE
  * - disable with STARPU_PROFILING_DISABLE 
@@ -172,4 +175,4 @@ void starpu_worker_profiling_helper_display_summary(void);
 }
 #endif
 
-#endif // __STARPU_PROFILING_H__
+#endif /* __STARPU_PROFILING_H__ */

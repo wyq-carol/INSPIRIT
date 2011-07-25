@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  * Copyright (C) 2010, 2011  Université de Bordeaux 1
  *
  * StarPU is free software; you can redistribute it and/or modify
@@ -28,6 +28,7 @@
 #include <stdio.h>
 
 #define	NX	2048
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
 
 extern void scal_cpu_func(void *buffers[], void *_args);
 extern void scal_cuda_func(void *buffers[], void *_args);
@@ -71,16 +72,17 @@ int main(int argc, char **argv)
 	float vector[NX];
 	unsigned i;
 	for (i = 0; i < NX; i++)
-		vector[i] = 1.0f;
+                vector[i] = (i+1.0f);
 
-	fprintf(stderr, "BEFORE : First element was %f\n", vector[0]);
+	FPRINTF(stderr, "BEFORE: First element was %f\n", vector[0]);
+	FPRINTF(stderr, "BEFORE: Last element was %f\n", vector[NX-1]);
 
 	/* Initialize StarPU with default configuration */
 	starpu_init(NULL);
 
 #ifdef STARPU_USE_OPENCL
 	starpu_opencl_load_opencl_from_file("examples/basic_examples/vector_scal_opencl_kernel.cl",
-					    &opencl_program);
+					    &opencl_program, NULL);
 #endif
 
 	/* Tell StaPU to associate the "vector" vector with the "vector_handle"
@@ -125,6 +127,8 @@ int main(int argc, char **argv)
  	 * monitoring it */
 	starpu_data_unregister(vector_handle);
 
+	starpu_task_destroy(task);
+
 #ifdef STARPU_USE_OPENCL
         starpu_opencl_unload_opencl(&opencl_program);
 #endif
@@ -132,7 +136,8 @@ int main(int argc, char **argv)
 	/* terminate StarPU, no task can be submitted after */
 	starpu_shutdown();
 
-	fprintf(stderr, "AFTER First element is %f\n", vector[0]);
+	FPRINTF(stderr, "AFTER: First element is %f\n", vector[0]);
+	FPRINTF(stderr, "AFTER: Last element is %f\n", vector[NX-1]);
 
 	return 0;
 }

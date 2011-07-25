@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2009, 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -321,7 +321,7 @@ static void solve_system(unsigned size, unsigned subsize, float *result, int *Re
 	/* solve the actual problem LU X = B */
         /* solve LX' = Y with X' = UX */
         /* solve UX = X' */
-	fprintf(stderr, "Solving the problem ...\n");
+	FPRINTF(stderr, "Solving the problem ...\n");
 
 	float *savedB;
 	float *LUB;
@@ -360,10 +360,10 @@ static void solve_system(unsigned size, unsigned subsize, float *result, int *Re
 	
 		/* check if LUB is close to the 0 vector */
 		int maxind = ISAMAX(subsize, LUB, 1);
-		fprintf(stderr, "max error (LUX - B) = %e\n",LUB[maxind - 1]);
+		FPRINTF(stderr, "max error (LUX - B) = %e\n",LUB[maxind - 1]);
 
 		float sum = SASUM(subsize, LUB, 1);
-		fprintf(stderr,"avg. error %e\n", sum/subsize);
+		FPRINTF(stderr,"avg. error %e\n", sum/subsize);
 	
 		free(LUB);
 		free(savedB);
@@ -494,10 +494,10 @@ static unsigned long build_neighbour_vector(unsigned long*neighbours, unsigned n
 				if ((former_theta + dtheta) >= 0 && (former_theta + dtheta) <= (int)ntheta )
 				{
 					/* we got a possible neighbour */
-					unsigned node = 
+					unsigned pnode = 
 						NODE_NUMBER((former_theta + dtheta), (former_thick + dthick));
 
-					neighbours[nneighbours++] = TRANSLATEBACK(node);
+					neighbours[nneighbours++] = TRANSLATEBACK(pnode);
 				}
 			}
 		}
@@ -569,10 +569,10 @@ static void build_sparse_stiffness_matrix_B(point *pmesh, float *B, float *Bform
 
 		for (neighbour = 0; neighbour < nneighbours; neighbour++)
 		{
-			unsigned i = neighbours[neighbour]; 
-			if (i >= newsize)
+			unsigned n = neighbours[neighbour]; 
+			if (n >= newsize)
 			{
-				B[j] -= compute_A_value(TRANSLATE(i), TRANSLATE(j), pmesh)*Bformer[TRANSLATE(i)];
+				B[j] -= compute_A_value(TRANSLATE(n), TRANSLATE(j), pmesh)*Bformer[TRANSLATE(n)];
 			}
 		}
 	}
@@ -729,7 +729,7 @@ int main(int argc, char **argv)
 
 		build_dense_stiffness_matrix_A(pmesh, A, newsize, RefArray, RefArrayBack);
 
-		fprintf(stderr, "Problem size : %dx%d (%dx%d) (%ld MB)\n", newsize, newsize, DIM, DIM, ((unsigned long)newsize*newsize*4UL)/(1024*1024));
+		FPRINTF(stderr, "Problem size : %ux%u (%ux%u) (%lu MB)\n", newsize, newsize, DIM, DIM, ((unsigned long)newsize*newsize*4UL)/(1024*1024));
 
 		STARPU_ASSERT(newsize % nblocks == 0);
 

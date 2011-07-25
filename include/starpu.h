@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2009, 2010  Université de Bordeaux 1
+ * Copyright (C) 2009-2011  Université de Bordeaux 1
  * Copyright (C) 2010  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
@@ -30,6 +30,11 @@ typedef unsigned long long uint64_t;
 #endif
 
 #include <starpu_config.h>
+
+#ifdef STARPU_HAVE_WINDOWS
+#include <windows.h>
+#endif
+
 #include <starpu_util.h>
 #include <starpu_data.h>
 #include <starpu_perfmodel.h>
@@ -67,6 +72,9 @@ struct starpu_conf {
 
 	/* calibrate performance models, if any (-1 for default) */
 	int calibrate;
+
+	/* Create only one combined worker, containing all CPU workers */
+	int single_combined_worker;
 };
 
 /* Initialize a starpu_conf structure with default values. */
@@ -114,6 +122,22 @@ enum starpu_archtype {
  * SPU. The value returned for an invalid identifier is unspecified.  */
 enum starpu_archtype starpu_worker_get_type(int id);
 
+/* Returns the number of workers of the type indicated by the argument. A
+ * positive (or null) value is returned in case of success, -EINVAL indicates
+ * that the type is not valid otherwise. */
+int starpu_worker_get_count_by_type(enum starpu_archtype type);
+
+/* Fill the workerids array with the identifiers of the workers that have the
+ * type indicated in the first argument. The maxsize argument indicates the
+ * size of the workids array. The returned value gives the number of
+ * identifiers that were put in the array. -ERANGE is returned is maxsize is
+ * lower than the number of workers with the appropriate type: in that case,
+ * the array is filled with the maxsize first elements. To avoid such
+ * overflows, the value of maxsize can be chosen by the means of the
+ * starpu_worker_get_count_by_type function, or by passing a value greater or
+ * equal to STARPU_NMAXWORKERS. */
+int starpu_worker_get_ids_by_type(enum starpu_archtype type, int *workerids, int maxsize);
+
 /* StarPU associates a unique human readable string to each processing unit.
  * This function copies at most the "maxlen" first bytes of the unique
  * string associated to a worker identified by its identifier "id" into
@@ -132,4 +156,4 @@ int starpu_worker_get_devid(int id);
 }
 #endif
 
-#endif // __STARPU_H__
+#endif /* __STARPU_H__ */

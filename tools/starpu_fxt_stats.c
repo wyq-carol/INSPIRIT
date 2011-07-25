@@ -14,7 +14,21 @@
  * See the GNU Lesser General Public License in COPYING.LGPL for more details.
  */
 
-#include "fxt_tool.h"
+//#include "fxt_tool.h"
+
+#include <search.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+#include <common/fxt.h>
+#include <common/list.h>
+#include <starpu.h>
+
 
 static fxt_t fut;
 struct fxt_ev_64 ev;
@@ -97,7 +111,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	printf("Start : start time %le end time %le length %le\n", start_time, end_time, end_time - start_time);
+	printf("Start : start time %e end time %e length %e\n", start_time, end_time, end_time - start_time);
 
 	unsigned src, dst;
 	for (src = 0; src < 16; src++)

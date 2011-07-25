@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2009, 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -32,6 +32,7 @@
 #define Nrolls	4
 #define SLEEP 1
 
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
 #define TAG(i, iter)	((starpu_tag_t)  (((uint64_t)((iter)%Nrolls))<<32 | (i)) )
 
 starpu_codelet cl;
@@ -40,7 +41,6 @@ starpu_codelet cl;
 #define Nk	256
 
 static unsigned ni = Ni, nk = Nk;
-static unsigned callback_cnt;
 struct starpu_task **tasks[Nrolls];
 
 static void parse_args(int argc, char **argv)
@@ -69,9 +69,7 @@ static void create_task_grid(unsigned iter)
 {
 	unsigned i;
 
-	fprintf(stderr, "init iter %d ni %d...\n", iter, ni);
-
-	callback_cnt = (ni);
+	FPRINTF(stderr, "init iter %u ni %u...\n", iter, ni);
 
 	for (i = 0; i < ni; i++)
 	{
@@ -97,7 +95,7 @@ static void start_task_grid(unsigned iter)
 {
 	unsigned i;
 
-	//fprintf(stderr, "start grid %d ni %d...\n", iter, ni);
+	/* FPRINTF(stderr, "start grid %d ni %d...\n", iter, ni); */
 
 	for (i = 0; i < ni; i++)
 		starpu_task_submit(tasks[iter][i]);
@@ -105,10 +103,11 @@ static void start_task_grid(unsigned iter)
 
 void cpu_codelet(void *descr[], void *_args __attribute__((unused)))
 {
-	//int i = (uintptr_t) _args;
-	//printf("doing %x\n", i);
-	//usleep(SLEEP);
-	//printf("done %x\n", i);
+/*	int i = (uintptr_t) _args;
+	printf("doing %x\n", i);
+	usleep(SLEEP);
+	printf("done %x\n", i);
+*/
 }
 
 int main(int argc __attribute__((unused)) , char **argv __attribute__((unused)))
@@ -132,7 +131,7 @@ int main(int argc __attribute__((unused)) , char **argv __attribute__((unused)))
 	cl.where = STARPU_CPU|STARPU_CUDA|STARPU_GORDON;
 	cl.nbuffers = 0;
 
-	fprintf(stderr, "ITER : %d\n", nk);
+	FPRINTF(stderr, "ITER : %u\n", nk);
 
 	for (i = 0; i < Nrolls; i++) {
 		tasks[i] = malloc(ni * sizeof(*tasks[i]));
@@ -151,7 +150,7 @@ int main(int argc __attribute__((unused)) , char **argv __attribute__((unused)))
 
 	starpu_shutdown();
 
-	fprintf(stderr, "TEST DONE ...\n");
+	FPRINTF(stderr, "TEST DONE ...\n");
 
 	return 0;
 }
