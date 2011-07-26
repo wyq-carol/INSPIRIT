@@ -50,8 +50,7 @@ const float idle_power_maximum=10000.0;
 
 void param_modified(struct starputop_param_t* d){
 	//just to show parameter modification
-	fprintf(stderr,"%s has been modified : alpha=%f|beta=%f|gamma=%f|idle_power=%f !\n", 
-		d->name, alpha,beta,_gamma,idle_power);
+	fprintf(stderr,"%s has been modified : %f !\n", d->name, d->value);
 }
 static void heft_init_for_workers(unsigned sched_ctx_id, unsigned nnew_workers)
 {

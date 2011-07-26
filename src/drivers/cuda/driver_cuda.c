@@ -169,7 +169,6 @@ static int execute_job_on_cuda(starpu_job_t j, struct starpu_worker_s *args)
 	struct timespec codelet_start, codelet_end;
 
 	unsigned calibrate_model = 0;
-	int workerid = args->workerid;
 
 	STARPU_ASSERT(task);
 	struct starpu_codelet_t *cl = task->cl;
@@ -264,7 +263,7 @@ void *_starpu_cuda_worker(void *arg)
 	int res;
 
 	pthread_cond_t *sched_cond = args->sched_cond;
-    pthread_mutex_t *sched_mutex = args->sched_mutex;
+	pthread_mutex_t *sched_mutex = args->sched_mutex;
 
 	while (_starpu_machine_is_running())
 	{
@@ -311,8 +310,7 @@ void *_starpu_cuda_worker(void *arg)
 
 			cl_func func = cl->cuda_func;
 			STARPU_ASSERT(func);
-			func(task->interface, task->cl_arg);
-
+			func(task->interfaces, task->cl_arg);
 		  }
 		else
 		  {
