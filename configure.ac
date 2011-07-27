@@ -158,6 +158,18 @@ if test x$enable_libnuma = xyes; then
 fi
 
 ###############################################################################
+#									      #
+#				SCED_CTX settings			      #
+#									      #
+###############################################################################
+AC_MSG_CHECKING(maximum number of sched_ctxs)
+AC_ARG_ENABLE(max_sched_ctxs, [AS_HELP_STRING([--enable-max-sched-ctxs=<number>],
+			[maximum number of sched_ctxs])],
+			max_sched_ctxs=$enableval, max_sched_ctxs=10)
+AC_MSG_RESULT($max_sched_ctxs)
+AC_DEFINE_UNQUOTED(STARPU_NMAX_SCHED_CTXS, [$max_sched_ctxs], [Maximum number of sched_ctxs supported])
+
+###############################################################################
 #                                                                             #
 #                                 CPUs settings                               #
 #                                                                             #

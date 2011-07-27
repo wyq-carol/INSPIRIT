@@ -147,7 +147,6 @@ int starpu_push_local_task(int workerid, struct starpu_task *task, int back);
 /* By convention, the default priority level should be 0 so that we can
  * statically allocate tasks with a default priority. */
 #define STARPU_DEFAULT_PRIO	0
-#define STARPU_NMAX_SCHED_CTXS 10
 int starpu_sched_get_min_priority(void);
 int starpu_sched_get_max_priority(void);
 
