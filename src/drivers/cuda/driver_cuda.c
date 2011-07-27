@@ -273,7 +273,7 @@ void *_starpu_cuda_worker(void *arg)
 
 		task = _starpu_pop_task(args);
 
-        if (!task) 
+		if (!task) 
 		{
 			PTHREAD_MUTEX_LOCK(sched_mutex);
 			if (_starpu_worker_can_block(memnode))
@@ -298,8 +298,6 @@ void *_starpu_cuda_worker(void *arg)
 		}
 
 		_starpu_set_current_task(task);
-
-		struct starpu_sched_ctx *local_sched_ctx = _starpu_get_sched_ctx(j->task->sched_ctx);
 
 		if(j && j->model_name && strcmp(j->model_name, "sched_ctx_info") == 0)
 		  {
@@ -332,6 +330,7 @@ void *_starpu_cuda_worker(void *arg)
 			}
 		}
 
+		struct starpu_sched_ctx *local_sched_ctx = _starpu_get_sched_ctx(j->task->sched_ctx);
 		_starpu_handle_job_termination(j, 0);
 		_starpu_decrement_nsubmitted_tasks_of_worker(args->workerid);
 		_starpu_decrement_nsubmitted_tasks_of_sched_ctx(local_sched_ctx);

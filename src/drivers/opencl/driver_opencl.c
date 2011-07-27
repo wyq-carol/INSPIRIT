@@ -417,22 +417,24 @@ void *_starpu_opencl_worker(void *arg)
 	struct starpu_task *task;
 	int res;
 
+	pthread_cond_t *sched_cond = args->sched_cond;
+        pthread_mutex_t *sched_mutex = args->sched_mutex;
+
 	while (_starpu_machine_is_running())
 	{
 		STARPU_TRACE_START_PROGRESS(memnode);
 		_starpu_datawizard_progress(memnode, 1);
 		STARPU_TRACE_END_PROGRESS(memnode);
 
-		PTHREAD_MUTEX_LOCK(args->sched_mutex);
-
 		task = _starpu_pop_task(args);
 		
-        if (task == NULL) 
+		if (task == NULL) 
 		{
+			PTHREAD_MUTEX_LOCK(sched_mutex);
 			if (_starpu_worker_can_block(memnode))
-				_starpu_block_worker(workerid, args->sched_cond, args->sched_mutex);
+				_starpu_block_worker(workerid, sched_cond, sched_mutex);
 
-			PTHREAD_MUTEX_UNLOCK(args->sched_mutex);
+			PTHREAD_MUTEX_UNLOCK(sched_mutex);
 
 			continue;
 		};
@@ -452,7 +454,23 @@ void *_starpu_opencl_worker(void *arg)
 
 		_starpu_set_current_task(j->task);
 
-		res = _starpu_opencl_execute_job(j, args);
+		if(j && j->model_name && strcmp(j->model_name, "sched_ctx_info") == 0)
+		{
+                        struct starpu_task *task = j->task;
+                        STARPU_ASSERT(task);
+                        struct starpu_codelet_t *cl = task->cl;
+                        STARPU_ASSERT(cl);
+
+                        cl_func func = cl->cuda_func;
+			STARPU_ASSERT(func);
+			func(task->interfaces, task->cl_arg);
+		}
+                else
+		{
+			res = _starpu_opencl_execute_job(j, args);
+		}
+
+
 
 		_starpu_set_current_task(NULL);
 
@@ -468,7 +486,11 @@ void *_starpu_opencl_worker(void *arg)
 			}
 		}
 
+		struct starpu_sched_ctx *local_sched_ctx = _starpu_get_sched_ctx(j->task->sched_ctx);
 		_starpu_handle_job_termination(j, 0);
+		_starpu_decrement_nsubmitted_tasks_of_worker(args->workerid);
+                _starpu_decrement_nsubmitted_tasks_of_sched_ctx(local_sched_ctx);
+
 	}
 
 	STARPU_TRACE_WORKER_DEINIT_START
