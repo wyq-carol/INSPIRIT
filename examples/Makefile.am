@@ -13,21 +13,23 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 #
 # See the GNU Lesser General Public License in COPYING.LGPL for more details.
-AUTOMAKE_OPTIONS = subdir-objects
+
 AM_CFLAGS = $(MAGMA_CFLAGS) $(HWLOC_CFLAGS) -Wall $(STARPU_CUDA_CPPFLAGS) $(STARPU_OPENCL_CPPFLAGS)
 LIBS = $(top_builddir)/src/libstarpu.la $(MAGMA_LIBS) $(HWLOC_LIBS) @LIBS@
 AM_CPPFLAGS = -I$(top_srcdir)/include/ -I$(top_srcdir)/examples/ -I$(top_builddir)/include
 AM_LDFLAGS = $(STARPU_CUDA_LDFLAGS) $(STARPU_OPENCL_LDFLAGS)
 
-SUBDIRS = stencil
+#SUBDIRS = stencil
+
+AUTOMAKE_OPTIONS = subdir-objects
 
 if STARPU_USE_SOCL
-SUBDIRS += socl
+SUBDIRS = socl
 endif
 
 if STARPU_HAVE_FFTW
 if STARPU_HAVE_FFTWF
-SUBDIRS += starpufft
+SUBDIRS = starpufft
 endif
 endif
 

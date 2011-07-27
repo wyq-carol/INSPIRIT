@@ -150,17 +150,15 @@ static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks
 	 * one block is now determined by 2 unsigned (i,j) */
 	starpu_matrix_data_register(&dataA, 0, (uintptr_t)matA, ld, size, size, sizeof(float));
 
-	struct starpu_data_filter f;
-		f.filter_func = starpu_vertical_block_filter_func;
-		f.nchildren = nblocks;
-		f.get_nchildren = NULL;
-		f.get_child_ops = NULL;
+	struct starpu_data_filter f = {
+		.filter_func = starpu_vertical_block_filter_func,
+		.nchildren = nblocks
+	};
 
-	struct starpu_data_filter f2;
-		f2.filter_func = starpu_block_filter_func;
-		f2.nchildren = nblocks;
-		f2.get_nchildren = NULL;
-		f2.get_child_ops = NULL;
+	struct starpu_data_filter f2 = {
+		.filter_func = starpu_block_filter_func,
+		.nchildren = nblocks
+	};
 
 	starpu_data_map_filters(dataA, 2, &f, &f2);
 	double gflops = _cholesky(dataA, nblocks, sched_ctx, timing);
@@ -184,7 +182,9 @@ double run_cholesky_implicit(unsigned sched_ctx, int start, int argc, char **arg
 	//	starpu_helper_cublas_init();
 
 	float *mat;
-	starpu_data_malloc_pinned_if_possible((void **)&mat, (size_t)size*size*sizeof(float));
+
+	starpu_malloc((void **)&mat, (size_t)size*size*sizeof(float));
+
 	unsigned i,j;
 	for (i = 0; i < size; i++)
 	{
@@ -285,7 +285,7 @@ double run_cholesky_implicit(unsigned sched_ctx, int start, int argc, char **arg
 			}
 	        }
 	}
-	starpu_data_free_pinned_if_possible((void *)mat);
+	starpu_free((void *)mat);
 	//	starpu_helper_cublas_shutdown();
 	//	starpu_shutdown();
 
