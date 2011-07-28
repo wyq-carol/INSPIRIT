@@ -210,7 +210,7 @@ int _starpu_insert_task_create_and_submit(char *arg_buffer, starpu_codelet *cl, 
 	(*task)->callback_func = starpu_task_insert_callback_wrapper;
 	(*task)->callback_arg = cl_arg_wrapper;
 
-	 int ret = ctx == 0 ? starpu_task_submit(*task) : starpu_task_submit_to_ctx(*task, ctx);
+	 int ret = starpu_task_submit_to_ctx(*task, ctx);
 
 	if (STARPU_UNLIKELY(ret == -ENODEV))
           fprintf(stderr, "submission of task %p wih codelet %p failed (symbol `%s')\n", *task, (*task)->cl, ((*task)->cl->model && (*task)->cl->model->symbol)?(*task)->cl->model->symbol:"none");
