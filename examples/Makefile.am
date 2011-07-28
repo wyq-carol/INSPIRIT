@@ -52,7 +52,7 @@ EXTRA_DIST = 					\
 	lu/xlu_implicit_pivot.c			\
 	lu/xlu_kernels.c			\
 	lu/lu_example.c				\
-	cholesky_and_lu/cholesky_and_lu.c			\
+	cholesky_2ctxs/cholesky_2ctxs.c			\
 	incrementer/incrementer_kernels_opencl_kernel.cl 	\
 	basic_examples/variable_kernels_opencl_kernel.cl	\
 	matvecmult/matvecmult_kernel.cl				\
@@ -471,13 +471,13 @@ endif
 if !NO_BLAS_LIB
 
 examplebin_PROGRAMS += 				\
-	cholesky_and_lu/cholesky_and_lu
+	cholesky_2ctxs/cholesky_2ctxs
 
-cholesky_and_lu_cholesky_and_lu_SOURCES =			\
-	cholesky_and_lu/cholesky_and_lu.c			\
-	cholesky_and_lu/cholesky/cholesky_implicit.c		\
-	cholesky_and_lu/cholesky/cholesky_models.c		\
-	cholesky_and_lu/cholesky/cholesky_kernels.c		\
+cholesky_2ctxs_cholesky_2ctxs_SOURCES =			\
+	cholesky_2ctxs/cholesky_2ctxs.c			\
+	cholesky_2ctxs/cholesky/cholesky_implicit.c		\
+	cholesky_2ctxs/cholesky/cholesky_models.c		\
+	cholesky_2ctxs/cholesky/cholesky_kernels.c		\
 	common/blas.c
 endif
 
