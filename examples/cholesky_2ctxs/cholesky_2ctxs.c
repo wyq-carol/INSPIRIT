@@ -59,6 +59,7 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
 
   int ncpus1 = cpu1 + gpu + gpu1;
   int ncpus2 = cpu2 + gpu + gpu2;
+  unsigned n_all_gpus = gpu + gpu1 + gpu2;
 
   /* 2 cholesky in different ctxs */
   starpu_init(NULL);
@@ -80,7 +81,7 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
       //printf("%d ", i);
     }
 
-  for(i = 3; i < 3 + cpu1; i++)
+  for(i = n_all_gpus; i < n_all_gpus + cpu1; i++)
     {
       procs[k++] = i;
       //printf("%d ", i);
@@ -106,7 +107,7 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
     //    printf("%d ", i);
   }
 
-  for(i = 3  + cpu1; i < 3 + cpu1 + cpu2; i++){
+  for(i = n_all_gpus  + cpu1; i < n_all_gpus + cpu1 + cpu2; i++){
     procs2[k++] = i;
     //    printf("%d ", i);
   }
