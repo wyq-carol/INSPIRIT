@@ -1,0 +1,92 @@
+#!/bin/bash
+
+infilename=$1
+outfilename=$2
+withctx=$3
+compute_effic=$4
+ninstr=$5
+best_gflops_withoutctxs=$6
+
+rm -rf $outfilename
+
+while read line
+do 
+    results=($line)
+
+    gflops1=0
+    gflops2=0
+
+    t1=0
+    t2=0
+
+    if [ $withctx -eq 1 ]
+    then
+	gpu=${results[0]}
+	gpu1=${results[1]}
+	gpu2=${results[2]}
+	ncpus1=${results[3]}
+	ncpus2=${results[4]}
+	gflops1=${results[5]}
+	gflops2=${results[6]}
+	t1=${results[7]}
+	t2=${results[8]}
+
+	maxtime=$(echo "$t1/$t2"|bc -l)
+	maxtime=${maxtime/.*}
+
+ 	if [ "$maxtime" == "" ]
+	then
+	    maxtime=$t2
+	else
+	    maxtime=$t1
+	fi
+
+	gflops=$(echo "$ninstr/$maxtime"|bc -l)
+	if [ $compute_effic -eq 1 ]
+	then
+	    gflops_norm=$(echo "$gflops/$best_gflops_withoutctxs"|bc -l)
+	    
+	    echo "$gpu $gpu1 $gpu2 $ncpus1 $ncpus2 `printf '%2.2f %2.2f' $gflops $gflops_norm`" >> $outfilename$gpu1$gpu2
+	else
+	    nres=$(echo "$gpu+$gpu1+$gpu2+$ncpus1+$ncpus2"|bc -l)
+	    best_gflops_rate=$(echo "$best_gflops_withoutctxs/$nres"|bc -l)
+
+	    gflop_rate=$(echo "$gflops/$nres"|bc -l)
+	    gflop_norm_rate=$(echo "$gflop_rate/$best_gflops_rate"|bc -l)
+	    
+	    echo "$ncpus1 $ncpus2 `printf '%2.2f %2.2f %2.2f' $gflops $gflop_rate $gflop_norm_rate`" >> $outfilename  
+	fi
+    else
+
+	nres=${results[0]}
+	gflops1=${results[1]}
+	gflops2=${results[2]}
+	t1=${results[3]}
+	t2=${results[4]}
+
+
+	maxtime=$(echo "$t1/$t2"|bc -l)
+	maxtime=${maxtime/.*}
+
+ 	if [ "$maxtime" == "" ]
+	then
+	    maxtime=$t2
+	else
+	    maxtime=$t1
+	fi
+
+	gflops=$(echo "$ninstr/$maxtime"|bc -l)
+
+	if [ $compute_effic -eq 1 ]
+	then
+	    echo "$nres `printf '%2.2f' $gflops`" >> $outfilename
+	else
+	    gflop_rate=$(echo "$gflops/$nres"|bc -l)
+	    echo "$nres `printf '%2.2f %2.2f' $gflops $gflop_rate`" >> $outfilename
+	fi
+	
+    fi
+
+
+done < $infilename
+
