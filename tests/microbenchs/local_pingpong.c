@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 	starpu_init(NULL);
 
 	/* Create a piece of data */
-	starpu_data_malloc_pinned_if_possible((void **)&v, vector_size);
+	starpu_malloc((void **)&v, vector_size);
 	starpu_vector_data_register(&v_handle, 0, (uintptr_t)v, vector_size, 1);
 
 	/* Find a pair of memory nodes */
@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 			}
 		}
 
-		fprintf(stderr, "Ping-pong will be done between %s (node %d) and %s (node %d)\n",
+		fprintf(stderr, "Ping-pong will be done between %s (node %u) and %s (node %u)\n",
 					worker_0_name, memory_node_0, worker_1_name, memory_node_1);
 	}
 
@@ -98,6 +98,7 @@ int main(int argc, char **argv)
 	fprintf(stderr, "Took %f ms\n", timing/1000);
 	fprintf(stderr, "Avg. transfer time : %f us\n", timing/(2*niter));
 
+	starpu_free(v);
 	starpu_shutdown();
 
 	return 0;

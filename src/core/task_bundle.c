@@ -1,6 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2011  Université de Bordeaux 1
+ * Copyright (C) 2011  Télécom-SudParis
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -78,7 +79,7 @@ int starpu_task_bundle_insert(struct starpu_task_bundle *bundle, struct starpu_t
 
 	/* Insert a task at the end of the bundle */
 	struct starpu_task_bundle_entry *entry;
-	entry = malloc(sizeof(struct starpu_task_bundle_entry));
+	entry = (struct starpu_task_bundle_entry *) malloc(sizeof(struct starpu_task_bundle_entry));
 	STARPU_ASSERT(entry);
 	entry->task = task;
 	entry->next = NULL;
@@ -177,7 +178,7 @@ void starpu_task_bundle_close(struct starpu_task_bundle *bundle)
 }
 
 /* Return the expected duration of the entire task bundle in µs */
-double starpu_task_bundle_expected_length(struct starpu_task_bundle *bundle,  enum starpu_perf_archtype arch)
+double starpu_task_bundle_expected_length(struct starpu_task_bundle *bundle,  enum starpu_perf_archtype arch, unsigned nimpl)
 {
 	double expected_length = 0.0;
 
@@ -188,7 +189,7 @@ double starpu_task_bundle_expected_length(struct starpu_task_bundle *bundle,  en
 	entry = bundle->list;
 
 	while (entry) {
-		double task_length = starpu_task_expected_length(entry->task, arch);
+		double task_length = starpu_task_expected_length(entry->task, arch, nimpl);
 
 		/* In case the task is not calibrated, we consider the task
 		 * ends immediately. */
@@ -204,7 +205,7 @@ double starpu_task_bundle_expected_length(struct starpu_task_bundle *bundle,  en
 }
 
 /* Return the expected power consumption of the entire task bundle in J */
-double starpu_task_bundle_expected_power(struct starpu_task_bundle *bundle,  enum starpu_perf_archtype arch)
+double starpu_task_bundle_expected_power(struct starpu_task_bundle *bundle,  enum starpu_perf_archtype arch, unsigned nimpl)
 {
 	double expected_power = 0.0;
 
@@ -215,7 +216,7 @@ double starpu_task_bundle_expected_power(struct starpu_task_bundle *bundle,  enu
 	entry = bundle->list;
 
 	while (entry) {
-		double task_power = starpu_task_expected_power(entry->task, arch);
+		double task_power = starpu_task_expected_power(entry->task, arch, nimpl);
 
 		/* In case the task is not calibrated, we consider the task
 		 * ends immediately. */
@@ -245,7 +246,7 @@ static void insertion_handle_sorted(struct handle_list **listp, starpu_data_hand
 	if (!list || list->handle > handle)
 	{
 		/* We insert the first element of the list */
-		struct handle_list *link = malloc(sizeof(struct handle_list));
+		struct handle_list *link = (struct handle_list *) malloc(sizeof(struct handle_list));
 		STARPU_ASSERT(link);
 		link->handle = handle;
 		link->mode = mode;
@@ -272,7 +273,7 @@ static void insertion_handle_sorted(struct handle_list **listp, starpu_data_hand
 	}
 	else {
 		/* The handle was not in the list, we insert it after prev */
-		struct handle_list *link = malloc(sizeof(struct handle_list));
+		struct handle_list *link = (struct handle_list *) malloc(sizeof(struct handle_list));
 		STARPU_ASSERT(link);
 		link->handle = handle;
 		link->mode = mode;

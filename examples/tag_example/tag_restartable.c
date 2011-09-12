@@ -35,7 +35,7 @@
 #define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
 #define TAG(i, iter)	((starpu_tag_t)  (((uint64_t)((iter)%Nrolls))<<32 | (i)) )
 
-starpu_codelet cl;
+starpu_codelet cl = {};
 
 #define Ni	64
 #define Nk	256
@@ -134,7 +134,7 @@ int main(int argc __attribute__((unused)) , char **argv __attribute__((unused)))
 	FPRINTF(stderr, "ITER : %u\n", nk);
 
 	for (i = 0; i < Nrolls; i++) {
-		tasks[i] = malloc(ni * sizeof(*tasks[i]));
+		tasks[i] = (struct starpu_task **) malloc(ni * sizeof(*tasks[i]));
 
 		create_task_grid(i);
 	}

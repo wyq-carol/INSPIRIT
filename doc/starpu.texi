@@ -49,8 +49,9 @@ was last updated on @value{UPDATED}.
 * Configuring StarPU::          How to configure StarPU
 * StarPU API::                  The API to use StarPU
 * Advanced Topics::             Advanced use of StarPU
-* Full source code for the 'Scaling a Vector' example::  
+* C Extensions::                Easier StarPU programming with GCC
 
+* Full source code for the 'Scaling a Vector' example::
 * Function Index::              Index of C functions.
 @end menu
 
@@ -1227,16 +1228,16 @@ Partitioning can be applied several times, see
 @section Performance model example
 
 To achieve good scheduling, StarPU scheduling policies need to be able to
-estimate in advance the duration of a task. This is done by giving to codelets a
-performance model. There are several kinds of performance models.
+estimate in advance the duration of a task. This is done by giving to codelets
+a performance model, by defining a @code{starpu_perfmodel_t} structure and
+providing its address in the @code{model} field of the @code{starpu_codelet}
+structure. The @code{symbol} and @code{type} fields of @code{starpu_perfmodel_t}
+are mandatory, to give a name to the model, and the type of the model, since
+there are several kinds of performance models.
 
 @itemize
 @item
-Providing an estimation from the application itself (@code{STARPU_COMMON} model type and @code{cost_model} field),
-see for instance
-@code{examples/common/blas_model.h} and @code{examples/common/blas_model.c}. It can also be provided for each architecture (@code{STARPU_PER_ARCH} model type and @code{per_arch} field)
-@item
-Measured at runtime (STARPU_HISTORY_BASED model type). This assumes that for a
+Measured at runtime (@code{STARPU_HISTORY_BASED} model type). This assumes that for a
 given set of data input/output sizes, the performance will always be about the
 same. This is very true for regular kernels on GPUs for instance (<0.1% error),
 and just a bit less true on CPUs (~=1% error). This also assumes that there are
@@ -1276,7 +1277,7 @@ starpu_codelet cl = @{
 @end cartouche
 
 @item
-Measured at runtime and refined by regression (STARPU_REGRESSION_*_BASED
+Measured at runtime and refined by regression (@code{STARPU_REGRESSION_*_BASED}
 model type). This still assumes performance regularity, but can work
 with various data input sizes, by applying regression over observed
 execution times. STARPU_REGRESSION_BASED uses an a*n^b regression
@@ -1286,7 +1287,12 @@ STARPU_REGRESSION_BASED, but costs a lot more to compute). For instance,
 model for the @code{memset} operation.
 
 @item
-Provided explicitly by the application (STARPU_PER_ARCH model type): the
+Provided as an estimation from the application itself (@code{STARPU_COMMON} model type and @code{cost_model} field),
+see for instance
+@code{examples/common/blas_model.h} and @code{examples/common/blas_model.c}.
+
+@item
+Provided explicitly by the application (@code{STARPU_PER_ARCH} model type): the
 @code{.per_arch[i].cost_model} fields have to be filled with pointers to
 functions which return the expected duration of the task in micro-seconds, one
 per architecture.
@@ -1877,6 +1883,22 @@ TODO
 
 @c what kind of information do we get ?
 
+The bus speed measured by StarPU can be displayed by using the
+@code{starpu_machine_display} tool, for instance:
+
+@example
+StarPU has found :
+        3 CUDA devices
+                CUDA 0 (Tesla C2050 02:00.0)
+                CUDA 1 (Tesla C2050 03:00.0)
+                CUDA 2 (Tesla C2050 84:00.0)
+from    to RAM          to CUDA 0       to CUDA 1       to CUDA 2
+RAM     0.000000        5176.530428     5176.492994     5191.710722
+CUDA 0  4523.732446     0.000000        2414.074751     2417.379201
+CUDA 1  4523.718152     2414.078822     0.000000        2417.375119
+CUDA 2  4534.229519     2417.069025     2417.060863     0.000000
+@end example
+
 @node StarPU-Top
 @subsection StarPU-Top interface
 
@@ -2057,7 +2079,7 @@ This will create an @code{activity.data} file in the current
 directory. A profile of the application showing the activity of StarPU
 during the execution of the program can be generated:
 @example
-$ starpu_top.sh activity.data
+$ starpu_top activity.data
 @end example
 
 This will create a file named @code{activity.eps} in the current directory.
@@ -2558,6 +2580,7 @@ Enable flags for the @code{gcov} coverage tool.
 * --with-cuda-dir::             
 * --with-cuda-include-dir::             
 * --with-cuda-lib-dir::             
+* --disable-cuda-memcpy-peer::
 * --enable-maxopencldev::       
 * --disable-opencl::            
 * --with-opencl-dir::           
@@ -2622,6 +2645,13 @@ Specify the directory where the CUDA library is installed. This directory should
 notably contain the CUDA shared libraries (e.g. libcuda.so). This defaults to
 @code{/lib} appended to the value given to @code{--with-cuda-dir}.
 
+@end table
+
+@node --disable-cuda-memcpy-peer
+@subsubsection @code{--disable-cuda-memcpy-peer}
+@table @asis
+@item @emph{Description}
+Explicitely disables peer transfers when using CUDA 4.0
 @end table
 
 @node --enable-maxopencldev
@@ -4890,6 +4920,13 @@ static struct starpu_sched_policy_s dummy_sched_policy = @{
 @};
 @end smallexample
 @end cartouche
+
+
+@c ---------------------------------------------------------------------
+@c C Extensions
+@c ---------------------------------------------------------------------
+
+@include c-extensions.texi
 
 
 @c ---------------------------------------------------------------------

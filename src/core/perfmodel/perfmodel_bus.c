@@ -431,10 +431,13 @@ static void benchmark_all_gpu_devices(void)
 	struct starpu_machine_config_s *config = _starpu_get_machine_config();
 	ncpus = _starpu_topology_get_nhwcpu(config);
 
+	/* TODO: measure bandwidth between GPU-GPU */
+
 #ifdef STARPU_USE_CUDA
         cudaGetDeviceCount(&ncuda);
 	for (i = 0; i < ncuda; i++)
 	{
+		fprintf(stderr," CUDA %d...", i);
 		/* measure bandwidth between Host and Device i */
 		measure_bandwidth_between_host_and_dev(i, cudadev_timing_htod, cudadev_timing_dtoh, cudadev_timing_per_cpu, 'C');
 	}
@@ -443,6 +446,7 @@ static void benchmark_all_gpu_devices(void)
         nopencl = _starpu_opencl_get_device_count();
 	for (i = 0; i < nopencl; i++)
 	{
+		fprintf(stderr," OpenCL %d...", i);
 		/* measure bandwith between Host and Device i */
 		measure_bandwidth_between_host_and_dev(i, opencldev_timing_htod, opencldev_timing_dtoh, opencldev_timing_per_cpu, 'O');
 	}
@@ -888,23 +892,21 @@ static void write_bus_bandwidth_file_content(void)
 #if defined(STARPU_USE_CUDA) || defined(STARPU_USE_OPENCL)
 			else if (src != dst)
 			{
-                                double time_src_to_ram=0.0, time_ram_to_dst=0.0;
-                                double timing;
-                                /* Bandwidth = (SIZE)/(time i -> ram + time ram -> j)*/
+				double slowness_src_to_ram=0.0, slowness_ram_to_dst=0.0;
+				/* Total bandwidth is the harmonic mean of bandwidths */
 #ifdef STARPU_USE_CUDA
-				time_src_to_ram = (src==0)?0.0:cudadev_timing_dtoh[src];
-                                time_ram_to_dst = (dst==0)?0.0:cudadev_timing_htod[dst];
-				timing =time_src_to_ram + time_ram_to_dst;
-				bandwidth = 1.0*cuda_size/timing;
+				if (src && src <= ncuda)
+					slowness_src_to_ram = cudadev_timing_dtoh[src]/cuda_size;
+				if (dst && dst <= ncuda)
+					slowness_ram_to_dst = cudadev_timing_htod[dst]/cuda_size;
 #endif
 #ifdef STARPU_USE_OPENCL
-                                if (src > ncuda)
-                                        time_src_to_ram = (src==0)?0.0:opencldev_timing_dtoh[src-ncuda];
-                                if (dst > ncuda)
-                                        time_ram_to_dst = (dst==0)?0.0:opencldev_timing_htod[dst-ncuda];
-				timing =time_src_to_ram + time_ram_to_dst;
-				bandwidth = 1.0*opencl_size/timing;
+				if (src > ncuda)
+					slowness_src_to_ram = opencldev_timing_dtoh[src-ncuda]/opencl_size;
+				if (dst > ncuda)
+					slowness_ram_to_dst = opencldev_timing_htod[dst-ncuda]/opencl_size;
 #endif
+				bandwidth = 1.0/(slowness_src_to_ram + slowness_ram_to_dst);
 			}
 #endif
 			else {
@@ -919,6 +921,38 @@ static void write_bus_bandwidth_file_content(void)
 	}
 
 	fclose(f);
+}
+
+void starpu_print_bus_bandwidth(FILE *f)
+{
+	int src, dst, maxnode;
+
+        maxnode = ncuda;
+#ifdef STARPU_USE_OPENCL
+        maxnode += nopencl;
+#endif
+
+	fprintf(f, "from\t");
+	fprintf(f, "to RAM\t\t");
+	for (dst = 0; dst < ncuda; dst++)
+		fprintf(f, "to CUDA %d\t", dst);
+	for (dst = 0; dst < nopencl; dst++)
+		fprintf(f, "to OpenCL %d\t", dst);
+	fprintf(f, "\n");
+
+	for (src = 0; src <= maxnode; src++)
+	{
+		if (!src)
+			fprintf(f, "RAM\t");
+		else if (src <= ncuda)
+			fprintf(f, "CUDA %d\t", src-1);
+		else
+			fprintf(f, "OpenCL%d\t", src-ncuda-1);
+		for (dst = 0; dst <= maxnode; dst++)
+			fprintf(f, "%f\t", bandwidth_matrix[src][dst]);
+
+		fprintf(f, "\n");
+	}
 }
 
 static void generate_bus_bandwidth_file(void)

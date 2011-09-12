@@ -44,6 +44,10 @@ int main(int argc, char **argv)
 	int ntasks = 1000;
 	int ret;
 
+#ifdef STARPU_SLOW_MACHINE
+	ntasks /= 10;
+#endif
+
 	starpu_init(NULL);
 
 	critical_var = 0;
@@ -76,5 +80,5 @@ enodev:
 	fprintf(stderr, "WARNING: No one can execute this task\n");
 	/* yes, we do not perform the computation but we did detect that no one
  	 * could perform the kernel, so this is not an error from StarPU */
-	return 0;
+	return 77;
 }

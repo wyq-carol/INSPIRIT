@@ -20,19 +20,21 @@
 #include <unistd.h>
 #include <starpu.h>
 
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
+
 static unsigned ntasks = 65536;
 
 static void check_task_func(void *descr[], void *arg)
 {
 	/* We check that the returned task is valid from the codelet */
-	struct starpu_task *task = arg;
+	struct starpu_task *task = (struct starpu_task *) arg;
 	STARPU_ASSERT(task == starpu_get_current_task());
 }
 
 static void check_task_callback(void *arg)
 {
 	/* We check that the returned task is valid from the callback */
-	struct starpu_task *task = arg;
+	struct starpu_task *task = (struct starpu_task *) arg;
 	STARPU_ASSERT(task == starpu_get_current_task());
 }
 
@@ -52,7 +54,11 @@ int main(int argc, char **argv)
 
 	starpu_init(NULL);
 
-	fprintf(stderr, "#tasks : %d\n", ntasks);
+#ifdef STARPU_SLOW_MACHINE
+	ntasks /= 10;
+#endif
+
+	FPRINTF(stderr, "#tasks : %u\n", ntasks);
 
 	int i;
 	for (i = 0; i < ntasks; i++)
@@ -73,7 +79,7 @@ int main(int argc, char **argv)
 
 	starpu_task_wait_for_all();
 	
-	fprintf(stderr, "#empty tasks : %d\n", ntasks);
+	FPRINTF(stderr, "#empty tasks : %u\n", ntasks);
 
 	/* We repeat the same experiment with null codelets */
 

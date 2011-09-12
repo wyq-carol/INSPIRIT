@@ -1,6 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2010, 2011  Université de Bordeaux 1
+ * Copyright (C) 2011  Télécom-SudParis
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -127,7 +128,7 @@ void starpu_worker_set_sched_condition(int workerid, pthread_cond_t *sched_cond,
 #endif
 
 /* Check if the worker specified by workerid can execute the codelet. */
-int starpu_worker_may_execute_task(unsigned workerid, struct starpu_task *task);
+int starpu_worker_may_execute_task(unsigned workerid, struct starpu_task *task, unsigned nimpl);
 
 /* The scheduling policy may put tasks directly into a worker's local queue so
  * that it is not always necessary to create its own queue when the local queue
@@ -147,6 +148,7 @@ int starpu_push_local_task(int workerid, struct starpu_task *task, int back);
 /* By convention, the default priority level should be 0 so that we can
  * statically allocate tasks with a default priority. */
 #define STARPU_DEFAULT_PRIO	0
+
 int starpu_sched_get_min_priority(void);
 int starpu_sched_get_max_priority(void);
 
@@ -164,7 +166,7 @@ void _starpu_sched_find_worker_combinations(struct starpu_machine_topology_s *to
 /* Get the description of a combined worker */
 int starpu_combined_worker_get_description(int workerid, int *worker_size, int **combined_workerid);
 /* Variant of starpu_worker_may_execute_task compatible with combined workers */
-int starpu_combined_worker_may_execute_task(unsigned workerid, struct starpu_task *task);
+int starpu_combined_worker_may_execute_task(unsigned workerid, struct starpu_task *task, unsigned nimpl);
 
 /*
  *	Data prefetching
@@ -182,7 +184,7 @@ int starpu_prefetch_task_input_on_node(struct starpu_task *task, uint32_t node);
 /* Return the current date */
 double starpu_timing_now(void);
 /* Returns expected task duration in µs */
-double starpu_task_expected_length(struct starpu_task *task, enum starpu_perf_archtype arch);
+double starpu_task_expected_length(struct starpu_task *task, enum starpu_perf_archtype arch, unsigned nimpl);
 /* Returns an estimated speedup factor relative to CPU speed */
 double starpu_worker_get_relative_speedup(enum starpu_perf_archtype perf_archtype);
 /* Returns expected data transfer time in µs */
@@ -190,7 +192,7 @@ double starpu_task_expected_data_transfer_time(uint32_t memory_node, struct star
 /* Predict the transfer time (in µs) to move a handle to a memory node */
 double starpu_data_expected_transfer_time(starpu_data_handle handle, unsigned memory_node, starpu_access_mode mode);
 /* Returns expected power consumption in J */
-double starpu_task_expected_power(struct starpu_task *task, enum starpu_perf_archtype arch);
+double starpu_task_expected_power(struct starpu_task *task, enum starpu_perf_archtype arch, unsigned nimpl);
 
 /* Waits until all the tasks of a worker, already submitted, have been executed */
 int starpu_wait_for_all_tasks_of_worker(int workerid);

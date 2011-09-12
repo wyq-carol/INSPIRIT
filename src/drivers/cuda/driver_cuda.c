@@ -3,6 +3,7 @@
  * Copyright (C) 2009, 2010, 2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
  * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
+ * Copyright (C) 2011  Télécom-SudParis
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -199,9 +200,19 @@ static int execute_job_on_cuda(starpu_job_t j, struct starpu_worker_s *args)
 	cures = cudaSetDevice(args->devid);
 #endif
 
-	cl_func func = cl->cuda_func;
-	STARPU_ASSERT(func);
-	func(task->interfaces, task->cl_arg);
+	if (cl->cuda_func != STARPU_MULTIPLE_CUDA_IMPLEMENTATIONS) {
+		cl_func func = cl->cuda_func;
+		STARPU_ASSERT(func);
+		func(task->interfaces, task->cl_arg);
+	}
+	else {
+		if (cl->cuda_funcs[j->nimpl] != NULL) {
+			/* _STARPU_DEBUG("Cuda driver : running kernel * (%d)\n", j->nimpl); */
+			cl_func func = cl->cuda_funcs[j->nimpl];
+			STARPU_ASSERT(func);
+			func(task->interfaces, task->cl_arg);
+		}
+	}
 
 	_starpu_driver_end_job(args, j, &codelet_end, 0);
 
@@ -244,10 +255,11 @@ void *_starpu_cuda_worker(void *arg)
 	cudaGetDeviceProperties(&prop, devid);
 	strncpy(devname, prop.name, 128);
 #if CUDA_VERSION >= 3020
-	snprintf(args->name, 48, "CUDA %d (%s %02x:%02x.0)", args->devid, devname, prop.pciBusID, prop.pciDeviceID);
+	snprintf(args->name, sizeof(args->name), "CUDA %d (%s %02x:%02x.0)", args->devid, devname, prop.pciBusID, prop.pciDeviceID);
 #else
-	snprintf(args->name, 48, "CUDA %d (%s)", args->devid, devname);
+	snprintf(args->name, sizeof(args->name), "CUDA %d (%s)", args->devid, devname);
 #endif
+	snprintf(args->short_name, sizeof(args->short_name), "CUDA %d", args->devid);
 	_STARPU_DEBUG("cuda (%s) dev id %d thread is ready to run on CPU %d !\n", devname, devid, args->bindid);
 
 	STARPU_TRACE_WORKER_INIT_END

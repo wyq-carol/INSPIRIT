@@ -17,6 +17,7 @@
 
 #include <starpu.h>
 #include <limits.h>
+#include <unistd.h>
 
 #define N	1000
 #define VECTORSIZE	1024
@@ -24,8 +25,6 @@
 //static pthread_mutex_t mutex;
 //static pthread_cond_t cond;
 //static unsigned finished = 0;
-
-static unsigned cnt;
 
 starpu_data_handle v_handle;
 static unsigned *v;
@@ -77,12 +76,10 @@ int main(int argc, char **argv)
 
 	starpu_init(&conf);
 
-	starpu_data_malloc_pinned_if_possible((void **)&v, VECTORSIZE*sizeof(unsigned));
+	starpu_malloc((void **)&v, VECTORSIZE*sizeof(unsigned));
 	starpu_vector_data_register(&v_handle, 0, (uintptr_t)v, VECTORSIZE, sizeof(unsigned));
 
 	unsigned nworker = starpu_worker_get_count() + starpu_combined_worker_get_count();
-
-	cnt = nworker*N;
 
 	unsigned iter, worker;
 	for (iter = 0; iter < N; iter++)
@@ -104,13 +101,15 @@ int main(int argc, char **argv)
 
 	starpu_task_wait_for_all();
 
+	starpu_free(v);
 	starpu_shutdown();
 
 	return 0;
 
 enodev:
+	starpu_free(v);
 	fprintf(stderr, "WARNING: No one can execute this task\n");
 	/* yes, we do not perform the computation but we did detect that no one
  	 * could perform the kernel, so this is not an error from StarPU */
-	return 0;
+	return 77;
 }

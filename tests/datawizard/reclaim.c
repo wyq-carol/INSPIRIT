@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,11 +21,17 @@
 
 #include <assert.h>
 #include <starpu.h>
+#include <common/config.h>
 #ifdef STARPU_HAVE_HWLOC
 #include <hwloc.h>
 #endif
 
-#define BLOCK_SIZE	(64*1024*1024)
+#ifdef STARPU_SLOW_MACHINE
+#  define BLOCK_SIZE (64*1024)
+#else
+#  define BLOCK_SIZE (64*1024*1024)
+#endif
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
 
 static unsigned ntasks = 1000;
 
@@ -58,7 +64,7 @@ static int mb = 256;
 int main(int argc, char **argv)
 {
 	int i;
-	int task;
+	int taskid;
 
 #ifdef STARPU_HAVE_HWLOC
 	/* We allocate 50% of the memory */
@@ -74,27 +80,27 @@ int main(int argc, char **argv)
 	if (2*mb > ntasks)
 		ntasks = 2*mb;
 
-	fprintf(stderr, "Allocate %d buffers and create %d tasks\n", mb, ntasks);
+	FPRINTF(stderr, "Allocate %d buffers and create %u tasks\n", mb, ntasks);
 
         starpu_init(NULL);
 
 	float **host_ptr_array;
 	starpu_data_handle *handle_array;
 
-	host_ptr_array = calloc(mb, sizeof(float *));
-	handle_array = calloc(mb, sizeof(starpu_data_handle));
+	host_ptr_array = (float **) calloc(mb, sizeof(float *));
+	handle_array = (starpu_data_handle *) calloc(mb, sizeof(starpu_data_handle));
 
 	/* Register mb buffers of 1MB */
 	for (i = 0; i < mb; i++)
 	{
-		host_ptr_array[i] = malloc(BLOCK_SIZE);
+		host_ptr_array[i] = (float *) malloc(BLOCK_SIZE);
 		assert(host_ptr_array[i]);
 		starpu_variable_data_register(&handle_array[i], 0,
 			(uintptr_t)host_ptr_array[i], BLOCK_SIZE);
 		assert(handle_array[i]);
 	}
 
-	for (task = 0; task < ntasks; task++)
+	for (taskid = 0; taskid < ntasks; taskid++)
 	{
 		struct starpu_task *task = starpu_task_create();
 		task->cl = &dummy_cl;

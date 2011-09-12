@@ -24,6 +24,7 @@
 
 #define INIT_VALUE	42
 #define NTASKS		10000
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
 
 static unsigned variable;
 static starpu_data_handle variable_handle;
@@ -81,7 +82,7 @@ static void cpu_redux_func(void *descr[], void *cl_arg __attribute__((unused)))
 	unsigned *a = (unsigned *)STARPU_VARIABLE_GET_PTR(descr[0]);
 	unsigned *b = (unsigned *)STARPU_VARIABLE_GET_PTR(descr[1]);
 
-	fprintf(stderr, "%d = %d + %d\n", *a + *b, *a, *b);
+	FPRINTF(stderr, "%u = %u + %u\n", *a + *b, *a, *b);
 
 	*a = *a + *b;
 }
@@ -186,8 +187,10 @@ int main(int argc, char **argv)
 		task->workerid = (unsigned)workerid;
 
 		int ret = starpu_task_submit(task);
+		if (ret == -ENODEV) goto enodev;
 		STARPU_ASSERT(!ret);
 	}
+
 
 	/* Perform the reduction of all per-worker handles into the variable_handle */
 	for (worker = 0; worker < nworkers; worker++)
@@ -202,6 +205,7 @@ int main(int argc, char **argv)
 		task->buffers[1].mode = STARPU_R;
 
 		int ret = starpu_task_submit(task);
+		if (ret == -ENODEV) goto enodev;
 		STARPU_ASSERT(!ret);
 	}
 
@@ -216,4 +220,10 @@ int main(int argc, char **argv)
 	starpu_shutdown();
 
 	return 0;
+
+enodev:
+	fprintf(stderr, "WARNING: No one can execute this task\n");
+	/* yes, we do not perform the computation but we did detect that no one
+ 	 * could perform the kernel, so this is not an error from StarPU */
+	return 77;
 }

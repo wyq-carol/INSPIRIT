@@ -1,8 +1,8 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 
 	starpu_init(NULL);
 
-	starpu_data_malloc_pinned_if_possible((void **)&buffer, VECTORSIZE);
+	starpu_malloc((void **)&buffer, VECTORSIZE);
 
 	starpu_vector_data_register(&v_handle, 0, (uintptr_t)buffer, VECTORSIZE, sizeof(char));
 
@@ -76,9 +76,7 @@ int main(int argc, char **argv)
 		/* there are only 2 children */
 		.nchildren = 2,
 		/* the length of the first part */
-		.filter_arg = VECTORSIZE/2,
-		.get_nchildren = NULL,
-		.get_child_ops = NULL
+		.filter_arg = VECTORSIZE/2
 	};
 
 	unsigned iter;
@@ -106,6 +104,7 @@ int main(int argc, char **argv)
 	}
 
 	starpu_data_unregister(v_handle);
+	starpu_free(buffer);
 
 	starpu_shutdown();
 
@@ -115,5 +114,5 @@ enodev:
 	fprintf(stderr, "WARNING: No one can execute this task\n");
 	/* yes, we do not perform the computation but we did detect that no one
  	 * could perform the kernel, so this is not an error from StarPU */
-	return 0;
+	return 77;
 }

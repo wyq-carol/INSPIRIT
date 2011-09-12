@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2010  Institut National de Recherche en Informatique et Automatique
- * Copyright (C) 2010  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -20,6 +20,7 @@
 #include <starpu.h>
 
 #define NUM_THREADS 5
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
 
 void *launch_starpu(void *id)
 { 
@@ -54,9 +55,9 @@ int main(int argc, char **argv)
 
   timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
 
-  fprintf(stderr, "Success : %d threads launching simultaneously starpu_init\n", NUM_THREADS);
-  fprintf(stderr, "Total: %lf secs\n", timing/1000000);
-  fprintf(stderr, "Per task: %lf usecs\n", timing/NUM_THREADS);
+  FPRINTF(stderr, "Success : %d threads launching simultaneously starpu_init\n", NUM_THREADS);
+  FPRINTF(stderr, "Total: %f secs\n", timing/1000000);
+  FPRINTF(stderr, "Per task: %f usecs\n", timing/NUM_THREADS);
 
   starpu_shutdown();
 

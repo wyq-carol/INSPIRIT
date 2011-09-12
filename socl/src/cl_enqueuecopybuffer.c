@@ -66,6 +66,42 @@ static starpu_codelet codelet_copybuffer = {
    .nbuffers = 2
 };
 
+cl_int command_copy_buffer_submit(command_copy_buffer cmd) {
+	/* Aliases */
+	cl_mem src_buffer = cmd->src_buffer;
+	cl_mem dst_buffer = cmd->dst_buffer;
+	size_t src_offset = cmd->src_offset;
+	size_t dst_offset = cmd->dst_offset;
+	size_t cb = cmd->cb;
+
+	struct starpu_task *task;
+	struct arg_copybuffer *arg;
+
+	task = task_create(CL_COMMAND_COPY_BUFFER);
+
+	task->buffers[0].handle = src_buffer->handle;
+	task->buffers[0].mode = STARPU_R;
+	task->buffers[1].handle = dst_buffer->handle;
+	task->buffers[1].mode = STARPU_RW;
+	task->cl = &codelet_copybuffer;
+
+	arg = (struct arg_copybuffer*)malloc(sizeof(struct arg_copybuffer));
+	arg->src_offset = src_offset;
+	arg->dst_offset = dst_offset;
+	arg->cb = cb;
+	gc_entity_store(&arg->src_buffer, src_buffer);
+	gc_entity_store(&arg->dst_buffer, dst_buffer);
+	task->cl_arg = arg;
+	task->cl_arg_size = sizeof(struct arg_copybuffer);
+
+	dst_buffer->scratch = 0;
+
+	task_submit(task, cmd);
+
+	return CL_SUCCESS;
+}
+
+
 CL_API_ENTRY cl_int CL_API_CALL
 soclEnqueueCopyBuffer(cl_command_queue  cq, 
                     cl_mem              src_buffer,
@@ -77,35 +113,11 @@ soclEnqueueCopyBuffer(cl_command_queue  cq,
                     const cl_event *    events,
                     cl_event *          event) CL_API_SUFFIX__VERSION_1_0
 {
-   struct starpu_task *task;
-   struct arg_copybuffer *arg;
-   cl_event ev;
+	command_copy_buffer cmd = command_copy_buffer_create(src_buffer, dst_buffer, src_offset, dst_offset, cb);
 
-   task = task_create(CL_COMMAND_COPY_BUFFER);
-   ev = task_event(task);
+	command_queue_enqueue(cq, cmd, num_events, events);
 
-   task->buffers[0].handle = src_buffer->handle;
-   task->buffers[0].mode = STARPU_R;
-   task->buffers[1].handle = dst_buffer->handle;
-   task->buffers[1].mode = STARPU_RW;
-   task->cl = &codelet_copybuffer;
+	RETURN_EVENT(cmd, event);
 
-   arg = (struct arg_copybuffer*)malloc(sizeof(struct arg_copybuffer));
-   arg->src_offset = src_offset;
-   arg->dst_offset = dst_offset;
-   arg->cb = cb;
-   gc_entity_store(&arg->src_buffer, src_buffer);
-   gc_entity_store(&arg->dst_buffer, dst_buffer);
-   task->cl_arg = arg;
-   task->cl_arg_size = sizeof(struct arg_copybuffer);
-
-   dst_buffer->scratch = 0;
-
-   DEBUG_MSG("Submitting CopyBuffer task (event %d)\n", ev->id);
-
-   cl_int ret = command_queue_enqueue(cq, task, 0, num_events, events);
-
-   RETURN_EVENT(ev, event);
-
-   return ret;
+	return CL_SUCCESS;
 }

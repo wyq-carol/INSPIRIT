@@ -63,7 +63,7 @@ int main(int argc, char **argv)
 {
 	starpu_init(NULL);
 
-	A = calloc(VECTORSIZE, sizeof(unsigned));
+	A = (unsigned *) calloc(VECTORSIZE, sizeof(unsigned));
 
 	starpu_vector_data_register(&A_handle, 0, (uintptr_t)A, VECTORSIZE, sizeof(unsigned));
 	starpu_vector_data_register(&B_handle, -1, (uintptr_t)NULL, VECTORSIZE, sizeof(unsigned));
@@ -104,5 +104,5 @@ int main(int argc, char **argv)
 enodev:
 	/* No one can execute that task, this is not a bug, just an incomplete
 	 * test :) */
-	return 0;
+	return 77;
 }

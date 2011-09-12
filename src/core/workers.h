@@ -77,6 +77,7 @@ struct starpu_worker_s {
 	unsigned worker_is_initialized;
 	starpu_worker_status status; /* what is the worker doing now ? (eg. CALLBACK) */
 	char name[48];
+	char short_name[10];
 
 	struct starpu_sched_ctx **sched_ctx;
 	unsigned nctxs; /* the no of contexts a worker belongs to*/

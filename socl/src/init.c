@@ -15,7 +15,6 @@
  */
 
 #include "socl.h"
-#include "graph.h"
 #include "gc.h"
 #include "mem_objects.h"
 
@@ -25,7 +24,6 @@
 __attribute__((constructor)) static void socl_init() {
   
   mem_object_init();
-  graph_init();
 
   starpu_init(NULL);
   
@@ -50,8 +48,6 @@ __attribute__((destructor)) static void socl_shutdown() {
 
   if (active_entities != 0)
     fprintf(stderr, "Unreleased entities: %d\n", active_entities);
-
-  graph_destroy();
 
   starpu_shutdown();
 }

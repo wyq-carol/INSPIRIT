@@ -17,7 +17,10 @@
 # requires a name prefixed by `lib'.
 pkglib_LTLIBRARIES = starpu.la
 
-starpu_la_SOURCES = starpu.c
+starpu_la_SOURCES = starpu.c c-expr.y
 
-AM_CPPFLAGS = -I$(GCC_PLUGIN_INCLUDE_DIR) -Wall
+AM_CPPFLAGS =						\
+  -I$(top_srcdir)/include				\
+  -I$(GCC_PLUGIN_INCLUDE_DIR) -Wall -DYYERROR_VERBOSE=1
+
 AM_LDFLAGS = -module

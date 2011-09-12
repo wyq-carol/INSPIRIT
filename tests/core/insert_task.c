@@ -16,6 +16,8 @@
 
 #include <starpu.h>
 
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
+
 void func_cpu(void *descr[], void *_args)
 {
 	int *x0 = (int *)STARPU_VARIABLE_GET_PTR(descr[0]);
@@ -37,7 +39,7 @@ starpu_codelet mycodelet = {
 int main(int argc, char **argv)
 {
         int x; float f;
-        int i;
+        int i, ret;
 	int ifactor=12;
 	float ffactor=10.0;
         starpu_data_handle data_handles[2];
@@ -49,19 +51,21 @@ int main(int argc, char **argv)
 	f = 2.0;
 	starpu_variable_data_register(&data_handles[1], 0, (uintptr_t)&f, sizeof(f));
 
-        fprintf(stderr, "VALUES: %d (%d) %f (%f)\n", x, ifactor, f, ffactor);
+        FPRINTF(stderr, "VALUES: %d (%d) %f (%f)\n", x, ifactor, f, ffactor);
 
-        starpu_insert_task(&mycodelet,
-			   STARPU_VALUE, &ifactor, sizeof(ifactor),
-			   STARPU_VALUE, &ffactor, sizeof(ffactor),
-                           STARPU_RW, data_handles[0], STARPU_RW, data_handles[1],
-                           0);
+        ret = starpu_insert_task(&mycodelet,
+				 STARPU_VALUE, &ifactor, sizeof(ifactor),
+				 STARPU_VALUE, &ffactor, sizeof(ffactor),
+				 STARPU_RW, data_handles[0], STARPU_RW, data_handles[1],
+				 0);
+	if (ret == -ENODEV) goto enodev;
+
         starpu_task_wait_for_all();
 
         for(i=0 ; i<2 ; i++) {
                 starpu_data_acquire(data_handles[i], STARPU_R);
         }
-        fprintf(stderr, "VALUES: %d %f\n", x, f);
+        FPRINTF(stderr, "VALUES: %d %f\n", x, f);
 
         for(i=0 ; i<2 ; i++) {
                 starpu_data_release(data_handles[i]);
@@ -86,9 +90,15 @@ int main(int argc, char **argv)
         for(i=0 ; i<2 ; i++) {
                 starpu_data_acquire(data_handles[i], STARPU_R);
         }
-        fprintf(stderr, "VALUES: %d %f\n", x, f);
+        FPRINTF(stderr, "VALUES: %d %f\n", x, f);
 
 	starpu_shutdown();
 
 	return 0;
+
+enodev:
+	fprintf(stderr, "WARNING: No one can execute this task\n");
+	/* yes, we do not perform the computation but we did detect that no one
+ 	 * could perform the kernel, so this is not an error from StarPU */
+	return 77;
 }

@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2009, 2010  Université de Bordeaux 1
+ * Copyright (C) 2009-2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
  * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 	starpu_init(NULL);
 
 	/* create data */
-	starpu_data_malloc_pinned_if_possible((void **)&buffer, NTASKS*VECTORSIZE*sizeof(char));
+	starpu_malloc((void **)&buffer, NTASKS*VECTORSIZE*sizeof(char));
 
 	/* declare data to StarPU */
 	starpu_vector_data_register(&handle, 0, (uintptr_t)buffer,
@@ -86,14 +86,12 @@ int main(int argc, char **argv)
 	struct starpu_data_filter f =
 	{
 		.filter_func = starpu_block_filter_func_vector,
-		.nchildren = NTASKS,
-		.get_nchildren = NULL,
-		.get_child_ops = NULL
+		.nchildren = NTASKS
 	};
 
 	starpu_data_partition(handle, &f);
 
-	snprintf(symbolname, 128, "overlap_sleep_%d_%d", VECTORSIZE, TASKDURATION);
+	snprintf(symbolname, 128, "overlap_sleep_%d_%u", VECTORSIZE, TASKDURATION);
 
 	model.symbol = symbolname;
 
@@ -119,13 +117,15 @@ int main(int argc, char **argv)
 		pthread_cond_wait(&cond, &mutex);
 	pthread_mutex_unlock(&mutex);
 
+	starpu_free(buffer);
 	starpu_shutdown();
 
 	return 0;
 
 enodev:
+	starpu_free(buffer);
 	fprintf(stderr, "WARNING: No one can execute this task\n");
 	/* yes, we do not perform the computation but we did detect that no one
  	 * could perform the kernel, so this is not an error from StarPU */
-	return 0;
+	return 77;
 }

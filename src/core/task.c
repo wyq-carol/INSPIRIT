@@ -2,6 +2,7 @@
  *
  * Copyright (C) 2009, 2010, 2011  Université de Bordeaux 1
  * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2011  Télécom-SudParis
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -117,7 +118,7 @@ struct starpu_task * __attribute__((malloc)) starpu_task_create(void)
 {
 	struct starpu_task *task;
 
-	task = calloc(1, sizeof(struct starpu_task));
+	task = (struct starpu_task *) calloc(1, sizeof(struct starpu_task));
 	STARPU_ASSERT(task);
 
 	starpu_task_init(task);
@@ -156,13 +157,19 @@ void starpu_task_destroy(struct starpu_task *task)
 
 int starpu_task_wait(struct starpu_task *task)
 {
+        _STARPU_LOG_IN();
 	STARPU_ASSERT(task);
 
-	if (task->detach || task->synchronous)
+	if (task->detach || task->synchronous) {
+		_STARPU_DEBUG("Task is detached or asynchronous. Waiting returns immediately\n");
+		_STARPU_LOG_OUT_TAG("einval");
 		return -EINVAL;
+	}
 
-	if (STARPU_UNLIKELY(!_starpu_worker_may_perform_blocking_calls()))
+	if (STARPU_UNLIKELY(!_starpu_worker_may_perform_blocking_calls())) {
+		_STARPU_LOG_OUT_TAG("edeadlk");
 		return -EDEADLK;
+	}
 
 	starpu_job_t j = (struct starpu_job_s *)task->starpu_private;
 
@@ -173,6 +180,7 @@ int starpu_task_wait(struct starpu_task *task)
 	if (task->destroy)
 		free(task);
 
+        _STARPU_LOG_OUT();
 	return 0;
 }
 
@@ -242,16 +250,21 @@ int starpu_task_submit_to_ctx(struct starpu_task *task, unsigned sched_ctx)
 	if (task->cl)
 	{
 		uint32_t where = task->cl->where;
+		unsigned i;
 		if (!_starpu_worker_exists(where)) {
                         _STARPU_LOG_OUT_TAG("ENODEV");
 			return -ENODEV;
                 }
 		assert(task->cl->nbuffers <= STARPU_NMAXBUFS);
+		for (i = 0; i < task->cl->nbuffers; i++) {
+			/* Make sure handles are not partitioned */
+			assert(task->buffers[i].handle->nchildren == 0);
+		}
 
 		/* In case we require that a task should be explicitely
 		 * executed on a specific worker, we make sure that the worker
 		 * is able to execute this task.  */
-		if (task->execute_on_a_specific_worker && !starpu_combined_worker_may_execute_task(task->workerid, task)) {
+		if (task->execute_on_a_specific_worker && !starpu_combined_worker_may_execute_task(task->workerid, task, 0)) {
                         _STARPU_LOG_OUT_TAG("ENODEV");
 			return -ENODEV;
                 }
@@ -377,7 +390,7 @@ void _starpu_initialize_current_task_key(void)
  * being executed at the moment. */
 struct starpu_task *starpu_get_current_task(void)
 {
-	return pthread_getspecific(current_task_key);
+	return (struct starpu_task *) pthread_getspecific(current_task_key);
 }
 
 void _starpu_set_current_task(struct starpu_task *task)

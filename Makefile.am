@@ -18,6 +18,8 @@ ACLOCAL_AMFLAGS=-I m4
 CLEANFILES = *.gcno *.gcda *.linkinfo
 
 SUBDIRS = src
+SUBDIRS += tools tests doc
+
 if USE_MPI
 SUBDIRS += mpi
 endif
@@ -26,7 +28,7 @@ if BUILD_SOCL
 SUBDIRS += socl
 endif
 
-SUBDIRS += tools examples tests doc
+SUBDIRS += examples
 
 if COND_OPT
 SUBDIRS += tests/opt examples/opt
@@ -68,6 +70,8 @@ clean-local:
 install-exec-local:
 	$(MKDIR_P) $(DESTDIR)$(bindir)
 	$(INSTALL_STRIP_PROGRAM) starpu-top/StarPU-Top $(DESTDIR)$(bindir)
+uninstall-local:
+	$(RM) $(DESTDIR)$(bindir)/StarPU-Top
 endif
 
 if STARPU_HAVE_WINDOWS
@@ -77,3 +81,5 @@ txtdir = ${docdir}
 endif
 txt_DATA = AUTHORS COPYING.LGPL README
 EXTRA_DIST = AUTHORS COPYING.LGPL README
+
+include starpu-top/extradist

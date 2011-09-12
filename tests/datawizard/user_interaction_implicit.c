@@ -35,7 +35,7 @@ struct data buffers[NBUFFERS];
 
 void callback_sync_data(void *arg)
 {
-	struct data *data = arg;
+	struct data *data = (struct data *) arg;
 
 	data->val++;
 
@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 		/* check result */
 		if (buffers[b].val != NITER)
 		{
-			fprintf(stderr, "buffer[%d] = %d should be %d\n", b, buffers[b].val, NITER);
+			fprintf(stderr, "buffer[%u] = %u should be %d\n", b, buffers[b].val, NITER);
 			STARPU_ABORT();
 		}
 	}

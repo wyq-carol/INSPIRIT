@@ -52,12 +52,12 @@ struct params {
 };
 void cpu_func(void *buffers[], void *cl_arg)
 {
-	struct params *params = cl_arg;
+	struct params *params = (struct params *) cl_arg;
 
 	FPRINTF(stdout, "Hello world (params = {%i, %f} )\n", params->i, params->f);
 }
 
-starpu_codelet cl;
+starpu_codelet cl = {};
 
 int main(int argc, char **argv)
 {

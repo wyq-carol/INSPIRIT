@@ -66,6 +66,37 @@ static starpu_codelet codelet_readbuffer = {
    .nbuffers = 1
 };
 
+cl_int command_read_buffer_submit(command_read_buffer cmd) {
+	/* Aliases */
+	cl_mem buffer = cmd->buffer;
+	size_t offset = cmd->offset;
+	size_t cb = cmd->cb;
+	void * ptr = cmd->ptr;
+
+	struct starpu_task *task;
+	struct arg_readbuffer *arg;
+
+	task = task_create(CL_COMMAND_READ_BUFFER);
+
+	task->buffers[0].handle = buffer->handle;
+	task->buffers[0].mode = STARPU_R;
+	task->cl = &codelet_readbuffer;
+
+	arg = (struct arg_readbuffer*)malloc(sizeof(struct arg_readbuffer));
+	arg->offset = offset;
+	arg->cb = cb;
+	arg->ptr = ptr;
+	task->cl_arg = arg;
+	task->cl_arg_size = sizeof(struct arg_readbuffer);
+
+	gc_entity_store(&arg->buffer, buffer);
+
+	task_submit(task, cmd);
+
+	return CL_SUCCESS;
+}
+
+
 CL_API_ENTRY cl_int CL_API_CALL
 soclEnqueueReadBuffer(cl_command_queue  cq,
                     cl_mem              buffer,
@@ -77,33 +108,14 @@ soclEnqueueReadBuffer(cl_command_queue  cq,
                     const cl_event *    events,
                     cl_event *          event) CL_API_SUFFIX__VERSION_1_0
 { 
-   struct starpu_task *task;
-   struct arg_readbuffer *arg;
-   cl_event ev;
 
-   task = task_create(CL_COMMAND_READ_BUFFER);
-   ev = task_event(task);
+	command_read_buffer cmd = command_read_buffer_create(buffer, offset, cb, ptr);
 
-   task->buffers[0].handle = buffer->handle;
-   task->buffers[0].mode = STARPU_R;
-   task->cl = &codelet_readbuffer;
+	command_queue_enqueue(cq, cmd, num_events, events);
 
-   arg = (struct arg_readbuffer*)malloc(sizeof(struct arg_readbuffer));
-   arg->offset = offset;
-   arg->cb = cb;
-   arg->ptr = ptr;
-   task->cl_arg = arg;
-   task->cl_arg_size = sizeof(struct arg_readbuffer);
+	RETURN_EVENT(cmd, event);
 
-   gc_entity_store(&arg->buffer, buffer);
+	MAY_BLOCK(blocking);
 
-   task->synchronous = (blocking == CL_TRUE);
-
-   DEBUG_MSG("Submitting EnqueueRWBuffer task (event %d)\n", ev->id);
-
-   cl_int ret = command_queue_enqueue(cq, task, 0, num_events, events);
-
-   RETURN_EVENT(ev, event);
-
-   return ret;
+	return CL_SUCCESS;
 }

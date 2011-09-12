@@ -1,6 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2011  Université de Bordeaux 1
+ * Copyright (C) 2011  Télécom-SudParis
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -71,7 +72,7 @@ static starpu_codelet nl_memset_cl =
 
 static void test_memset(int nelems, starpu_codelet *codelet)
 {
-	int nloops = 20;
+	int nloops = 100;
 	int loop;
 	starpu_data_handle handle;
 
@@ -91,13 +92,30 @@ static void test_memset(int nelems, starpu_codelet *codelet)
         starpu_data_unregister(handle);
 }
 
+static void show_task_perfs(int size, struct starpu_task *task) {
+	unsigned workerid;
+	for (workerid = 0; workerid < starpu_worker_get_count(); workerid++) {
+		char name[16];
+		starpu_worker_get_name(workerid, name, sizeof(name));
+
+		unsigned nimpl;
+		for (nimpl = 0; nimpl < STARPU_MAXIMPLEMENTATIONS; nimpl++) {
+			printf("Expected time for %d on %s:\t%f\n",
+				size, name, starpu_task_expected_length(task, starpu_worker_get_perf_archtype(workerid), nimpl));
+		}
+	}
+}
+
 int main(int argc, char **argv)
 {
 	struct starpu_conf conf;
+	starpu_data_handle handle;
+	struct starpu_task *task = starpu_task_create();
+
 	starpu_conf_init(&conf);
 
-	conf.sched_policy_name = "dm";
-	conf.calibrate = 1;
+	conf.sched_policy_name = "eager";
+	conf.calibrate = 2;
 
 	starpu_init(&conf);
 
@@ -112,6 +130,26 @@ int main(int argc, char **argv)
 	}
 
 	starpu_task_wait_for_all();
+
+	/* Now create a dummy task just to estimate its duration according to the regression */
+
+	size = 12345;
+
+	starpu_vector_data_register(&handle, -1, (uintptr_t)NULL, size, sizeof(int));
+
+	task->cl = &memset_cl;
+	task->buffers[0].handle = handle;
+	task->buffers[0].mode = STARPU_W;
+
+	show_task_perfs(size, task);
+
+	task->cl = &nl_memset_cl;
+
+	show_task_perfs(size, task);
+
+	starpu_task_destroy(task);
+
+	starpu_data_unregister(handle);
 
 	starpu_shutdown();
 

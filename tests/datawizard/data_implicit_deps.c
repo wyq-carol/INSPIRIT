@@ -1,7 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2010  Université de Bordeaux 1
- * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -22,6 +22,7 @@
 #include <stdlib.h>
 
 #define VECTORSIZE	1024
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
 
 static unsigned *A, *B, *C, *D;
 starpu_data_handle A_handle, B_handle, C_handle, D_handle;
@@ -55,7 +56,7 @@ static starpu_codelet cl_g = {
 
 static void h(void *descr[], __attribute__ ((unused)) void *_args)
 {
-	fprintf(stderr, "VAR %d (should be 42)\n", var);
+	FPRINTF(stderr, "VAR %u (should be 42)\n", var);
 	STARPU_ASSERT(var == 42);
 }
 
@@ -70,10 +71,10 @@ int main(int argc, char **argv)
 {
 	starpu_init(NULL);
 
-	A = malloc(VECTORSIZE*sizeof(unsigned));
-	B = malloc(VECTORSIZE*sizeof(unsigned));
-	C = malloc(VECTORSIZE*sizeof(unsigned));
-	D = malloc(VECTORSIZE*sizeof(unsigned));
+	A = (unsigned *) malloc(VECTORSIZE*sizeof(unsigned));
+	B = (unsigned *) malloc(VECTORSIZE*sizeof(unsigned));
+	C = (unsigned *) malloc(VECTORSIZE*sizeof(unsigned));
+	D = (unsigned *) malloc(VECTORSIZE*sizeof(unsigned));
 
 	starpu_vector_data_register(&A_handle, 0, (uintptr_t)A, VECTORSIZE, sizeof(unsigned));
 	starpu_vector_data_register(&B_handle, 0, (uintptr_t)B, VECTORSIZE, sizeof(unsigned));
@@ -116,6 +117,11 @@ int main(int argc, char **argv)
 	starpu_task_submit(task_h);
 
 	starpu_task_wait_for_all();
+
+	free(A);
+	free(B);
+	free(C);
+	free(D);
 
 	starpu_shutdown();
 

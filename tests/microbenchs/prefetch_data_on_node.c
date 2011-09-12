@@ -90,7 +90,7 @@ int main(int argc, char **argv)
 {
 	starpu_init(NULL);
 
-	starpu_data_malloc_pinned_if_possible((void **)&v, VECTORSIZE*sizeof(unsigned));
+	starpu_malloc((void **)&v, VECTORSIZE*sizeof(unsigned));
 	starpu_vector_data_register(&v_handle, 0, (uintptr_t)v, VECTORSIZE, sizeof(unsigned));
 
 	unsigned nworker = starpu_worker_get_count();
@@ -129,13 +129,15 @@ int main(int argc, char **argv)
 		pthread_cond_wait(&cond, &mutex);
 	pthread_mutex_unlock(&mutex);
 
+	starpu_free(v);
 	starpu_shutdown();
 
 	return 0;
 
 enodev:
+	starpu_free(v);
 	fprintf(stderr, "WARNING: No one can execute this task\n");
 	/* yes, we do not perform the computation but we did detect that no one
  	 * could perform the kernel, so this is not an error from StarPU */
-	return 0;
+	return 77;
 }

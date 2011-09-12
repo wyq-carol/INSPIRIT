@@ -3,6 +3,7 @@
  * Copyright (C) 2010, 2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
  * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
+ * Copyright (C) 2011  Télécom-SudParis
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -401,7 +402,8 @@ void *_starpu_opencl_worker(void *arg)
 	/* get the device's name */
 	char devname[128];
 	_starpu_opencl_get_device_name(devid, devname, 128);
-	snprintf(args->name, 32, "OpenCL %d (%s)", args->devid, devname);
+	snprintf(args->name, sizeof(args->name), "OpenCL %d (%s)", args->devid, devname);
+	snprintf(args->short_name, sizeof(args->short_name), "OpenCL %d", args->devid);
 
 	_STARPU_DEBUG("OpenCL (%s) dev id %d thread is ready to run on CPU %d !\n", devname, devid, args->bindid);
 
@@ -551,9 +553,19 @@ static int _starpu_opencl_execute_job(starpu_job_t j, struct starpu_worker_s *ar
 
 	_starpu_driver_start_job(args, j, &codelet_start, 0);
 
-	cl_func func = cl->opencl_func;
-	STARPU_ASSERT(func);
-	func(task->interfaces, task->cl_arg);
+	if (cl->opencl_func != STARPU_MULTIPLE_OPENCL_IMPLEMENTATIONS) {
+		cl_func func = cl->opencl_func;
+		STARPU_ASSERT(func);
+		func(task->interfaces, task->cl_arg);
+	}
+	else {
+		if (cl->opencl_funcs[j->nimpl] != NULL) {
+			/* _STARPU_DEBUG("OpenCL driver : running kernel (%d)\n", j->nimpl); */
+			cl_func func = cl->opencl_funcs[j->nimpl];
+			STARPU_ASSERT(func);
+			func(task->interfaces, task->cl_arg);
+		}
+	}
 
 	_starpu_driver_end_job(args, j, &codelet_end, 0);
 

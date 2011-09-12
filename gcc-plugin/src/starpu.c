@@ -30,8 +30,19 @@ int plugin_is_GPL_compatible;
 #include <cpplib.h>
 #include <tree.h>
 #include <tree-iterator.h>
-#include <c-common.h>
-#include <c-pragma.h>
+
+#ifdef HAVE_C_FAMILY_C_COMMON_H
+# include <c-family/c-common.h>
+#elif HAVE_C_COMMON_H
+# include <c-common.h>
+#endif
+
+#ifdef HAVE_C_FAMILY_C_PRAGMA_H
+# include <c-family/c-pragma.h>
+#elif HAVE_C_PRAGMA_H
+# include <c-pragma.h>
+#endif
+
 #include <tm.h>
 #include <gimple.h>
 #include <tree-pass.h>
@@ -74,6 +85,9 @@ static const char task_struct_name[] = "starpu_task";
 static tree build_codelet_declaration (tree task_decl);
 static tree build_task_body (const_tree task_decl);
 static tree build_pointer_lookup (tree pointer);
+
+static bool task_p (const_tree decl);
+static bool task_implementation_p (const_tree decl);
 
 
 /* Lookup the StarPU function NAME in the global scope and store the result
@@ -119,7 +133,9 @@ build_call_expr_loc_vec (location_t loc, tree fndecl, VEC(tree,gc) *vec)
 
 
 /* Build a reference to the INDEXth element of ARRAY.  `build_array_ref' is
-   not exported, so we roll our own.  */
+   not exported, so we roll our own.
+   FIXME: This version may not work for array types and doesn't do as much
+   type-checking as `build_array_ref'.  */
 
 static tree
 array_ref (tree array, size_t index)
@@ -347,48 +363,45 @@ handle_pragma_shutdown (struct cpp_reader *reader)
 static void
 handle_pragma_wait (struct cpp_reader *reader)
 {
-  tree fndecl;
+  if (task_implementation_p (current_function_decl))
+    {
+      location_t loc;
 
-  fndecl = lookup_name (get_identifier ("starpu_task_wait_for_all"));
-  gcc_assert (TREE_CODE (fndecl) == FUNCTION_DECL);
+      loc = cpp_peek_token (reader, 0)->src_loc;
 
-  add_stmt (build_call_expr (fndecl, 0));
-}
-
-/* Parse a pointer variable for PRAGMA, raising the appropriate error if
-   needed.  Return the pointer variable on success, NULL_TREE otherwise.  */
-
-static tree
-read_pragma_pointer_variable (const char *pragma, location_t loc)
-{
-  tree token, var = NULL_TREE;
-  enum cpp_ttype type;
-
-  type = pragma_lex (&token);
-  if (type == CPP_EOF)
-    error_at (loc, "unterminated %<starpu %s%> pragma", pragma);
-  else if (type != CPP_NAME)
-    error_at (loc, "identifier expected");
+      /* TODO: In the future we could generate a task for the continuation
+	 and have it depend on what's before here.  */
+      error_at (loc, "task implementation is not allowed to wait");
+    }
   else
     {
-      /* Get the variable name.  */
-      tree var_name = token;
-      tree decl = lookup_name (var_name);
+      tree fndecl;
 
-      if (decl == NULL_TREE || !DECL_P (decl))
-	error_at (loc, "unbound variable %qE", var_name);
-      else if (!POINTER_TYPE_P (TREE_TYPE (decl))
-	       && TREE_CODE (TREE_TYPE (decl)) != ARRAY_TYPE)
-	error_at (loc, "%qE is neither a pointer nor an array", var_name);
-      else
-	{
-	  var = decl;
-	  TREE_USED (var) = true;
-	  DECL_READ_P (var) = true;
-	}
+      fndecl = lookup_name (get_identifier ("starpu_task_wait_for_all"));
+      gcc_assert (TREE_CODE (fndecl) == FUNCTION_DECL);
+
+      add_stmt (build_call_expr (fndecl, 0));
     }
+}
 
-  return var;
+/* The minimal C expression parser.  */
+
+extern int yyparse (location_t, const char *, tree *);
+extern int yydebug;
+
+/* Parse expressions from the CPP reader for PRAGMA, which is located at LOC.
+   Return a TREE_LIST of C expressions.  */
+
+static tree
+read_pragma_expressions (const char *pragma, location_t loc)
+{
+  tree expr = NULL_TREE;
+
+  if (yyparse (loc, pragma, &expr))
+    /* Parse error or memory exhaustion.  */
+    expr = NULL_TREE;
+
+  return expr;
 }
 
 /* Process `#pragma starpu register VAR [COUNT]' and emit the corresponding
@@ -397,19 +410,37 @@ read_pragma_pointer_variable (const char *pragma, location_t loc)
 static void
 handle_pragma_register (struct cpp_reader *reader)
 {
-  tree token, var;
+  tree args, ptr, count_arg;
   location_t loc;
-  enum cpp_ttype type;
 
   loc = cpp_peek_token (reader, 0)->src_loc;
 
-  var = read_pragma_pointer_variable ("register", loc);
-  if (var == NULL_TREE)
+  args = read_pragma_expressions ("register", loc);
+  if (args == NULL_TREE)
+    /* Parse error, presumably already handled by the parser.  */
     return;
 
-  if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE
-      && !DECL_EXTERNAL (var)
-      && !TREE_STATIC (var)
+  /* First argument should be a pointer expression.  */
+  ptr = TREE_VALUE (args);
+  args = TREE_CHAIN (args);
+
+  if (ptr == error_mark_node)
+    return;
+
+  if (!POINTER_TYPE_P (TREE_TYPE (ptr))
+      && TREE_CODE (TREE_TYPE (ptr)) != ARRAY_TYPE)
+    {
+      error_at (loc, "%qE is neither a pointer nor an array", ptr);
+      return;
+    }
+
+  TREE_USED (ptr) = true;
+  if (DECL_P (ptr))
+    DECL_READ_P (ptr) = true;
+
+  if (TREE_CODE (TREE_TYPE (ptr)) == ARRAY_TYPE
+      && !DECL_EXTERNAL (ptr)
+      && !TREE_STATIC (ptr)
       && !MAIN_NAME_P (DECL_NAME (current_function_decl)))
     warning_at (loc, 0, "using an on-stack array as a task input "
 		"considered unsafe");
@@ -417,9 +448,9 @@ handle_pragma_register (struct cpp_reader *reader)
   /* Determine the number of elements in the vector.  */
   tree count = NULL_TREE;
 
-  if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
+  if (TREE_CODE (TREE_TYPE (ptr)) == ARRAY_TYPE)
     {
-      tree domain = TYPE_DOMAIN (TREE_TYPE (var));
+      tree domain = TYPE_DOMAIN (TREE_TYPE (ptr));
 
       if (domain != NULL_TREE)
 	{
@@ -435,52 +466,44 @@ handle_pragma_register (struct cpp_reader *reader)
 	}
     }
 
-
-  type = pragma_lex (&token);
-  if (type == CPP_EOF)
+  /* Second argument is optional but should be an integer.  */
+  count_arg = (args == NULL_TREE) ? NULL_TREE : TREE_VALUE (args);
+  if (args != NULL_TREE)
     {
-      /* End of line reached: don't consume TOKEN and check whether the array
-	 size was determined.  */
+      args = TREE_CHAIN (args);
+      TREE_CHAIN (count_arg) = NULL_TREE;
+    }
+
+  if (count_arg == NULL_TREE)
+    {
+      /* End of line reached: check whether the array size was
+	 determined.  */
       if (count == NULL_TREE)
 	{
-	  error_at (loc, "cannot determine size of array %qE", DECL_NAME (var));
+	  error_at (loc, "cannot determine size of array %qE", ptr);
 	  return;
 	}
     }
+  else if (count_arg == error_mark_node)
+    /* COUNT_ARG could not be parsed and an error was already reported.  */
+    return;
+  else if (!INTEGRAL_TYPE_P (TREE_TYPE (count_arg)))
+    {
+      error_at (loc, "%qE is not an integer", count_arg);
+      return;
+    }
   else
     {
-      /* TOKEN may be a number or a integer variable.  */
-
-      tree count_arg;
-
-      if (TREE_CODE (token) == IDENTIFIER_NODE)
-	{
-	  count_arg = lookup_name (token);
-	  if (count_arg == NULL_TREE)
-	    {
-	      error_at (loc, "unbound variable %qE", token);
-	      return;
-	    }
-	  else if (!INTEGRAL_TYPE_P (TREE_TYPE (count_arg)))
-	    {
-	      error_at (loc, "integer expected");
-	      return;
-	    }
-
-	  TREE_USED (count_arg) = true;
-	  DECL_READ_P (count_arg) = true;
-	}
-      else if (TREE_CODE (token) != INTEGER_CST)
-	error_at (loc, "integer expected");
-      else
-	count_arg = token;
+      TREE_USED (count_arg) = true;
+      if (DECL_P (count_arg))
+	DECL_READ_P (count_arg) = true;
 
       if (count != NULL_TREE)
 	{
 	  /* The number of elements of this array was already determined.  */
 	  inform (loc,
 		  "element count can be omitted for bounded array %qE",
-		  DECL_NAME (var));
+		  ptr);
 
 	  if (count_arg != NULL_TREE)
 	    {
@@ -489,7 +512,7 @@ handle_pragma_register (struct cpp_reader *reader)
 		  if (!tree_int_cst_equal (count, count_arg))
 		    error_at (loc, "specified element count differs "
 			      "from actual size of array %qE",
-			      DECL_NAME (var));
+			      ptr);
 		}
 	      else
 		/* Using a variable to determine the array size whereas the
@@ -501,19 +524,24 @@ handle_pragma_register (struct cpp_reader *reader)
 	}
       else
 	count = count_arg;
-
-      if (pragma_lex (&token) != CPP_EOF)
-	error_at (loc, "junk after %<starpu register%> pragma");
     }
 
-  /* If VAR is an array, take its address.  */
+  /* Any remaining args?  */
+  if (args != NULL_TREE)
+    error_at (loc, "junk after %<starpu register%> pragma");
+
+  /* If PTR is an array, take its address.  */
   tree pointer =
-    POINTER_TYPE_P (TREE_TYPE (var))
-    ? var
-    : build_addr (var, current_function_decl);
+    POINTER_TYPE_P (TREE_TYPE (ptr))
+    ? ptr
+    : build_addr (ptr, current_function_decl);
 
   /* Introduce a local variable to hold the handle.  */
-  tree handle_var = create_tmp_var (ptr_type_node, ".handle");
+  tree handle_var = build_decl (loc, VAR_DECL, create_tmp_var_name (".handle"),
+				ptr_type_node);
+  DECL_CONTEXT (handle_var) = current_function_decl;
+  DECL_ARTIFICIAL (handle_var) = true;
+  DECL_INITIAL (handle_var) = NULL_TREE;
 
   tree register_fn =
     lookup_name (get_identifier ("starpu_vector_data_register"));
@@ -525,9 +553,13 @@ handle_pragma_register (struct cpp_reader *reader)
 		     build_addr (handle_var, current_function_decl),
 		     build_zero_cst (uintptr_type_node), /* home node */
 		     pointer, count,
-		     size_in_bytes (TREE_TYPE (TREE_TYPE (var))));
+		     size_in_bytes (TREE_TYPE (TREE_TYPE (ptr))));
 
-  add_stmt (call);
+  tree bind;
+  bind = build3 (BIND_EXPR, void_type_node, handle_var, call,
+		 NULL_TREE);
+
+  add_stmt (bind);
 }
 
 /* Process `#pragma starpu acquire VAR' and emit the corresponding
@@ -539,16 +571,26 @@ handle_pragma_acquire (struct cpp_reader *reader)
   static tree acquire_fn;
   LOOKUP_STARPU_FUNCTION (acquire_fn, "starpu_data_acquire");
 
-  tree token, var;
+  tree args, var;
   location_t loc;
 
   loc = cpp_peek_token (reader, 0)->src_loc;
 
-  var = read_pragma_pointer_variable ("acquire", loc);
-  if (var == NULL_TREE)
+  args = read_pragma_expressions ("acquire", loc);
+  if (args == NULL_TREE)
     return;
 
-  if (pragma_lex (&token) != CPP_EOF)
+  var = TREE_VALUE (args);
+
+  if (var == error_mark_node)
+    return;
+  else if (TREE_CODE (TREE_TYPE (var)) != POINTER_TYPE
+	   && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE)
+    {
+      error_at (loc, "%qE is neither a pointer nor an array", var);
+      return;
+    }
+  else if (TREE_CHAIN (var) != NULL_TREE)
     error_at (loc, "junk after %<starpu acquire%> pragma");
 
   /* If VAR is an array, take its address.  */
@@ -573,16 +615,26 @@ handle_pragma_unregister (struct cpp_reader *reader)
   static tree unregister_fn;
   LOOKUP_STARPU_FUNCTION (unregister_fn, "starpu_data_unregister");
 
-  tree token, var;
+  tree args, var;
   location_t loc;
 
   loc = cpp_peek_token (reader, 0)->src_loc;
 
-  var = read_pragma_pointer_variable ("unregister", loc);
-  if (var == NULL_TREE)
+  args = read_pragma_expressions ("unregister", loc);
+  if (args == NULL_TREE)
     return;
 
-  if (pragma_lex (&token) != CPP_EOF)
+  var = TREE_VALUE (args);
+
+  if (var == error_mark_node)
+    return;
+  else if (TREE_CODE (TREE_TYPE (var)) != POINTER_TYPE
+	   && TREE_CODE (TREE_TYPE (var)) != ARRAY_TYPE)
+    {
+      error_at (loc, "%qE is neither a pointer nor an array", var);
+      return;
+    }
+  else if (TREE_CHAIN (args) != NULL_TREE)
     error_at (loc, "junk after %<starpu unregister%> pragma");
 
   /* If VAR is an array, take its address.  */

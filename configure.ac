@@ -2,6 +2,7 @@
 #
 # Copyright (C) 2009, 2010, 2011  Université de Bordeaux 1
 # Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
+# Copyright (C) 2011  Télécom-SudParis
 #
 # StarPU is free software; you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published by
@@ -33,8 +34,8 @@ AC_PROG_SED
 AC_PROG_LN_S
 AC_PROG_F77
 
-AC_LIBTOOL_WIN32_DLL
-AC_PROG_LIBTOOL
+LT_PREREQ([2.2])
+LT_INIT([win32-dll])
 
 AC_PROG_INSTALL
 AC_PROG_MKDIR_P
@@ -158,18 +159,6 @@ if test x$enable_libnuma = xyes; then
 fi
 
 ###############################################################################
-#									      #
-#				SCED_CTX settings			      #
-#									      #
-###############################################################################
-AC_MSG_CHECKING(maximum number of sched_ctxs)
-AC_ARG_ENABLE(max_sched_ctxs, [AS_HELP_STRING([--enable-max-sched-ctxs=<number>],
-			[maximum number of sched_ctxs])],
-			max_sched_ctxs=$enableval, max_sched_ctxs=10)
-AC_MSG_RESULT($max_sched_ctxs)
-AC_DEFINE_UNQUOTED(STARPU_NMAX_SCHED_CTXS, [$max_sched_ctxs], [Maximum number of sched_ctxs supported])
-
-###############################################################################
 #                                                                             #
 #                                 CPUs settings                               #
 #                                                                             #
@@ -282,6 +271,7 @@ AC_DEFUN([STARPU_CHECK_CUDA],
 
     if test "$have_valid_cuda" = "no" ; then
         LDFLAGS="${SAVED_LDFLAGS}"
+	unset STARPU_CUDA_LDFLAGS
     fi
 ])
 
@@ -460,8 +450,10 @@ if test x$have_curand = xyes; then
 fi
 
 # Peer transfers are only supported since CUDA 4.0
+# Disable them if user explicity wants to disable them
+AC_ARG_ENABLE(cuda_memcpy_peer, [AS_HELP_STRING([--disable-cuda-memcpy-peer], [do not allow peer transfers when using CUDA 4.0])],, [enable_cuda_memcpy_peer=yes])
 have_cuda_memcpy_peer=no
-if test x$enable_cuda = xyes; then
+if test x$enable_cuda_memcpy_peer = xyes -a x$enable_cuda = xyes ; then
     SAVED_LDFLAGS="${LDFLAGS}"
     LDFLAGS="${LDFLAGS} ${STARPU_CUDA_LDFLAGS}"
     AC_CHECK_FUNC([cudaMemcpyPeer], have_cuda_memcpy_peer=yes, have_cuda_memcpy_peer=no)
@@ -898,6 +890,15 @@ AC_MSG_CHECKING(Maximum number of workers)
 AC_MSG_RESULT($nmaxworkers)
 AC_DEFINE_UNQUOTED(STARPU_NMAXWORKERS, [$nmaxworkers], [Maximum number of workers])
 
+# Computes the maximum number of implementations per arch
+AC_MSG_CHECKING(maximum number of implementations)
+AC_ARG_ENABLE(maximplementations, [AS_HELP_STRING([--enable-maximplementations=<number>],
+		[maximum number of implementations])],
+		maximplementations=$enableval, maximplementations=1)
+AC_MSG_RESULT($maximplementations)
+AC_DEFINE_UNQUOTED(STARPU_MAXIMPLEMENTATIONS, [$maximplementations],
+		[maximum number of implementations])
+
 ###############################################################################
 #                                                                             #
 #                                    MPI                                      #
@@ -1116,6 +1117,10 @@ else
    run_gcc_plugin_test_suite="no"
 fi
 
+# Bison is used to generate the C expression parser.  The generated
+# parser is part of the distribution, though.
+AC_PROG_YACC
+
 AM_CONDITIONAL([BUILD_GCC_PLUGIN], [test "x$build_gcc_plugin" = "xyes"])
 AM_CONDITIONAL([HAVE_GUILE], [test "x$GUILE" != "x"])
 
@@ -1285,6 +1290,10 @@ AC_MSG_CHECKING(which BLAS lib should be used)
 AC_MSG_RESULT($blas_lib)
 AC_SUBST(BLAS_LIB,$blas_lib)
 
+##########################################
+# FFT                                    #
+##########################################
+
 have_fftw=no
 have_fftwf=no
 have_fftwl=no
@@ -1295,7 +1304,7 @@ PKG_CHECK_MODULES([FFTW],  [fftw3],  [
   have_fftw=yes
 ], [:])
 AM_CONDITIONAL(STARPU_HAVE_FFTW, [test x$have_fftw = xyes])
-
+ 
 PKG_CHECK_MODULES([FFTWF], [fftw3f], [
   AC_DEFINE([STARPU_HAVE_FFTWF], [1], [Define to 1 if you have the libfftw3f library.])
   AC_SUBST([STARPU_HAVE_FFTWF], [1])
@@ -1309,6 +1318,10 @@ PKG_CHECK_MODULES([FFTWL], [fftw3l], [
   have_fftwl=yes
 ], [:])
 AM_CONDITIONAL(STARPU_HAVE_FFTWL, [test x$have_fftwl = xyes])
+
+##########################################
+# hwloc                                  #
+##########################################
 
 AC_ARG_WITH([hwloc], [AS_HELP_STRING([--without-hwloc], [Disable hwloc (enabled by default)])])
 SAVED_LDFLAGS="${LDFLAGS}"
@@ -1364,23 +1377,29 @@ AM_CONDITIONAL([COND_OPT], [test "$want_optional_tests" = yes])
 # File configuration
 AC_CONFIG_COMMANDS([executable-scripts], [
   chmod +x tests/regression/regression.sh
-  chmod +x gcc-plugin/tests/run-test
 ])
 
 AC_CONFIG_FILES(tests/regression/regression.sh tests/regression/profiles tests/regression/profiles.build.only)
 AC_CONFIG_HEADER(src/common/config.h include/starpu_config.h)
 
-AC_CONFIG_HEADERS([gcc-plugin/src/starpu-gcc-config.h])
+if test $build_gcc_plugin == "yes" ; then
+    AC_CONFIG_HEADERS([gcc-plugin/src/starpu-gcc-config.h])
+    AC_OUTPUT([
+	    gcc-plugin/Makefile
+	    gcc-plugin/src/Makefile
+	    gcc-plugin/tests/Makefile
+	    gcc-plugin/tests/run-test
+	    gcc-plugin/examples/Makefile
+            ])
+    AC_CONFIG_COMMANDS([executable-plugin-scripts], [
+            chmod +x gcc-plugin/tests/run-test
+            ])
+fi 
 
 AC_OUTPUT([
 	Makefile
 	src/Makefile
 	tools/Makefile
-	gcc-plugin/Makefile
-	gcc-plugin/src/Makefile
-	gcc-plugin/tests/Makefile
-	gcc-plugin/tests/run-test
-	gcc-plugin/examples/Makefile
 	socl/Makefile
 	socl/src/Makefile
 	libstarpu.pc

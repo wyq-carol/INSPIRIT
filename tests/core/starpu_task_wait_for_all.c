@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
  * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
@@ -20,6 +20,8 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
+
+#define FPRINTF(ofile, fmt, args ...) do { if (!getenv("STARPU_SSILENT")) {fprintf(ofile, fmt, ##args); }} while(0)
 
 static unsigned ntasks = 65536;
 
@@ -82,7 +84,7 @@ static struct starpu_conf conf = {
 
 static void usage(char **argv)
 {
-	fprintf(stderr, "%s [-i ntasks] [-p sched_policy] [-h]\n", argv[0]);
+	FPRINTF(stderr, "%s [-i ntasks] [-p sched_policy] [-h]\n", argv[0]);
 	exit(-1);
 }
 
@@ -112,11 +114,15 @@ int main(int argc, char **argv)
 
 	parse_args(argc, argv);
 
+#ifdef STARPU_SLOW_MACHINE
+	ntasks /= 10;
+#endif
+
 	starpu_init(&conf);
 
 	init_gordon_kernel();
 
-	fprintf(stderr, "#tasks : %d\n", ntasks);
+	FPRINTF(stderr, "#tasks : %u\n", ntasks);
 
 	gettimeofday(&start, NULL);
 	for (i = 0; i < ntasks; i++)
@@ -130,8 +136,8 @@ int main(int argc, char **argv)
 
 	timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
 
-	fprintf(stderr, "Total: %lf secs\n", timing/1000000);
-	fprintf(stderr, "Per task: %lf usecs\n", timing/ntasks);
+	FPRINTF(stderr, "Total: %f secs\n", timing/1000000);
+	FPRINTF(stderr, "Per task: %f usecs\n", timing/ntasks);
 
 	starpu_shutdown();
 

@@ -20,11 +20,21 @@ CL_API_ENTRY cl_int CL_API_CALL
 soclEnqueueMarker(cl_command_queue  cq,
                 cl_event *          event) CL_API_SUFFIX__VERSION_1_0
 {
-   if (event == NULL)
-      return CL_INVALID_VALUE;
+	if (event == NULL)
+		return CL_INVALID_VALUE;
+	
+	command_marker cmd = command_marker_create();
 
-   starpu_task * task = task_create(CL_COMMAND_MARKER);
-   *event = task_event(task);
+	command_queue_enqueue(cq, cmd, 0, NULL);
 
-   return command_queue_enqueue(cq, task, 0, 0, NULL);
+	RETURN_EVENT(cmd, event);
+
+	return CL_SUCCESS;
+}
+
+cl_int command_marker_submit(command_marker cmd) {
+	struct starpu_task *task;
+	task = task_create(CL_COMMAND_MARKER);
+
+	task_submit(task, cmd);
 }
