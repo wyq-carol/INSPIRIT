@@ -45,7 +45,7 @@ static int _random_push_task(struct starpu_task *task, unsigned prio, struct sta
 	double alpha = 0.0;
 	for (worker_in_ctx = 0; worker_in_ctx < nworkers; worker_in_ctx++)
 	{
-                worker = sched_ctx->workerid[worker_in_ctx];
+        worker = sched_ctx->workerid[worker_in_ctx];
 
 		enum starpu_perf_archtype perf_arch = starpu_worker_get_perf_archtype(worker);
 		double worker_alpha = starpu_worker_get_relative_speedup(perf_arch);

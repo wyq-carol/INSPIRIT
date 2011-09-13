@@ -1,6 +1,7 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
  * Copyright (C) 2011  Université de Bordeaux 1
+ * Copyright (C) 2011  Télécom-SudParis
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -98,15 +99,15 @@ static void initialize_pgreedy_policy(unsigned sched_ctx_id)
 	PTHREAD_COND_INIT(&sched_cond, NULL);
 
 	for (workerid_ctx = 0; workerid_ctx < nworkers_in_ctx; workerid_ctx++)
-	  {
-                workerid = sched_ctx->workerid[workerid_ctx];
+	{
+      	workerid = sched_ctx->workerid[workerid_ctx];
 
 		PTHREAD_MUTEX_INIT(&master_sched_mutex[workerid], NULL);
 		PTHREAD_COND_INIT(&master_sched_cond[workerid], NULL);
 	}
 	for (workerid_ctx = 0; workerid_ctx < nworkers_in_ctx; workerid_ctx++)
-          {
-	        workerid = sched_ctx->workerid[workerid_ctx];
+    {
+		workerid = sched_ctx->workerid[workerid_ctx];
 
 		/* slaves pick up tasks from their local queue, their master
 		 * will put tasks directly in that local list when a parallel
@@ -130,8 +131,8 @@ static void initialize_pgreedy_policy(unsigned sched_ctx_id)
 
 #if 0
 	for (workerid_ctx = 0; workerid_ctx < nworkers_in_ctx; workerid_ctx++)
-          {
-                workerid = sched_ctx->workerid[workerid_ctx];
+	{
+        workerid = sched_ctx->workerid[workerid_ctx];
 
 		fprintf(stderr, "MASTER of %d = %d\n", workerid, master_id[workerid]);
 	}
@@ -178,7 +179,7 @@ static struct starpu_task *pop_task_pgreedy_policy(void)
 			if (possible_combinations_size[workerid][i] > best_size)
 			{
 				int combined_worker = possible_combinations[workerid][i];
-				if (starpu_combined_worker_may_execute_task(combined_worker, task))
+				if (starpu_combined_worker_may_execute_task(combined_worker, task, 0))
 				{
 					best_size = possible_combinations_size[workerid][i];
 					best_workerid = combined_worker;
