@@ -30,10 +30,11 @@ gpu=$2
 gpu1=$3
 gpu2=$4
 
-nmaxcpus=96
+nmaxcpus=$STARPU_NCPUS
+echo $nmaxcpus
 
-nmincpus1=20
-nmincpus2=20
+nmincpus1=1
+nmincpus2=1
 
 if [ $gpu1 -gt 0 ]
 then
