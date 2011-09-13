@@ -436,7 +436,7 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio, struct starp
 	int ntasks_best = -1;
 	double ntasks_best_end = 0.0;
 	int calibrating = 0;
-
+	
 	/* A priori, we know all estimations */
 	int unknown = 0;
 
@@ -444,7 +444,7 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio, struct starp
 	unsigned nimpl=0;
 	for (worker_in_ctx = 0; worker_in_ctx < nworkers_in_ctx; worker_in_ctx++)
 	{
-        worker = sched_ctx->workerid[worker_in_ctx];
+		worker = sched_ctx->workerid[worker_in_ctx];
 		for(nimpl  = 0; nimpl < STARPU_MAXIMPLEMENTATIONS; nimpl++)
 	 	{
 			fifo = dt->queue_array[worker_in_ctx];
@@ -462,7 +462,7 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio, struct starp
 			}
 
 			enum starpu_perf_archtype perf_arch = starpu_worker_get_perf_archtype(worker);
-			local_task_length[worker_in_ctx] = starpu_task_expected_length(task, perf_arch);
+			local_task_length[worker_in_ctx] = starpu_task_expected_length(task, perf_arch, nimpl);
 
 			//_STARPU_DEBUG("Scheduler dmda: task length (%lf) worker (%u) kernel (%u) \n", local_task_length[worker],worker,nimpl);
 

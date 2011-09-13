@@ -242,6 +242,8 @@ static void compute_all_performance_predictions(struct starpu_task *task,
 
   unsigned nworkers = sched_ctx->nworkers_in_ctx;
 
+  unsigned nimpl;
+  unsigned best_impl = 0;
   unsigned worker, worker_in_ctx;
   for (worker_in_ctx = 0; worker_in_ctx < nworkers; worker_in_ctx++)
     {
