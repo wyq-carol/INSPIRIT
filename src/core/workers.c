@@ -498,7 +498,6 @@ void starpu_shutdown(void)
 	PTHREAD_MUTEX_LOCK(&init_mutex);
 	init_count--;
 	if (init_count){
-		/* blocking if two instances of starpu - bug or functionality?*/
 		PTHREAD_MUTEX_UNLOCK(&init_mutex);
 		/* Still somebody needing StarPU, don't deinitialize */
 		return;
