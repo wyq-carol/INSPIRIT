@@ -3,7 +3,7 @@
 #export STARPU_NCPUS=9
 #export STARPU_DIR=$HOME/sched_ctx/build
 
-source sched.sh isole 0 0 0 
+#source sched.sh isole 0 0 0 
 
 source sched.sh isole 0 0 3 
 source sched.sh isole 0 1 2

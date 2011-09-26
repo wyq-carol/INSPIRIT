@@ -1,8 +1,10 @@
 #!/bin/bash
 
+rm -rf res_*
 compute_effic=$1
 #for one matrix 20000 x 20000 and one of 10000 x 10000
 ninstr=2999999987712
+#no_ctx_prefix=../../../../trunk2/trunk/tests/cholesky_and_lu/timings-sched_attila
 no_ctx_prefix=../cholesky_no_ctxs/timings-sched
 ctx_prefix=timings-sched
 
