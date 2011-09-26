@@ -35,9 +35,9 @@ typedef struct {
 	double idle_power;
 } heft_data;
 
-static double exp_start[STARPU_NMAXWORKERS];
-static double exp_end[STARPU_NMAXWORKERS];
-static double exp_len[STARPU_NMAXWORKERS];
+static double exp_start[STARPU_NMAXWORKERS];	/* of the first queued task */
+static double exp_end[STARPU_NMAXWORKERS];	/* of the set of queued tasks */
+static double exp_len[STARPU_NMAXWORKERS];	/* of the last queued task */
 static double ntasks[STARPU_NMAXWORKERS];
 
 
