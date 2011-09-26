@@ -3,6 +3,7 @@
  * Copyright (C) 2009, 2010, 2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
  * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
+ * Copyright (C) 2011  INRIA
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -172,7 +173,7 @@ double run_cholesky_implicit(int start, int argc, char **argv, double *timing, p
 
 	int size;
 	int nblocks;
-	parse_args_ctx(start, argc, argv, &size, &nblocks);
+	parse_args_2kernels(start, argc, argv, &size, &nblocks);
 
 	//	starpu_init(NULL);
 

@@ -2,6 +2,7 @@
  *
  * Copyright (C) 2009, 2010, 2011  Université de Bordeaux 1
  * Copyright (C) 2010  Centre National de la Recherche Scientifique
+ * Copyright (C) 2011  INRIA
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -117,7 +118,7 @@ static void __attribute__((unused)) parse_args(int argc, char **argv, int *size,
 	}
 }
 
-static void __attribute__((unused)) parse_args_ctx(int start, int argc, char **argv, int *size, int *nblocks)
+static void __attribute__((unused)) parse_args_2kernels(int start, int argc, char **argv, int *size, int *nblocks)
 {
 	int i;
 	for (i = start; i < argc; i++) {
