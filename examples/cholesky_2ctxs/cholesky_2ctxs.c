@@ -8,7 +8,7 @@ typedef struct {
   unsigned ctx;
   int the_other_ctx;
   int *procs;
-  int ncpus;
+  int nprocs;
 } params;
 
 typedef struct {
@@ -36,6 +36,7 @@ void* func_cholesky(void *val){
     {
       rv->flops += run_cholesky_implicit(sched_ctx, p->start, p->argc, p->argv, &timing, &barrier);
       rv->avg_timing += timing;
+
     }
 
 
@@ -57,15 +58,15 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
 			  unsigned cpu1, unsigned cpu2,
 			  unsigned gpu, unsigned gpu1, unsigned gpu2){
 
-  int ncpus1 = cpu1 + gpu + gpu1;
-  int ncpus2 = cpu2 + gpu + gpu2;
+  int nprocs1 = cpu1 + gpu + gpu1;
+  int nprocs2 = cpu2 + gpu + gpu2;
   unsigned n_all_gpus = gpu + gpu1 + gpu2;
 
   /* 2 cholesky in different ctxs */
   starpu_init(NULL);
   starpu_helper_cublas_init();
 
-  int procs[ncpus1];
+  int procs[nprocs1];
   int i;
   int k = 0;
 
@@ -89,11 +90,11 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
   //printf("\n");
 
 
-  p1->ctx = starpu_create_sched_ctx("heft", procs, ncpus1, "cholesky1");
+  p1->ctx = starpu_create_sched_ctx("heft", procs, nprocs1, "cholesky1");
   p2->the_other_ctx = (int)p1->ctx;
   p1->procs = procs;
-  p1->ncpus = ncpus1;
-  int procs2[ncpus2];
+  p1->nprocs = nprocs1;
+  int procs2[nprocs2];
 
   k = 0;
 
@@ -114,10 +115,10 @@ void cholesky_vs_cholesky(params *p1, params *p2, params *p3,
 
   //  printf("\n");
 
-  p2->ctx = starpu_create_sched_ctx("prio", procs2, ncpus2, "cholesky2");
+  p2->ctx = starpu_create_sched_ctx("prio", procs2, nprocs2, "cholesky2");
   p1->the_other_ctx = (int)p2->ctx;
   p2->procs = procs2;
-  p2->ncpus = ncpus2;
+  p2->nprocs = nprocs2;
 
   pthread_t tid[2];
   pthread_barrier_init(&barrier, NULL, 2);
