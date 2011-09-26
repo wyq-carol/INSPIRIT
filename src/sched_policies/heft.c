@@ -35,10 +35,10 @@ typedef struct {
 	double idle_power;
 } heft_data;
 
-double exp_start[STARPU_NMAXWORKERS];
-double exp_end[STARPU_NMAXWORKERS];
-double exp_len[STARPU_NMAXWORKERS];
-double ntasks[STARPU_NMAXWORKERS];
+static double exp_start[STARPU_NMAXWORKERS];
+static double exp_end[STARPU_NMAXWORKERS];
+static double exp_len[STARPU_NMAXWORKERS];
+static double ntasks[STARPU_NMAXWORKERS];
 
 
 const float alpha_minimum=0;
