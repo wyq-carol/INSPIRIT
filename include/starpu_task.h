@@ -174,9 +174,9 @@ struct starpu_task {
 	 * by hand (without starpu_task_create), this field should be set to
 	 * NULL. */
 	void *starpu_private;
-     
-    unsigned sched_ctx;
-  
+
+	/* Scheduling context */
+	unsigned sched_ctx;
 };
 
 /* It is possible to initialize statically allocated tasks with this value.

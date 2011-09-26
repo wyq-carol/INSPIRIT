@@ -1,6 +1,6 @@
 /* StarPU --- Runtime system for heterogeneous multicore architectures.
  *
- * Copyright (C) 2010  Université de Bordeaux 1
+ * Copyright (C) 2010-2011  Université de Bordeaux 1
  * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
  *
  * StarPU is free software; you can redistribute it and/or modify
@@ -238,7 +238,7 @@ int starpu_data_cpy(starpu_data_handle dst_handle, starpu_data_handle src_handle
 #define STARPU_PRIORITY		(1<<7)	/* Priority associated to the task */
 #define STARPU_EXECUTE_ON_NODE	(1<<8)	/* Used by MPI to define which task is going to execute the codelet */
 #define STARPU_EXECUTE_ON_DATA	(1<<9)	/* Used by MPI to define which task is going to execute the codelet */
-#define STARPU_CTX		(1<<10)	/* Used to define which ctx will execute the */
+#define STARPU_CTX		(1<<10)	/* Used to define which ctx will execute the codelet */
 
 /* Wrapper to create a task. */
 int starpu_insert_task(starpu_codelet *cl, ...);
