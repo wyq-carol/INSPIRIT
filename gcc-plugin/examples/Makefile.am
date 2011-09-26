@@ -14,12 +14,30 @@
 # See the GNU Lesser General Public License in COPYING.LGPL for more details.
 
 noinst_PROGRAMS =				\
-  matrix-mult
+  matrix-mult stencil5
+
+if !NO_BLAS_LIB
+noinst_PROGRAMS +=				\
+  cholesky/cholesky
+endif
 
 AM_LDFLAGS = $(top_builddir)/src/libstarpu.la
 
 AM_CPPFLAGS =						\
   -I$(top_srcdir)/include				\
+  -I$(top_srcdir)/examples				\
   $(STARPU_OPENCL_CPPFLAGS) $(STARPU_CUDA_CPPFLAGS)
 
 AM_CFLAGS = -fplugin="$(builddir)/../src/.libs/starpu.so" -Wall
+
+if !NO_BLAS_LIB
+cholesky_cholesky_SOURCES	=		\
+	cholesky/cholesky.c		\
+	cholesky/cholesky_models.c	\
+	cholesky/cholesky_kernels.c	\
+	$(top_srcdir)/examples/common/blas.c
+
+cholesky_cholesky_LDADD	=	\
+	$(STARPU_BLAS_LDFLAGS)
+endif
+

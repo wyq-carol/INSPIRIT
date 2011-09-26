@@ -429,12 +429,12 @@ static void benchmark_all_gpu_devices(void)
 #endif
 
 	struct starpu_machine_config_s *config = _starpu_get_machine_config();
-	ncpus = _starpu_topology_get_nhwcpu(config);
+	ncpus = config->topology.ncpus;
 
 	/* TODO: measure bandwidth between GPU-GPU */
 
 #ifdef STARPU_USE_CUDA
-        cudaGetDeviceCount(&ncuda);
+	ncuda = _starpu_get_cuda_device_count();
 	for (i = 0; i < ncuda; i++)
 	{
 		fprintf(stderr," CUDA %d...", i);
@@ -481,7 +481,7 @@ static void get_bus_path(const char *type, char *path, size_t maxlen)
 	char hostname[32];
 	char *forced_hostname = getenv("STARPU_HOSTNAME");
 	if (forced_hostname && forced_hostname[0])
-		snprintf(hostname, sizeof(hostname), forced_hostname);
+		snprintf(hostname, sizeof(hostname), "%s", forced_hostname);
 	else
 		gethostname(hostname, sizeof(hostname));
 	strncat(path, ".", maxlen);
@@ -509,11 +509,11 @@ static void load_bus_affinity_file_content(void)
 
 #if defined(STARPU_USE_CUDA) || defined(STARPU_USE_OPENCL)
 	struct starpu_machine_config_s *config = _starpu_get_machine_config();
-	ncpus = _starpu_topology_get_nhwcpu(config);
+	ncpus = config->topology.ncpus;
         int gpu;
 
 #ifdef STARPU_USE_CUDA
-        cudaGetDeviceCount(&ncuda);
+	ncuda = _starpu_get_cuda_device_count();
 	for (gpu = 0; gpu < ncuda; gpu++)
 	{
 		int ret;
@@ -1020,9 +1020,9 @@ static void check_bus_config_file()
                 fclose(f);
 
                 // Loading current configuration
-                ncpus = _starpu_topology_get_nhwcpu(config);
+                ncpus = config->topology.ncpus;
 #ifdef STARPU_USE_CUDA
-                cudaGetDeviceCount(&ncuda);
+		ncuda = _starpu_get_cuda_device_count();
 #endif
 #ifdef STARPU_USE_OPENCL
                 nopencl = _starpu_opencl_get_device_count();

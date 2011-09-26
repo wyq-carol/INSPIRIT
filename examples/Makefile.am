@@ -112,6 +112,9 @@ noinst_HEADERS = 				\
 	lu/xlu_kernels.h			\
 	lu/float.h				\
 	lu/double.h				\
+	lu/complex_float.h			\
+	lu/complex_double.h			\
+	lu/blas_complex.h			\
 	cholesky/cholesky.h			\
 	common/blas_model.h			\
 	common/blas.h				\
@@ -195,6 +198,14 @@ examplebin_PROGRAMS +=				\
 	cg/cg
 endif
 
+if MKL_BLAS_LIB
+examplebin_PROGRAMS +=				\
+	lu/lu_example_complex_float		\
+	lu/lu_example_complex_double		\
+	lu/lu_implicit_example_complex_float	\
+	lu/lu_implicit_example_complex_double
+endif
+
 if ATLAS_BLAS_LIB
 examplebin_PROGRAMS +=				\
 	spmv/dw_block_spmv
@@ -242,6 +253,14 @@ STARPU_EXAMPLES +=				\
 	lu/lu_implicit_example_double		\
 	heat/heat				\
 	cg/cg
+endif
+
+if MKL_BLAS_LIB
+STARPU_EXAMPLES +=				\
+	lu/lu_example_complex_float		\
+	lu/lu_example_complex_double		\
+	lu/lu_implicit_example_complex_float	\
+	lu/lu_implicit_example_complex_double
 endif
 
 if ATLAS_BLAS_LIB
@@ -466,7 +485,55 @@ lu_lu_implicit_example_double_SOURCES =		\
 
 lu_lu_implicit_example_double_LDADD =		\
 	$(STARPU_BLAS_LDFLAGS)
+
+if MKL_BLAS_LIB
+lu_lu_example_complex_float_SOURCES =		\
+	lu/lu_example_complex_float.c		\
+	lu/clu.c				\
+	lu/clu_pivot.c				\
+	lu/clu_kernels.c			\
+	lu/blas_complex.c			\
+	common/blas.c
+
+lu_lu_example_complex_float_LDADD =		\
+	$(STARPU_BLAS_LDFLAGS)
+
+lu_lu_implicit_example_complex_float_SOURCES =	\
+	lu/lu_example_complex_float.c		\
+	lu/clu_implicit.c			\
+	lu/clu_implicit_pivot.c			\
+	lu/clu_kernels.c			\
+	lu/blas_complex.c			\
+	common/blas.c
+
+lu_lu_implicit_example_complex_float_LDADD =	\
+	$(STARPU_BLAS_LDFLAGS)
+
+lu_lu_example_complex_double_SOURCES =		\
+	lu/lu_example_complex_double.c		\
+	lu/zlu.c				\
+	lu/zlu_pivot.c				\
+	lu/zlu_kernels.c			\
+	lu/blas_complex.c			\
+	common/blas.c
+
+lu_lu_example_complex_double_LDADD =		\
+	$(STARPU_BLAS_LDFLAGS)
+
+lu_lu_implicit_example_complex_double_SOURCES =	\
+	lu/lu_example_complex_double.c		\
+	lu/zlu_implicit.c			\
+	lu/zlu_implicit_pivot.c			\
+	lu/zlu_kernels.c			\
+	lu/blas_complex.c			\
+	common/blas.c
+
+lu_lu_implicit_example_complex_double_LDADD =	\
+	$(STARPU_BLAS_LDFLAGS)
+
 endif
+endif
+
 
 ###########################
 # 2 Cholesky in 2 ctxs  example #

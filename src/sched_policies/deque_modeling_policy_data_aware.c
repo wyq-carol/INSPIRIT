@@ -478,6 +478,7 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio, struct starp
 					) {
 				ntasks_best_end = ntasks_end;
 				ntasks_best = worker;
+
 			}
 
 			if (local_task_length[worker_in_ctx] == -1.0)
@@ -492,7 +493,7 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio, struct starp
 				unknown = 1;
 
 			if (unknown)
-				continue;
+					continue;
 
 			exp_end[worker_in_ctx] = fifo->exp_start + fifo->exp_len + local_task_length[worker_in_ctx];
 
@@ -501,6 +502,7 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio, struct starp
 				/* a better solution was found */
 				best_exp_end = exp_end[worker_in_ctx];
 				best_impl = nimpl;
+
 			}
 
 			local_power[worker_in_ctx] = starpu_task_expected_power(task, perf_arch, nimpl);
