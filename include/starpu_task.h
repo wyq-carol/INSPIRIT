@@ -178,6 +178,10 @@ struct starpu_task {
 
 	/* Scheduling context */
 	unsigned sched_ctx;
+
+	/* flag to differentiate tasks needed by starpu management purposes 
+	 from the ones provided by the appl*/
+	unsigned specific_starpu;
 };
 
 /* It is possible to initialize statically allocated tasks with this value.
@@ -202,7 +206,8 @@ struct starpu_task {
 	.profiling_info = NULL,				\
 	.predicted = -1.0,				\
 	.starpu_private = NULL,				\
-	.sched_ctx = 0					\
+	.sched_ctx = 0,					\
+	.specific_starpu = 1				\
 };
 
 /*
@@ -264,8 +269,12 @@ struct starpu_task *starpu_task_create(void);
  * structure (default behaviour). Calling this function on a statically
  * allocated task results in an undefined behaviour. */
 void starpu_task_destroy(struct starpu_task *task);
+
 int starpu_task_submit(struct starpu_task *task);
-int starpu_task_submit_to_ctx(struct starpu_task *task, unsigned sched_ctx);
+	
+void starpu_set_sched_ctx(unsigned *sched_ctx);
+
+unsigned starpu_get_sched_ctx();
 
 /* This function blocks until the task was executed. It is not possible to
  * synchronize with a task more than once. It is not possible to wait

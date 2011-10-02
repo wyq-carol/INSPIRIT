@@ -81,6 +81,8 @@ void starpu_task_init(struct starpu_task *task)
 	task->starpu_private = NULL;
 
 	task->sched_ctx = _starpu_get_initial_sched_ctx()->sched_ctx_id;
+	
+	task->specific_starpu = 1;
 }
 
 /* Free all the ressources allocated for a task, without deallocating the task
@@ -226,10 +228,13 @@ int _starpu_submit_job(starpu_job_t j, unsigned do_not_increment_nsubmitted)
 }
 
 /* application should submit new tasks to StarPU through this function */
-int starpu_task_submit_to_ctx(struct starpu_task *task, unsigned sched_ctx)
+int starpu_task_submit(struct starpu_task *task)
 {
-	task->sched_ctx = sched_ctx;
-	  
+	unsigned nsched_ctxs = _starpu_get_nsched_ctxs();
+
+	task->sched_ctx = nsched_ctxs == 1 || task->specific_starpu ? 
+		0 : starpu_get_sched_ctx();
+
 	int ret;
 	unsigned is_sync = task->synchronous;
         _STARPU_LOG_IN();
@@ -308,11 +313,6 @@ int starpu_task_submit_to_ctx(struct starpu_task *task, unsigned sched_ctx)
 	return ret;
 }
 
-int starpu_task_submit(struct starpu_task *task){
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_initial_sched_ctx();
-	return  starpu_task_submit_to_ctx(task, sched_ctx->sched_ctx_id);
-}
-
 void starpu_display_codelet_stats(struct starpu_codelet_t *cl)
 {
 	unsigned worker;
@@ -342,18 +342,21 @@ void starpu_display_codelet_stats(struct starpu_codelet_t *cl)
  */
 int starpu_task_wait_for_all(void)
 {
-	if (STARPU_UNLIKELY(!_starpu_worker_may_perform_blocking_calls()))
-		return -EDEADLK;
+	unsigned nsched_ctxs = _starpu_get_nsched_ctxs();
+	unsigned sched_ctx = nsched_ctxs == 1 ? 0 : starpu_get_sched_ctx();
+	starpu_wait_for_all_tasks_of_sched_ctx(sched_ctx);
 
-	PTHREAD_MUTEX_LOCK(&submitted_mutex);
+	/* if (STARPU_UNLIKELY(!_starpu_worker_may_perform_blocking_calls())) */
+	/* 	return -EDEADLK; */
 
-	STARPU_TRACE_TASK_WAIT_FOR_ALL;
+	/* PTHREAD_MUTEX_LOCK(&submitted_mutex); */
 
-	while (nsubmitted > 0)
-		PTHREAD_COND_WAIT(&submitted_cond, &submitted_mutex);
+	/* STARPU_TRACE_TASK_WAIT_FOR_ALL; */
+
+	/* while (nsubmitted > 0) */
+	/* 	PTHREAD_COND_WAIT(&submitted_cond, &submitted_mutex); */
 	
-	PTHREAD_MUTEX_UNLOCK(&submitted_mutex);
-
+	/* PTHREAD_MUTEX_UNLOCK(&submitted_mutex); */
 	return 0;
 }
 

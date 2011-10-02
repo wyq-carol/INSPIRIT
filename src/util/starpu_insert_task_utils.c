@@ -145,7 +145,6 @@ int _starpu_pack_cl_args(size_t arg_buffer_size, char **arg_buffer, va_list varg
 int _starpu_insert_task_create_and_submit(char *arg_buffer, starpu_codelet *cl, struct starpu_task **task, va_list varg_list) {
         int arg_type;
 	unsigned current_buffer = 0;
-	unsigned ctx = 0;
 
 	struct insert_task_cb_wrapper *cl_arg_wrapper = (struct insert_task_cb_wrapper *) malloc(sizeof(struct insert_task_cb_wrapper));
 	STARPU_ASSERT(cl_arg_wrapper);
@@ -194,11 +193,6 @@ int _starpu_insert_task_create_and_submit(char *arg_buffer, starpu_codelet *cl, 
 		else if (arg_type==STARPU_EXECUTE_ON_DATA) {
 			va_arg(varg_list, starpu_data_handle);
 		}
-
-		else if (arg_type==STARPU_CTX) {
-			ctx = va_arg(varg_list, unsigned);
-		}
-
 	}
 
 	va_end(varg_list);
@@ -213,7 +207,7 @@ int _starpu_insert_task_create_and_submit(char *arg_buffer, starpu_codelet *cl, 
 	(*task)->callback_func = starpu_task_insert_callback_wrapper;
 	(*task)->callback_arg = cl_arg_wrapper;
 
-	 int ret = starpu_task_submit_to_ctx(*task, ctx);
+	 int ret = starpu_task_submit(*task);
 
 	if (STARPU_UNLIKELY(ret == -ENODEV))
           fprintf(stderr, "submission of task %p wih codelet %p failed (symbol `%s')\n", *task, (*task)->cl, ((*task)->cl->model && (*task)->cl->model->symbol)?(*task)->cl->model->symbol:"none");

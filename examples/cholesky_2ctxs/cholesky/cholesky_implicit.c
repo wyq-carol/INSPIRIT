@@ -90,7 +90,6 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, unsigned sch
 				   STARPU_PRIORITY, prio_level,
 				   STARPU_RW, sdatakk,
 				   STARPU_CALLBACK, (k == 3*nblocks/4)?callback_turn_spmd_on:NULL,
-				   STARPU_CTX, sched_ctx,
 				   0);
 
 		for (j = k+1; j<nblocks; j++)
@@ -100,7 +99,6 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, unsigned sch
 					   STARPU_PRIORITY, (j == k+1)?prio_level:STARPU_DEFAULT_PRIO,
 					   STARPU_R, sdatakk,
 					   STARPU_RW, sdatakj,
-					   STARPU_CTX, sched_ctx,
 					   0);
 
 			for (i = k+1; i<nblocks; i++)
@@ -115,18 +113,14 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, unsigned sch
 							   STARPU_R, sdataki,
 							   STARPU_R, sdatakj,
 							   STARPU_RW, sdataij,
-							   STARPU_CTX, sched_ctx,
 							   0);
                                 }
 			}
 		}
 	}
 
-	if(sched_ctx != 0)
-		starpu_wait_for_all_tasks_of_sched_ctx(sched_ctx);
-	else
-		starpu_task_wait_for_all();
-
+	starpu_task_wait_for_all();
+		
 	starpu_data_unpartition(dataA, 0);
 
 	gettimeofday(&end, NULL);
@@ -214,8 +208,7 @@ double run_cholesky_implicit(unsigned sched_ctx, int start, int argc, char **arg
 		printf("\n");
 	}
 #endif
-	//	if(barrier != NULL)
-	//	  pthread_barrier_wait(barrier);
+//	starpu_set_sched_ctx(&sched_ctx);
 	double gflops = cholesky(mat, size, size, nblocks, sched_ctx, timing);
 
 #ifdef PRINT_OUTPUT

@@ -91,4 +91,7 @@ pthread_mutex_t *_starpu_get_sched_mutex(struct starpu_sched_ctx *sched_ctx, int
 
 /* Get the cond corresponding to the global workerid */
 pthread_cond_t *_starpu_get_sched_cond(struct starpu_sched_ctx *sched_ctx, int worker);
+
+/* Get the total number of sched_ctxs created till now */
+unsigned _starpu_get_nsched_ctxs();
 #endif // __SCHED_CONTEXT_H__

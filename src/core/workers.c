@@ -389,11 +389,13 @@ int starpu_init(struct starpu_conf *user_conf)
 
 	/* initialize the scheduling policy */
 
+	struct starpu_sched_ctx *sched_ctx;
 	if(user_conf == NULL)
-	  _starpu_create_sched_ctx(NULL, NULL, -1, 1, "init");
+		sched_ctx = _starpu_create_sched_ctx(NULL, NULL, -1, 1, "init");
 	else
-	  _starpu_create_sched_ctx(user_conf->sched_policy_name, NULL, -1, 1, "init");
+		sched_ctx = _starpu_create_sched_ctx(user_conf->sched_policy_name, NULL, -1, 1, "init");
 
+	starpu_set_sched_ctx(&sched_ctx->sched_ctx_id);
 	_starpu_initialize_registered_performance_models();
 
 	/* Launch "basic" workers (ie. non-combined workers) */

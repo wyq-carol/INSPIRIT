@@ -40,7 +40,7 @@ pthread_barrier_t barrier;
 
 void* func_cholesky(void *val){
   params *p = (params*)val;
-  unsigned sched_ctx = p->ctx;
+  unsigned *sched_ctx = &p->ctx;
   int the_other_ctx = p->the_other_ctx;
 
   int i;
@@ -48,9 +48,11 @@ void* func_cholesky(void *val){
   rv->flops = 0;
   rv->avg_timing = 0;
   double timing = 0;
+
+  starpu_set_sched_ctx(sched_ctx);
   for(i = 0; i < NSAMPLES; i++)
     {
-      rv->flops += run_cholesky_implicit(sched_ctx, p->start, p->argc, p->argv, &timing, &barrier);
+      rv->flops += run_cholesky_implicit(*sched_ctx, p->start, p->argc, p->argv, &timing, &barrier);
       rv->avg_timing += timing;
 
     }
