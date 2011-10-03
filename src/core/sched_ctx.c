@@ -98,7 +98,7 @@ static void _starpu_update_workers(int *workerids_in_ctx, int nworkerids_in_ctx,
 
 		_starpu_exclude_task_from_dag(tasks[i]);
 
-		ret = starpu_task_submit(tasks[i]);
+		ret = _starpu_task_submit_internal(tasks[i]);
 		if (ret == -ENODEV)
 		  {
 		    /* if the worker is not able to execute this tasks, we

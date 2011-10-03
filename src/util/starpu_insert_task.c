@@ -77,6 +77,5 @@ int starpu_insert_task(starpu_codelet *cl, ...)
 
 	va_start(varg_list, cl);
         struct starpu_task *task = starpu_task_create();
-	task->specific_starpu = 0;
         return _starpu_insert_task_create_and_submit(arg_buffer, cl, &task, varg_list);
 }

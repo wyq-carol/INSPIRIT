@@ -82,7 +82,7 @@ void starpu_task_init(struct starpu_task *task)
 
 	task->sched_ctx = _starpu_get_initial_sched_ctx()->sched_ctx_id;
 	
-	task->specific_starpu = 1;
+	task->specific_starpu = 0;
 }
 
 /* Free all the ressources allocated for a task, without deallocating the task
@@ -311,6 +311,12 @@ int starpu_task_submit(struct starpu_task *task)
 
         _STARPU_LOG_OUT();
 	return ret;
+}
+
+int _starpu_task_submit_internal(struct starpu_task *task)
+{
+	task->specific_starpu = 1;
+	return starpu_task_submit(task);
 }
 
 void starpu_display_codelet_stats(struct starpu_codelet_t *cl)

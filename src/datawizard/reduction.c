@@ -183,7 +183,7 @@ void starpu_data_end_reduction_mode(starpu_data_handle handle)
 					/* we don't perform the reduction until both replicates are ready */
 					starpu_task_declare_deps_array(redux_task, ndeps, task_deps); 
 		
-					int ret = starpu_task_submit(redux_task);
+					int ret = _starpu_task_submit_internal(redux_task);
 					STARPU_ASSERT(!ret);
 		
 				}
@@ -213,7 +213,7 @@ void starpu_data_end_reduction_mode(starpu_data_handle handle)
 		if (last_replicate_deps[0])
 			starpu_task_declare_deps_array(redux_task, 1, &last_replicate_deps[0]);
 
-		int ret = starpu_task_submit(redux_task);
+		int ret = _starpu_task_submit_internal(redux_task);
 		STARPU_ASSERT(!ret);
 
 #else
@@ -239,7 +239,7 @@ void starpu_data_end_reduction_mode(starpu_data_handle handle)
 			redux_task->buffers[1].handle = replicate_array[replicate];
 			redux_task->buffers[1].mode = STARPU_R;
 	
-			int ret = starpu_task_submit(redux_task);
+			int ret = _starpu_task_submit_internal(redux_task);
 			STARPU_ASSERT(!ret);
 		}
 #endif

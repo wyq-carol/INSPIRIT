@@ -261,7 +261,7 @@ void _starpu_detect_implicit_data_deps_with_handle(struct starpu_task *pre_sync_
 
 				_starpu_add_writer_after_readers(handle, new_sync_task, new_sync_task);
 
-				starpu_task_submit(new_sync_task);
+				_starpu_task_submit_internal(new_sync_task);
 			}
 	
 			_starpu_add_reader_after_writer(handle, pre_sync_task, post_sync_task);
@@ -444,7 +444,7 @@ void _starpu_unlock_post_sync_tasks(starpu_data_handle handle)
 			/* There is no need to depend on that task now, since it was already unlocked */
 			_starpu_release_data_enforce_sequential_consistency(link->task, handle);
 
-			int ret = starpu_task_submit(link->task);
+			int ret = _starpu_task_submit_internal(link->task);
 			STARPU_ASSERT(!ret);
 			link = link->next;
 		}
@@ -474,7 +474,7 @@ int _starpu_data_wait_until_available(starpu_data_handle handle, starpu_access_m
 		PTHREAD_MUTEX_UNLOCK(&handle->sequential_consistency_mutex);
 
 		/* TODO detect if this is superflous */
-		int ret = starpu_task_submit(sync_task);
+		int ret = _starpu_task_submit_internal(sync_task);
 		STARPU_ASSERT(!ret);
 		starpu_task_wait(sync_task);
 	}

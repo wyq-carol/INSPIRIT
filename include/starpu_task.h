@@ -207,7 +207,7 @@ struct starpu_task {
 	.predicted = -1.0,				\
 	.starpu_private = NULL,				\
 	.sched_ctx = 0,					\
-	.specific_starpu = 1				\
+	.specific_starpu = 0				\
 };
 
 /*
