@@ -135,10 +135,11 @@ void _starpu_wait_job(starpu_job_t j)
         _STARPU_LOG_OUT();
 }
 
-void _starpu_handle_job_termination(starpu_job_t j, unsigned job_is_already_locked)
+void _starpu_handle_job_termination(starpu_job_t j, unsigned job_is_already_locked, int workerid)
 {
 	struct starpu_task *task = j->task;
-
+	unsigned sched_ctx = task->sched_ctx;
+	
 	if (!job_is_already_locked)
 		PTHREAD_MUTEX_LOCK(&j->sync_mutex);
 
@@ -234,6 +235,12 @@ void _starpu_handle_job_termination(starpu_job_t j, unsigned job_is_already_lock
 	else {
 		_starpu_decrement_nsubmitted_tasks();
 	}
+	if(workerid >= 0)
+	{
+		_starpu_decrement_nsubmitted_tasks_of_worker(workerid);
+		_starpu_decrement_nsubmitted_tasks_of_sched_ctx(sched_ctx);
+	}
+			
 }
 
 /* This function is called when a new task is submitted to StarPU 

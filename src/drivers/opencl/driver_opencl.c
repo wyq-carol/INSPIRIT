@@ -494,11 +494,7 @@ void *_starpu_opencl_worker(void *arg)
 			}
 		}
 
-		struct starpu_sched_ctx *local_sched_ctx = _starpu_get_sched_ctx(j->task->sched_ctx);
-		_starpu_handle_job_termination(j, 0);
-		_starpu_decrement_nsubmitted_tasks_of_worker(args->workerid);
-                _starpu_decrement_nsubmitted_tasks_of_sched_ctx(local_sched_ctx);
-
+		_starpu_handle_job_termination(j, 0, workerid);
 	}
 
 	STARPU_TRACE_WORKER_DEINIT_START

@@ -535,13 +535,16 @@ int starpu_wait_for_all_tasks_of_sched_ctx(unsigned sched_ctx_id)
 	return _starpu_barrier_counter_wait_for_empty_counter(&sched_ctx->tasks_barrier);
 }
 
-void _starpu_decrement_nsubmitted_tasks_of_sched_ctx(struct starpu_sched_ctx *sched_ctx)
+void _starpu_decrement_nsubmitted_tasks_of_sched_ctx(unsigned sched_ctx_id)
 {
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	_starpu_barrier_counter_decrement_until_empty_counter(&sched_ctx->tasks_barrier);
+//	printf("%d: %d\n", sched_ctx_id, sched_ctx->tasks_barrier.barrier.reached_start);
 }
 
-void _starpu_increment_nsubmitted_tasks_of_sched_ctx(struct starpu_sched_ctx *sched_ctx)
+void _starpu_increment_nsubmitted_tasks_of_sched_ctx(unsigned sched_ctx_id)
 {
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	_starpu_barrier_counter_increment(&sched_ctx->tasks_barrier);
 }
 

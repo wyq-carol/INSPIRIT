@@ -80,8 +80,8 @@ void _starpu_increment_nsubmitted_tasks_of_worker(int workerid);
 
 /* In order to implement starpu_wait_for_all_tasks_of_ctx, we keep track of the number of 
  * task currently submitted to the context */
-void _starpu_decrement_nsubmitted_tasks_of_sched_ctx(struct starpu_sched_ctx *sched_ctx);
-void _starpu_increment_nsubmitted_tasks_of_sched_ctx(struct starpu_sched_ctx *sched_ctx);
+void _starpu_decrement_nsubmitted_tasks_of_sched_ctx(unsigned sched_ctx_id);
+void _starpu_increment_nsubmitted_tasks_of_sched_ctx(unsigned sched_ctx_id);
 
 /* Return the corresponding index of the workerid in the ctx table */
 int _starpu_get_index_in_ctx_of_workerid(unsigned sched_ctx, unsigned workerid);

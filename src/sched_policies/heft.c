@@ -151,20 +151,18 @@ static void heft_init(unsigned sched_ctx_id)
 static void heft_post_exec_hook(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	int workerid = starpu_worker_get_id();
-	if(workerid >= 0)
-	  {
-		struct starpu_worker_s *worker = _starpu_get_worker_struct(workerid);
-		double model = task->predicted;
-		
-		/* Once we have executed the task, we can update the predicted amount
-		 * of work. */
-		PTHREAD_MUTEX_LOCK(worker->sched_mutex);
-		exp_len[workerid] -= model;
-		exp_start[workerid] = starpu_timing_now() + model;
-		exp_end[workerid] = exp_start[workerid] + exp_len[workerid];
-		ntasks[workerid]--;
-		PTHREAD_MUTEX_UNLOCK(worker->sched_mutex);
-	  }
+	STARPU_ASSERT(workerid >= 0);
+	struct starpu_worker_s *worker = _starpu_get_worker_struct(workerid);
+	double model = task->predicted;
+	
+	/* Once we have executed the task, we can update the predicted amount
+	 * of work. */
+	PTHREAD_MUTEX_LOCK(worker->sched_mutex);
+	exp_len[workerid] -= model;
+	exp_start[workerid] = starpu_timing_now() + model;
+	exp_end[workerid] = exp_start[workerid] + exp_len[workerid];
+	ntasks[workerid]--;
+	PTHREAD_MUTEX_UNLOCK(worker->sched_mutex);
 }
 
 static void heft_push_task_notify(struct starpu_task *task, int workerid, unsigned sched_ctx_id)

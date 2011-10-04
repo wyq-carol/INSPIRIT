@@ -217,6 +217,7 @@ void _starpu_deinit_sched_policy(struct starpu_machine_config_s *config, struct 
  * each worker of the combination. */
 static int _starpu_push_task_on_specific_worker(struct starpu_task *task, int workerid)
 {
+	_starpu_increment_nsubmitted_tasks_of_worker(task->workerid);
 	int nbasic_workers = (int)starpu_worker_get_count();
 
 	/* Is this a basic worker or a combined worker ? */
@@ -296,7 +297,7 @@ int _starpu_push_task(starpu_job_t j, unsigned job_is_already_locked)
 	 * corresponding dependencies */
 	if (task->cl == NULL)
 	{
-		_starpu_handle_job_termination(j, job_is_already_locked);
+		_starpu_handle_job_termination(j, job_is_already_locked, -1);
                 _STARPU_LOG_OUT_TAG("handle_job_termination");
 		return 0;
 	}
@@ -304,7 +305,6 @@ int _starpu_push_task(starpu_job_t j, unsigned job_is_already_locked)
         int ret;
 	if (STARPU_UNLIKELY(task->execute_on_a_specific_worker))
 	{
-		_starpu_increment_nsubmitted_tasks_of_worker(task->workerid);
 		ret = _starpu_push_task_on_specific_worker(task, task->workerid);
 	}
 	else {
