@@ -62,6 +62,9 @@ struct starpu_sched_ctx {
 };
 
 struct starpu_machine_config_s;
+
+struct callback_list callback_lists[STARPU_NMAXWORKERS];
+
 /* init sched_ctx_id of all contextes*/
 void _starpu_init_all_sched_ctx(struct starpu_machine_config_s *config);
 

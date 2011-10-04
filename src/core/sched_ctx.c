@@ -62,11 +62,11 @@ static void _starpu_update_workers(int *workerids_in_ctx, int nworkerids_in_ctx,
 	struct starpu_task *tasks[nworkerids_in_ctx];
 
 	struct starpu_codelet_t sched_ctx_info_cl = {
-	  .where = STARPU_CPU|STARPU_CUDA|STARPU_OPENCL,
-	  .cuda_func = update_workers_func,
-	  .cpu_func = update_workers_func,
-	  .opencl_func = update_workers_func,
-	  .nbuffers = 0
+		.where = STARPU_CPU|STARPU_CUDA|STARPU_OPENCL,
+		.cuda_func = update_workers_func,
+		.cpu_func = update_workers_func,
+		.opencl_func = update_workers_func,
+		.nbuffers = 0
 	};
 
 	int i, ret;
@@ -90,11 +90,6 @@ static void _starpu_update_workers(int *workerids_in_ctx, int nworkerids_in_ctx,
 		tasks[i]->workerid = workerids_in_ctx[i];
 		tasks[i]->detach = 0;
 		tasks[i]->destroy = 0;
-
-#ifdef STARPU_USE_FXT
-                starpu_job_t job = _starpu_get_job_associated_to_task(tasks[i]);
-                job->model_name = "sched_ctx_info";
-#endif
 
 		_starpu_exclude_task_from_dag(tasks[i]);
 

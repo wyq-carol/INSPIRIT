@@ -190,7 +190,9 @@ void _starpu_handle_job_termination(starpu_job_t j, unsigned job_is_already_lock
 			starpu_clock_gettime(&task->profiling_info->callback_end_time);
 	}
 
-	_starpu_sched_post_exec_hook(task);
+	/* control task should not execute post_exec_hook */
+	if(task->cl != NULL)
+		_starpu_sched_post_exec_hook(task);
 
 	STARPU_TRACE_TASK_DONE(j);
 

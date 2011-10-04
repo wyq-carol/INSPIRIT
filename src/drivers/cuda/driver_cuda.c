@@ -312,21 +312,7 @@ void *_starpu_cuda_worker(void *arg)
 
 		_starpu_set_current_task(task);
 
-		if(j && j->model_name && strcmp(j->model_name, "sched_ctx_info") == 0)
-		  {
-			struct starpu_task *task = j->task;
-			STARPU_ASSERT(task);
-			struct starpu_codelet_t *cl = task->cl;
-			STARPU_ASSERT(cl);
-
-			cl_func func = cl->cuda_func;
-			STARPU_ASSERT(func);
-			func(task->interfaces, task->cl_arg);
-		  }
-		else
-		  {
-		    res = execute_job_on_cuda(j, args);
-		  }
+		res = execute_job_on_cuda(j, args);
 
 
 		_starpu_set_current_task(NULL);
