@@ -70,7 +70,7 @@ static void _starpu_destroy_priority_taskq(struct starpu_priority_taskq_s *prior
 static void initialize_eager_center_priority_policy_for_workers(unsigned sched_ctx_id, unsigned nnew_workers) 
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
-	unsigned nworkers_ctx = sched_ctx->nworkers_in_ctx;
+	unsigned nworkers_ctx = sched_ctx->nworkers;
 
 	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
 	unsigned ntotal_workers = config->topology.nworkers;
@@ -86,7 +86,7 @@ static void initialize_eager_center_priority_policy_for_workers(unsigned sched_c
 
 	/* take into account the new number of threads at the next push */
 	PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
-	sched_ctx->temp_nworkers_in_ctx = all_workers;
+	sched_ctx->temp_nworkers = all_workers;
 	PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
 }
 
@@ -108,7 +108,7 @@ static void initialize_eager_center_priority_policy(unsigned sched_ctx_id)
 	PTHREAD_MUTEX_INIT(global_sched_mutex, NULL);
 	PTHREAD_COND_INIT(global_sched_cond, NULL);
 
-	int nworkers = sched_ctx->nworkers_in_ctx;
+	int nworkers = sched_ctx->nworkers;
 	int workerid_ctx;
 	for (workerid_ctx = 0; workerid_ctx < nworkers; workerid_ctx++)
 	{

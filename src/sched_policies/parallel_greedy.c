@@ -49,19 +49,19 @@ static void initialize_pgreedy_policy(unsigned sched_ctx_id)
 	_starpu_sched_find_worker_combinations(topology);
 
 	unsigned workerid, workerid_ctx;;
-	unsigned ncombinedworkers, nworkers, nworkers_in_ctx;
+	unsigned ncombinedworkers, nworkers, nworkers_ctx;
 	
 	nworkers = topology->nworkers;
-	nworkers_in_ctx = sched_ctx->nworkers_in_ctx;
+	nworkers_ctx = sched_ctx->nworkers;
 	ncombinedworkers = starpu_combined_worker_get_count();
 
 	/* Find the master of each worker. We first assign the worker as its
 	 * own master, and then iterate over the different worker combinations
 	 * to find the biggest combination containing this worker. */
 
-	for (workerid_ctx = 0; workerid_ctx < nworkers_in_ctx; workerid_ctx++)
+	for (workerid_ctx = 0; workerid_ctx < nworkers_ctx; workerid_ctx++)
 	  {
-    	        workerid = sched_ctx->workerid[workerid_ctx];
+    	        workerid = sched_ctx->workerids[workerid_ctx];
 
 		int cnt = possible_combinations_cnt[workerid]++;
 		possible_combinations[workerid][cnt] = workerid;
@@ -98,16 +98,16 @@ static void initialize_pgreedy_policy(unsigned sched_ctx_id)
 	PTHREAD_MUTEX_INIT(&sched_mutex, NULL);
 	PTHREAD_COND_INIT(&sched_cond, NULL);
 
-	for (workerid_ctx = 0; workerid_ctx < nworkers_in_ctx; workerid_ctx++)
+	for (workerid_ctx = 0; workerid_ctx < nworkers_ctx; workerid_ctx++)
 	{
-      	workerid = sched_ctx->workerid[workerid_ctx];
+      	workerid = sched_ctx->workerids[workerid_ctx];
 
 		PTHREAD_MUTEX_INIT(&master_sched_mutex[workerid], NULL);
 		PTHREAD_COND_INIT(&master_sched_cond[workerid], NULL);
 	}
-	for (workerid_ctx = 0; workerid_ctx < nworkers_in_ctx; workerid_ctx++)
+	for (workerid_ctx = 0; workerid_ctx < nworkers_ctx; workerid_ctx++)
     {
-		workerid = sched_ctx->workerid[workerid_ctx];
+		workerid = sched_ctx->workerids[workerid_ctx];
 
 		/* slaves pick up tasks from their local queue, their master
 		 * will put tasks directly in that local list when a parallel
@@ -130,9 +130,9 @@ static void initialize_pgreedy_policy(unsigned sched_ctx_id)
 	}
 
 #if 0
-	for (workerid_ctx = 0; workerid_ctx < nworkers_in_ctx; workerid_ctx++)
+	for (workerid_ctx = 0; workerid_ctx < nworkers_ctx; workerid_ctx++)
 	{
-        workerid = sched_ctx->workerid[workerid_ctx];
+        workerid = sched_ctx->workerids[workerid_ctx];
 
 		fprintf(stderr, "MASTER of %d = %d\n", workerid, master_id[workerid]);
 	}

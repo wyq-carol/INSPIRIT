@@ -314,10 +314,10 @@ int _starpu_push_task(starpu_job_t j, unsigned job_is_already_locked)
 		   the context in order to avoid doing it during the computation of the
 		   best worker */
 		PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
-		if(sched_ctx->temp_nworkers_in_ctx != -1)
+		if(sched_ctx->temp_nworkers != -1)
 		  {
-		    sched_ctx->nworkers_in_ctx = sched_ctx->temp_nworkers_in_ctx;
-		    sched_ctx->temp_nworkers_in_ctx = -1;
+		    sched_ctx->nworkers = sched_ctx->temp_nworkers;
+		    sched_ctx->temp_nworkers = -1;
 		  }
 		/* don't push task on ctx at the same time workers are removed from ctx */
 		ret = sched_ctx->sched_policy->push_task(task, sched_ctx->id);

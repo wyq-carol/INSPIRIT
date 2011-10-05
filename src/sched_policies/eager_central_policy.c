@@ -28,20 +28,20 @@ static void initialize_eager_center_policy_for_workers(unsigned sched_ctx_id, un
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 
-	unsigned nworkers_ctx = sched_ctx->nworkers_in_ctx;
+	unsigned nworkers_ctx = sched_ctx->nworkers;
 	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
 	unsigned ntotal_workers = config->topology.nworkers;
 
 	unsigned all_workers = nnew_workers == ntotal_workers ? ntotal_workers : nworkers_ctx + nnew_workers;
 
-	unsigned workerid_in_ctx;
-	for (workerid_in_ctx = nworkers_ctx; workerid_in_ctx < all_workers; workerid_in_ctx++){
-		sched_ctx->sched_mutex[workerid_in_ctx] = sched_ctx->sched_mutex[0];
-		sched_ctx->sched_cond[workerid_in_ctx] = sched_ctx->sched_cond[0];
+	unsigned workerid_ctx;
+	for (workerid_ctx = nworkers_ctx; workerid_ctx < all_workers; workerid_ctx++){
+		sched_ctx->sched_mutex[workerid_ctx] = sched_ctx->sched_mutex[0];
+		sched_ctx->sched_cond[workerid_ctx] = sched_ctx->sched_cond[0];
 	}
 	/* take into account the new number of threads at the next push */
 	PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
-	sched_ctx->temp_nworkers_in_ctx = all_workers;
+	sched_ctx->temp_nworkers = all_workers;
 	PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
 }
 
@@ -58,11 +58,11 @@ static void initialize_eager_center_policy(unsigned sched_ctx_id)
 	PTHREAD_MUTEX_INIT(sched_mutex, NULL);
 	PTHREAD_COND_INIT(sched_cond, NULL);
 
-	int workerid_in_ctx;
-	int nworkers = sched_ctx->nworkers_in_ctx;
-	for (workerid_in_ctx = 0; workerid_in_ctx < nworkers; workerid_in_ctx++){
-		sched_ctx->sched_mutex[workerid_in_ctx] = sched_mutex;
-		sched_ctx->sched_cond[workerid_in_ctx] = sched_cond;
+	int workerid_ctx;
+	int nworkers = sched_ctx->nworkers;
+	for (workerid_ctx = 0; workerid_ctx < nworkers; workerid_ctx++){
+		sched_ctx->sched_mutex[workerid_ctx] = sched_mutex;
+		sched_ctx->sched_cond[workerid_ctx] = sched_cond;
 	}
 }
 
@@ -89,8 +89,8 @@ static int push_task_eager_policy(struct starpu_task *task, unsigned sched_ctx_i
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 	int i;
 	int workerid;
-	for(i = 0; i < sched_ctx->nworkers_in_ctx; i++){
-		workerid = sched_ctx->workerid[i]; 
+	for(i = 0; i < sched_ctx->nworkers; i++){
+		workerid = sched_ctx->workerids[i]; 
 		_starpu_increment_nsubmitted_tasks_of_worker(workerid);
 	}
 
@@ -115,9 +115,9 @@ static struct starpu_task *pop_task_eager_policy(unsigned sched_ctx_id)
 	if(task)
 	  {
 		int i;
-		for(i = 0; i <sched_ctx->nworkers_in_ctx; i++)
+		for(i = 0; i <sched_ctx->nworkers; i++)
 		  {
-			workerid = sched_ctx->workerid[i]; 
+			workerid = sched_ctx->workerids[i]; 
 			_starpu_decrement_nsubmitted_tasks_of_worker(workerid);
 		  }
 	  }

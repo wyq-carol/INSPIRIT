@@ -37,13 +37,13 @@ struct starpu_sched_ctx {
 	void *policy_data;
 	
 	/* list of indices of workers */
-	int workerid[STARPU_NMAXWORKERS]; 
+	int workerids[STARPU_NMAXWORKERS]; 
 	
 	/* number of threads in contex */
-	int nworkers_in_ctx; 
+	int nworkers; 
 
 	/* temporary variable for number of threads in contex */
-	int temp_nworkers_in_ctx; 
+	int temp_nworkers; 
   
 	/* mutext for temp_nworkers_in_ctx*/
 	pthread_mutex_t changing_ctx_mutex;

@@ -81,7 +81,7 @@ struct starpu_worker_s {
 	char short_name[10];
 
 	struct starpu_sched_ctx **sched_ctx;
-	unsigned nctxs; /* the no of contexts a worker belongs to*/
+	unsigned nsched_ctxs; /* the no of contexts a worker belongs to*/
 
 	struct _starpu_barrier_counter_t tasks_barrier; /* wait for the tasks submitted */
        
