@@ -25,10 +25,10 @@
 
 struct starpu_sched_ctx {
 	/* id of the context used in user mode*/
-	unsigned sched_ctx_id;
+	unsigned id;
 
 	/* name of context */
-	const char *sched_name;
+	const char *name;
 
 	/* policy of the context */
 	struct starpu_sched_policy_s *sched_policy;

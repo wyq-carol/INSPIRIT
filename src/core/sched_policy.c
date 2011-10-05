@@ -202,14 +202,14 @@ void _starpu_init_sched_policy(struct starpu_machine_config_s *config, struct st
 
 	load_sched_policy(selected_policy, sched_ctx);
 
-	sched_ctx->sched_policy->init_sched(sched_ctx->sched_ctx_id);
+	sched_ctx->sched_policy->init_sched(sched_ctx->id);
 }
 
 void _starpu_deinit_sched_policy(struct starpu_machine_config_s *config, struct starpu_sched_ctx *sched_ctx)
 {
         struct starpu_sched_policy_s *policy = sched_ctx->sched_policy;
 	if (policy->deinit_sched)
-		policy->deinit_sched(sched_ctx->sched_ctx_id);
+		policy->deinit_sched(sched_ctx->id);
 }
 
 /* Enqueue a task into the list of tasks explicitely attached to a worker. In
@@ -247,7 +247,7 @@ static int _starpu_push_task_on_specific_worker(struct starpu_task *task, int wo
 		if (worker->sched_ctx[i] != NULL && worker->sched_ctx[i]->sched_policy != NULL && 
 		    worker->sched_ctx[i]->sched_policy->push_task_notify)
 		  {
-			worker->sched_ctx[i]->sched_policy->push_task_notify(task, workerid, worker->sched_ctx[i]->sched_ctx_id);
+			worker->sched_ctx[i]->sched_policy->push_task_notify(task, workerid, worker->sched_ctx[i]->id);
 		  }
 	  }
 
@@ -320,7 +320,7 @@ int _starpu_push_task(starpu_job_t j, unsigned job_is_already_locked)
 		    sched_ctx->temp_nworkers_in_ctx = -1;
 		  }
 		/* don't push task on ctx at the same time workers are removed from ctx */
-		ret = sched_ctx->sched_policy->push_task(task, sched_ctx->sched_ctx_id);
+		ret = sched_ctx->sched_policy->push_task(task, sched_ctx->id);
 		PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
 		
 	}
@@ -368,7 +368,7 @@ struct starpu_task *_starpu_pop_task(struct starpu_worker_s *worker)
 			    if (sched_ctx->sched_policy->pop_task)
 			      {
 				PTHREAD_MUTEX_UNLOCK(sched_ctx_mutex);
-				task = sched_ctx->sched_policy->pop_task(sched_ctx->sched_ctx_id);
+				task = sched_ctx->sched_policy->pop_task(sched_ctx->id);
 				break;
 			      }
 			    PTHREAD_MUTEX_UNLOCK(sched_ctx_mutex);
@@ -403,14 +403,14 @@ struct starpu_task *_starpu_pop_every_task(struct starpu_sched_ctx *sched_ctx)
 	STARPU_ASSERT(sched_ctx->sched_policy->pop_every_task);
 
 	/* TODO set profiling info */
-	return sched_ctx->sched_policy->pop_every_task(sched_ctx->sched_ctx_id);
+	return sched_ctx->sched_policy->pop_every_task(sched_ctx->id);
 }
 
 void _starpu_sched_post_exec_hook(struct starpu_task *task)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(task->sched_ctx);
 	if (sched_ctx->sched_policy->post_exec_hook)
-		sched_ctx->sched_policy->post_exec_hook(task, sched_ctx->sched_ctx_id);
+		sched_ctx->sched_policy->post_exec_hook(task, sched_ctx->id);
 }
 
 void _starpu_wait_on_sched_event(void)

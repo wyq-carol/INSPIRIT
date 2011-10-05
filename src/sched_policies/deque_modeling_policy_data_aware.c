@@ -289,7 +289,7 @@ static int push_task_on_best_worker(struct starpu_task *task, int best_workerid,
 	/* make sure someone coule execute that task ! */
 	STARPU_ASSERT(best_workerid != -1);
 
-	int best_workerid_ctx =  _starpu_get_index_in_ctx_of_workerid(sched_ctx->sched_ctx_id, best_workerid);
+	int best_workerid_ctx =  _starpu_get_index_in_ctx_of_workerid(sched_ctx->id, best_workerid);
 
 	struct starpu_fifo_taskq_s *fifo;
 	fifo = dt->queue_array[best_workerid_ctx];

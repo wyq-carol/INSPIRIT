@@ -80,9 +80,9 @@ void starpu_task_init(struct starpu_task *task)
 
 	task->starpu_private = NULL;
 
-	task->sched_ctx = _starpu_get_initial_sched_ctx()->sched_ctx_id;
+	task->sched_ctx = _starpu_get_initial_sched_ctx()->id;
 	
-	task->specific_starpu = 0;
+	task->control_task = 0;
 }
 
 /* Free all the ressources allocated for a task, without deallocating the task
@@ -232,7 +232,7 @@ int starpu_task_submit(struct starpu_task *task)
 {
 	unsigned nsched_ctxs = _starpu_get_nsched_ctxs();
 
-	task->sched_ctx = nsched_ctxs == 1 || task->specific_starpu ? 
+	task->sched_ctx = nsched_ctxs == 1 || task->control_task ? 
 		0 : starpu_get_sched_ctx();
 
 	int ret;
@@ -315,7 +315,7 @@ int starpu_task_submit(struct starpu_task *task)
 
 int _starpu_task_submit_internal(struct starpu_task *task)
 {
-	task->specific_starpu = 1;
+	task->control_task = 1;
 	return starpu_task_submit(task);
 }
 
