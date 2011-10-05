@@ -38,7 +38,7 @@ static int possible_combinations_size[STARPU_NMAXWORKERS][10];
 
 static void initialize_pgreedy_policy(unsigned sched_ctx_id) 
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
 
 	/* masters pick tasks from that queue */
 	fifo = _starpu_create_fifo();

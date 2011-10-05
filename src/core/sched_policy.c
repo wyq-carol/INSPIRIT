@@ -308,7 +308,7 @@ int _starpu_push_task(starpu_job_t j, unsigned job_is_already_locked)
 		ret = _starpu_push_task_on_specific_worker(task, task->workerid);
 	}
 	else {
-		struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(task->sched_ctx);
+		struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(task->sched_ctx);
 		STARPU_ASSERT(sched_ctx->sched_policy->push_task);
 		/* update the number of threads of the context before pushing a task to 
 		   the context in order to avoid doing it during the computation of the
@@ -408,7 +408,7 @@ struct starpu_task *_starpu_pop_every_task(struct starpu_sched_ctx *sched_ctx)
 
 void _starpu_sched_post_exec_hook(struct starpu_task *task)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(task->sched_ctx);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(task->sched_ctx);
 	if (sched_ctx->sched_policy->post_exec_hook)
 		sched_ctx->sched_policy->post_exec_hook(task, sched_ctx->id);
 }

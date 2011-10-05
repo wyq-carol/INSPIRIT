@@ -56,7 +56,7 @@ void param_modified(struct starputop_param_t* d){
 }
 static void heft_init_for_workers(unsigned sched_ctx_id, unsigned nnew_workers)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
 	unsigned nworkers_ctx = sched_ctx->nworkers;
 
 	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
@@ -99,7 +99,7 @@ static void heft_init(unsigned sched_ctx_id)
 	hd->_gamma = STARPU_DEFAULT_GAMMA;
 	hd->idle_power = 0.0;
 	
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
 
 	unsigned nworkers = sched_ctx->nworkers;
 	sched_ctx->policy_data = (void*)hd;
@@ -330,7 +330,7 @@ static void compute_all_performance_predictions(struct starpu_task *task,
 
 static int _heft_push_task(struct starpu_task *task, unsigned prio, unsigned sched_ctx_id)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
 	heft_data *hd = (heft_data*)sched_ctx->policy_data;
 	unsigned worker, worker_ctx;
 	int best = -1, best_id_ctx = -1;
@@ -449,7 +449,7 @@ static int heft_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 
 static void heft_deinit(unsigned sched_ctx_id) 
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
 	heft_data *ht = (heft_data*)sched_ctx->policy_data;	  
 	free(ht);
 }
