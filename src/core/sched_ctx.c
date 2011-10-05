@@ -320,8 +320,7 @@ void starpu_add_workers_to_sched_ctx(int *workerids, int nworkers,
 	return;
 }
 
-static void _starpu_remove_workers_from_sched_ctx(int *workerids, int nworkers_to_remove, 
-					  struct starpu_sched_ctx *sched_ctx)
+static void _starpu_remove_workers_from_sched_ctx(int *workerids, int nworkers_to_remove, struct starpu_sched_ctx *sched_ctx)
 {
   	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
 	int nworkers = config->topology.nworkers;

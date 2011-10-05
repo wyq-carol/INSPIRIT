@@ -17,7 +17,7 @@
  */
 
 #include "cholesky.h"
-
+#include "../sched_ctx_utils/sched_ctx_utils.h"
 /*
  *	Create the codelets
  */
@@ -126,13 +126,20 @@ static void _cholesky(starpu_data_handle dataA, unsigned nblocks)
 	gettimeofday(&end, NULL);
 
 	double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
-	FPRINTF(stderr, "Computation took (in ms)\n");
-	FPRINTF(stdout, "%2.2f\n", timing/1000);
 
 	unsigned long n = starpu_matrix_get_nx(dataA);
 
 	double flop = (1.0f*n*n*n)/3.0f;
-	FPRINTF(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+
+	if(with_ctxs || with_noctxs)
+		update_sched_ctx_timing_results((flop/timing/1000.0f), (timing/1000000.0f));
+	else
+	{
+		FPRINTF(stderr, "Computation took (in ms)\n");
+		FPRINTF(stdout, "%2.2f\n", timing/1000);
+	
+		FPRINTF(stderr, "Synthetic GFlops : %2.2f\n", (flop/timing/1000.0f));
+	}
 }
 
 static void cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks)
@@ -158,19 +165,8 @@ static void cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks)
 	_cholesky(dataA, nblocks);
 }
 
-int main(int argc, char **argv)
+static void execute_cholesky(unsigned size, unsigned nblocks)
 {
-	/* create a simple definite positive symetric matrix example
-	 *
-	 *	Hilbert matrix : h(i,j) = 1/(i+j+1)
-	 * */
-
-	parse_args(argc, argv);
-
-	starpu_init(NULL);
-
-	starpu_helper_cublas_init();
-
 	float *mat;
 	starpu_malloc((void **)&mat, (size_t)size*size*sizeof(float));
 
@@ -273,6 +269,34 @@ int main(int argc, char **argv)
 			}
 	        }
 	}
+
+}
+
+int main(int argc, char **argv)
+{
+	/* create a simple definite positive symetric matrix example
+	 *
+	 *	Hilbert matrix : h(i,j) = 1/(i+j+1)
+	 * */
+
+	parse_args(argc, argv);
+
+	if(with_ctxs || with_noctxs)
+		parse_args_ctx(argc, argv);
+
+	starpu_init(NULL);
+
+	starpu_helper_cublas_init();
+
+	if(with_ctxs)
+	{
+		construct_contexts(execute_cholesky);
+		start_2benchs(execute_cholesky);
+	}
+	else if(with_noctxs)
+		start_2benchs(execute_cholesky);
+	else
+		execute_cholesky(size, nblocks);
 
 	starpu_helper_cublas_shutdown();
 	starpu_shutdown();

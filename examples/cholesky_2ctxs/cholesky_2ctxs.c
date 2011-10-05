@@ -52,7 +52,7 @@ void* func_cholesky(void *val){
   starpu_set_sched_ctx(sched_ctx);
   for(i = 0; i < NSAMPLES; i++)
     {
-      rv->flops += run_cholesky_implicit(*sched_ctx, p->start, p->argc, p->argv, &timing, &barrier);
+      rv->flops += run_cholesky_implicit(p->start, p->argc, p->argv, &timing, &barrier);
       rv->avg_timing += timing;
 
     }

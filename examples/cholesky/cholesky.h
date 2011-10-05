@@ -61,6 +61,8 @@ static unsigned nbigblocks = 8;
 static unsigned pinned = 0;
 static unsigned noprio = 0;
 static unsigned check = 0;
+static unsigned with_ctxs = 0;
+static unsigned with_noctxs = 0;
 
 void chol_cpu_codelet_update_u11(void **, void *);
 void chol_cpu_codelet_update_u21(void **, void *);
@@ -80,37 +82,46 @@ static void __attribute__((unused)) parse_args(int argc, char **argv)
 {
 	int i;
 	for (i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "-with_ctxs") == 0) {
+			with_ctxs = 1;
+			break;
+		}
+		if (strcmp(argv[i], "-with_noctxs") == 0) {
+			with_noctxs = 1;
+			break;
+		}
+
 		if (strcmp(argv[i], "-size") == 0) {
-		        char *argptr;
+			char *argptr;
 			size = strtol(argv[++i], &argptr, 10);
 		}
-
+		
 		if (strcmp(argv[i], "-nblocks") == 0) {
-		        char *argptr;
+			char *argptr;
 			nblocks = strtol(argv[++i], &argptr, 10);
 		}
-
+		
 		if (strcmp(argv[i], "-nbigblocks") == 0) {
-		        char *argptr;
+			char *argptr;
 			nbigblocks = strtol(argv[++i], &argptr, 10);
 		}
-
+		
 		if (strcmp(argv[i], "-pin") == 0) {
 			pinned = 1;
 		}
-
+		
 		if (strcmp(argv[i], "-no-prio") == 0) {
 			noprio = 1;
 		}
-
+		
 		if (strcmp(argv[i], "-check") == 0) {
 			check = 1;
 		}
-
+		
 		if (strcmp(argv[i], "-h") == 0) {
 			printf("usage : %s [-pin] [-size size] [-nblocks nblocks] [-check]\n", argv[0]);
-		}
-	}
+		}	
+	}	
 }
 
 #endif /* __DW_CHOLESKY_H__ */

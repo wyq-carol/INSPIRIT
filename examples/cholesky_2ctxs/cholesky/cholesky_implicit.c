@@ -70,7 +70,7 @@ static void callback_turn_spmd_on(void *arg __attribute__ ((unused)))
 	cl22.type = STARPU_SPMD;
 }
 
-static double _cholesky(starpu_data_handle dataA, unsigned nblocks, unsigned sched_ctx, double *timing)
+static double _cholesky(starpu_data_handle dataA, unsigned nblocks, double *timing)
 {
 	struct timeval start;
 	struct timeval end;
@@ -137,7 +137,7 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, unsigned sch
 	return gflops;
 }
 
-static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks, unsigned sched_ctx, double *timing)
+static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks, double *timing)
 {
 	starpu_data_handle dataA;
 
@@ -156,12 +156,12 @@ static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks
 	};
 
 	starpu_data_map_filters(dataA, 2, &f, &f2);
-	double gflops = _cholesky(dataA, nblocks, sched_ctx, timing);
+	double gflops = _cholesky(dataA, nblocks, timing);
 	starpu_data_unregister(dataA);
 	return gflops;
 }
 
-double run_cholesky_implicit(unsigned sched_ctx, int start, int argc, char **argv, double *timing, pthread_barrier_t *barrier)
+double run_cholesky_implicit(int start, int argc, char **argv, double *timing, pthread_barrier_t *barrier)
 {
 	/* create a simple definite positive symetric matrix example
 	 *
@@ -208,8 +208,7 @@ double run_cholesky_implicit(unsigned sched_ctx, int start, int argc, char **arg
 		printf("\n");
 	}
 #endif
-//	starpu_set_sched_ctx(&sched_ctx);
-	double gflops = cholesky(mat, size, size, nblocks, sched_ctx, timing);
+	double gflops = cholesky(mat, size, size, nblocks, timing);
 
 #ifdef PRINT_OUTPUT
 	printf("Results :\n");
