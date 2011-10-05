@@ -371,7 +371,7 @@ int starpu_init(struct starpu_conf *user_conf)
 	 * initialization */
 	config.user_conf = user_conf;
 
-	_starpu_init_all_sched_ctx(&config);
+	_starpu_init_all_sched_ctxs(&config);
 	ret = _starpu_build_topology(&config);
 	if (ret) {
 		PTHREAD_MUTEX_LOCK(&init_mutex);

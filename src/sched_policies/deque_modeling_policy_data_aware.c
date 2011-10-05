@@ -125,7 +125,7 @@ static struct starpu_task *dmda_pop_ready_task(unsigned sched_ctx_id)
 	struct starpu_task *task;
 
 	int workerid = starpu_worker_get_id();
-	int workerid_ctx =  _starpu_get_index_ctx_of_workerid(sched_ctx_id, workerid);
+	int workerid_ctx =  _starpu_get_index_in_ctx_of_workerid(sched_ctx_id, workerid);
 	struct starpu_fifo_taskq_s *fifo = dt->queue_array[workerid_ctx];
 
 	unsigned node = starpu_worker_get_memory_node(workerid);
@@ -161,7 +161,7 @@ static struct starpu_task *dmda_pop_task(unsigned sched_ctx_id)
 	struct starpu_task *task;
 
 	int workerid = starpu_worker_get_id();
-	int workerid_ctx =  _starpu_get_index_ctx_of_workerid(sched_ctx_id, workerid);
+	int workerid_ctx =  _starpu_get_index_in_ctx_of_workerid(sched_ctx_id, workerid);
 	struct starpu_fifo_taskq_s *fifo = dt->queue_array[workerid_ctx];
 
 	task = _starpu_fifo_pop_task(fifo, -1);
@@ -197,7 +197,7 @@ static struct starpu_task *dmda_pop_every_task(unsigned sched_ctx_id)
 	struct starpu_task *new_list;
 
 	int workerid = starpu_worker_get_id();
-	int workerid_ctx =  _starpu_get_index_ctx_of_workerid(sched_ctx_id, workerid);
+	int workerid_ctx =  _starpu_get_index_in_ctx_of_workerid(sched_ctx_id, workerid);
 	struct starpu_fifo_taskq_s *fifo = dt->queue_array[workerid_ctx];
 
 	new_list = _starpu_fifo_pop_every_task(fifo, sched_ctx->sched_mutex[workerid_ctx], workerid);
@@ -289,7 +289,7 @@ static int push_task_on_best_worker(struct starpu_task *task, int best_workerid,
 	/* make sure someone coule execute that task ! */
 	STARPU_ASSERT(best_workerid != -1);
 
-	int best_workerid_ctx =  _starpu_get_index_ctx_of_workerid(sched_ctx->id, best_workerid);
+	int best_workerid_ctx =  _starpu_get_index_in_ctx_of_workerid(sched_ctx->id, best_workerid);
 
 	struct starpu_fifo_taskq_s *fifo;
 	fifo = dt->queue_array[best_workerid_ctx];

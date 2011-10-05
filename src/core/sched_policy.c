@@ -241,16 +241,16 @@ static int _starpu_push_task_on_specific_worker(struct starpu_task *task, int wo
 	if (use_prefetch)
 		starpu_prefetch_task_input_on_node(task, memory_node);
 
+	/* if we push a task on a specific worker, notify all the sched_ctxs the worker belongs to */
 	unsigned i;
+	struct starpu_sched_ctx *sched_ctx;
 	for(i = 0; i < STARPU_NMAX_SCHED_CTXS; i++)
-	  {
-		if (worker->sched_ctx[i] != NULL && worker->sched_ctx[i]->sched_policy != NULL && 
-		    worker->sched_ctx[i]->sched_policy->push_task_notify)
-		  {
-			worker->sched_ctx[i]->sched_policy->push_task_notify(task, workerid, worker->sched_ctx[i]->id);
-		  }
-	  }
-
+	{
+		sched_ctx = worker->sched_ctx[i];
+		if (sched_ctx != NULL && sched_ctx->sched_policy != NULL && sched_ctx->sched_policy->push_task_notify)
+			sched_ctx->sched_policy->push_task_notify(task, workerid, sched_ctx->id);
+	}
+	
 	if (is_basic_worker)
 	{
 		return _starpu_push_local_task(worker, task, 0);
@@ -319,10 +319,9 @@ int _starpu_push_task(starpu_job_t j, unsigned job_is_already_locked)
 		    sched_ctx->nworkers = sched_ctx->temp_nworkers;
 		    sched_ctx->temp_nworkers = -1;
 		  }
-		/* don't push task on ctx at the same time workers are removed from ctx */
-		ret = sched_ctx->sched_policy->push_task(task, sched_ctx->id);
 		PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
-		
+
+		ret = sched_ctx->sched_policy->push_task(task, sched_ctx->id);
 	}
 
 	_starpu_profiling_set_task_push_end_time(task);

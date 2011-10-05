@@ -141,7 +141,7 @@ static struct starpu_task *ws_pop_task(unsigned sched_ctx_id)
 	struct starpu_task *task;
 
 	int workerid = starpu_worker_get_id();
-	int workerid_ctx =  _starpu_get_index_ctx_of_workerid(sched_ctx_id, workerid);
+	int workerid_ctx =  _starpu_get_index_in_ctx_of_workerid(sched_ctx_id, workerid);
 
 	struct starpu_deque_jobq_s *q;
 
@@ -180,7 +180,7 @@ int ws_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 	work_stealing_data *ws = (work_stealing_data*)sched_ctx->policy_data;
 
 	int workerid = starpu_worker_get_id();
-	int workerid_ctx =  _starpu_get_index_ctx_of_workerid(sched_ctx_id, workerid);
+	int workerid_ctx =  _starpu_get_index_in_ctx_of_workerid(sched_ctx_id, workerid);
 
         struct starpu_deque_jobq_s *deque_queue;
 	deque_queue = ws->queue_array[workerid_ctx];

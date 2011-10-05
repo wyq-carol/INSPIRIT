@@ -64,7 +64,7 @@ struct starpu_sched_ctx {
 struct starpu_machine_config_s;
 
 /* init sched_ctx_id of all contextes*/
-void _starpu_init_all_sched_ctx(struct starpu_machine_config_s *config);
+void _starpu_init_all_sched_ctxs(struct starpu_machine_config_s *config);
 
 /* init the list of contextes of the worker */
 void _starpu_init_sched_ctx_for_worker(unsigned workerid);
