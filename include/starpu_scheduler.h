@@ -107,13 +107,13 @@ struct starpu_sched_policy_s {
 	const char *policy_description;
 };
 
-unsigned starpu_create_sched_ctx(const char *policy_name, int *workerids_ctx, int nworkerids_ctx, const char *sched_name);
+unsigned starpu_create_sched_ctx(const char *policy_name, int *workerids_ctx, int nworkers_ctx, const char *sched_name);
 
 void starpu_delete_sched_ctx(unsigned sched_ctx_id, unsigned inheritor_sched_ctx_id);
 
-void starpu_add_workers_to_sched_ctx(int *workerids_ctx, int nworkerids_ctx, unsigned sched_ctx);
+void starpu_add_workers_to_sched_ctx(int *workerids_ctx, int nworkers_ctx, unsigned sched_ctx);
 
-void starpu_remove_workers_from_sched_ctx(int *workerids_ctx, int nworkerids_ctx, unsigned sched_ctx);
+void starpu_remove_workers_from_sched_ctx(int *workerids_ctx, int nworkers_ctx, unsigned sched_ctx);
 
 /* When there is no available task for a worker, StarPU blocks this worker on a
 condition variable. This function specifies which condition variable (and the
@@ -197,6 +197,6 @@ double starpu_task_expected_power(struct starpu_task *task, enum starpu_perf_arc
 int starpu_wait_for_all_tasks_of_worker(int workerid);
 
 /* Waits until all the tasks of a bunch of workers have been executed */
-int starpu_wait_for_all_tasks_of_workers(int *workerids_ctx, int nworkerids_ctx);
+int starpu_wait_for_all_tasks_of_workers(int *workerids_ctx, int nworkers_ctx);
 
 #endif /* __STARPU_SCHEDULER_H__ */

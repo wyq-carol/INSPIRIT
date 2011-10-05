@@ -60,9 +60,9 @@ static void heft_init_for_workers(unsigned sched_ctx_id, unsigned nnew_workers)
 	unsigned nworkers_ctx = sched_ctx->nworkers;
 
 	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
-	unsigned ntotal_workers = config->topology.nworkers;
+	unsigned nworkers = config->topology.nworkers;
 
-	unsigned all_workers = nnew_workers == ntotal_workers ? ntotal_workers : nworkers_ctx + nnew_workers;
+	unsigned all_workers = nnew_workers == nworkers ? nworkers : nworkers_ctx + nnew_workers;
 
 	unsigned workerid_ctx;
 	int workerid;

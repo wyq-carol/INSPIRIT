@@ -22,7 +22,7 @@ pthread_key_t sched_ctx_key;
 
 static unsigned _starpu_get_first_available_sched_ctx_id(struct starpu_machine_config_s *config);
 static unsigned _starpu_get_first_free_sched_ctx_in_worker_list(struct starpu_worker_s *worker);
-static void _starpu_rearange_sched_ctx_workerids(struct starpu_sched_ctx *sched_ctx, int old_nworkerids_ctx);
+static void _starpu_rearange_sched_ctx_workerids(struct starpu_sched_ctx *sched_ctx, int old_nworkers_ctx);
 
 struct sched_ctx_info {
 	unsigned sched_ctx_id;
@@ -56,10 +56,10 @@ static void update_workers_func(void *buffers[] __attribute__ ((unused)), void *
 	  }
 }
 
-static void _starpu_update_workers(int *workerids_ctx, int nworkerids_ctx, 
+static void _starpu_update_workers(int *workerids, int nworkers, 
 				   int sched_ctx_id, struct starpu_sched_ctx *sched_ctx)
 {
-	struct starpu_task *tasks[nworkerids_ctx];
+	struct starpu_task *tasks[nworkers];
 
 	struct starpu_codelet_t sched_ctx_info_cl = {
 		.where = STARPU_CPU|STARPU_CUDA|STARPU_OPENCL,
@@ -70,11 +70,11 @@ static void _starpu_update_workers(int *workerids_ctx, int nworkerids_ctx,
 	};
 
 	int i, ret;
-	struct starpu_worker_s *worker[nworkerids_ctx];
-	struct sched_ctx_info sched_info_args[nworkerids_ctx];
-	for(i = 0; i < nworkerids_ctx; i++)
+	struct starpu_worker_s *worker[nworkers];
+	struct sched_ctx_info sched_info_args[nworkers];
+	for(i = 0; i < nworkers; i++)
 	  {
-		worker[i] = _starpu_get_worker_struct(workerids_ctx[i]);
+		worker[i] = _starpu_get_worker_struct(workerids[i]);
 		
 		sched_info_args[i].sched_ctx_id = sched_ctx_id == -1  ? 
 			_starpu_get_first_free_sched_ctx_in_worker_list(worker[i]) : 
@@ -87,7 +87,7 @@ static void _starpu_update_workers(int *workerids_ctx, int nworkerids_ctx,
 		tasks[i]->cl = &sched_ctx_info_cl;
 		tasks[i]->cl_arg = &sched_info_args[i];
 		tasks[i]->execute_on_a_specific_worker = 1;
-		tasks[i]->workerid = workerids_ctx[i];
+		tasks[i]->workerid = workerids[i];
 		tasks[i]->detach = 0;
 		tasks[i]->destroy = 0;
 
@@ -104,7 +104,7 @@ static void _starpu_update_workers(int *workerids_ctx, int nworkerids_ctx,
 		  }
 	  }
 
-	for (i = 0; i < nworkerids_ctx; i++)
+	for (i = 0; i < nworkers; i++)
 	  {
 	    if (tasks[i])
 	      {
@@ -116,7 +116,7 @@ static void _starpu_update_workers(int *workerids_ctx, int nworkerids_ctx,
 
 }
 struct starpu_sched_ctx*  _starpu_create_sched_ctx(const char *policy_name, int *workerids_ctx, 
-				  int nworkerids_ctx, unsigned is_initial_sched,
+				  int nworkers_ctx, unsigned is_initial_sched,
 				  const char *sched_name)
 {
 	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
@@ -128,9 +128,9 @@ struct starpu_sched_ctx*  _starpu_create_sched_ctx(const char *policy_name, int 
 	sched_ctx->id = id;
 	int nworkers = config->topology.nworkers;
 	
-	STARPU_ASSERT(nworkerids_ctx <= nworkers);
+	STARPU_ASSERT(nworkers_ctx <= nworkers);
   
-	sched_ctx->nworkers = nworkerids_ctx;
+	sched_ctx->nworkers = nworkers_ctx;
 	sched_ctx->temp_nworkers = -1;
 	PTHREAD_MUTEX_INIT(&sched_ctx->changing_ctx_mutex, NULL);
 
@@ -153,7 +153,7 @@ struct starpu_sched_ctx*  _starpu_create_sched_ctx(const char *policy_name, int 
 	else 
 	  {
 		int i;
-		for(i = 0; i < nworkerids_ctx; i++)
+		for(i = 0; i < nworkers_ctx; i++)
 		  {
 			/* the user should not ask for a resource that does not exist */
 			STARPU_ASSERT( workerids_ctx[i] >= 0 &&  workerids_ctx[i] <= nworkers);		    
@@ -188,9 +188,9 @@ struct starpu_sched_ctx*  _starpu_create_sched_ctx(const char *policy_name, int 
 
 
 unsigned starpu_create_sched_ctx(const char *policy_name, int *workerids_ctx, 
-			    int nworkerids_ctx, const char *sched_name)
+			    int nworkers_ctx, const char *sched_name)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_create_sched_ctx(policy_name, workerids_ctx, nworkerids_ctx, 0, sched_name);
+	struct starpu_sched_ctx *sched_ctx = _starpu_create_sched_ctx(policy_name, workerids_ctx, nworkers_ctx, 0, sched_name);
 	_starpu_update_workers(sched_ctx->workerids, sched_ctx->nworkers, -1, sched_ctx);
 	return sched_ctx->id;
 }
@@ -312,23 +312,23 @@ void _starpu_delete_all_sched_ctxs()
 	return;
 }
 
-void starpu_add_workers_to_sched_ctx(int *workerids_ctx, int nworkerids_ctx,
+void starpu_add_workers_to_sched_ctx(int *workerids_ctx, int nworkers_ctx,
 				     unsigned sched_ctx_id)
 {
 	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
-	_starpu_add_workers_to_sched_ctx(workerids_ctx, nworkerids_ctx, sched_ctx);
+	_starpu_add_workers_to_sched_ctx(workerids_ctx, nworkers_ctx, sched_ctx);
 
 	return;
 }
 
-static void _starpu_remove_workers_from_sched_ctx(int *workerids_ctx, int nworkerids_ctx, 
+static void _starpu_remove_workers_from_sched_ctx(int *workerids_ctx, int nworkers_ctx, 
 					  struct starpu_sched_ctx *sched_ctx)
 {
   	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
 	int nworkers = config->topology.nworkers;
 	int nworkerids_already_ctx =  sched_ctx->nworkers;
 
-	STARPU_ASSERT(nworkerids_ctx  <= nworkerids_already_ctx);
+	STARPU_ASSERT(nworkers_ctx  <= nworkerids_already_ctx);
 
 	int i, workerid;
 
@@ -349,7 +349,7 @@ static void _starpu_remove_workers_from_sched_ctx(int *workerids_ctx, int nworke
 	  } 
 	else 
 	  {
-		for(i = 0; i < nworkerids_ctx; i++)
+		for(i = 0; i < nworkers_ctx; i++)
 		  {
 		    	workerid = workerids_ctx[i]; 
 			/* take care the user does not ask for a resource that does not exist */
@@ -363,8 +363,8 @@ static void _starpu_remove_workers_from_sched_ctx(int *workerids_ctx, int nworke
 					sched_ctx->workerids[j] = -1;
 		  }
 
-		nremoved_workers = nworkerids_ctx;
-		sched_ctx->nworkers -= nworkerids_ctx;
+		nremoved_workers = nworkers_ctx;
+		sched_ctx->nworkers -= nworkers_ctx;
 		/* reorder the worker's list of contexts in order to avoid 
 		   the holes in the list after removing some elements */
 		_starpu_rearange_sched_ctx_workerids(sched_ctx, nworkerids_already_ctx);
@@ -375,17 +375,17 @@ static void _starpu_remove_workers_from_sched_ctx(int *workerids_ctx, int nworke
 	return;
 }
 
-void starpu_remove_workers_from_sched_ctx(int *workerids_ctx, int nworkerids_ctx, 
+void starpu_remove_workers_from_sched_ctx(int *workerids_ctx, int nworkers_ctx, 
 					  unsigned sched_ctx_id)
 {
 	  /* wait for the workers concerned by the change of contex    
 	   * to finish their work in the previous context */
-	if(!starpu_wait_for_all_tasks_of_workers(workerids_ctx, nworkerids_ctx))
+	if(!starpu_wait_for_all_tasks_of_workers(workerids_ctx, nworkers_ctx))
 	  {
 		struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx(sched_ctx_id);
 
 		PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
-		_starpu_remove_workers_from_sched_ctx(workerids_ctx, nworkerids_ctx, sched_ctx);
+		_starpu_remove_workers_from_sched_ctx(workerids_ctx, nworkers_ctx, sched_ctx);
 		PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
 	  }
 	return;
@@ -439,10 +439,10 @@ static unsigned _starpu_get_first_free_sched_ctx_in_worker_list(struct starpu_wo
 	return STARPU_NMAX_SCHED_CTXS;
 }
 
-static int _starpu_get_first_free_worker_space(int *workerids, int old_nworkerids_ctx)
+static int _starpu_get_first_free_worker_space(int *workerids, int old_nworkers_ctx)
 {
 	int i;
-	for(i = 0; i < old_nworkerids_ctx; i++)
+	for(i = 0; i < old_nworkers_ctx; i++)
 		if(workerids[i] == -1)
 			return i;
 
@@ -453,15 +453,15 @@ static int _starpu_get_first_free_worker_space(int *workerids, int old_nworkerid
    and have instead {5, 7, -1, -1, -1} 
    it is easier afterwards to iterate the array
 */
-static void _starpu_rearange_sched_ctx_workerids(struct starpu_sched_ctx *sched_ctx, int old_nworkerids_ctx)
+static void _starpu_rearange_sched_ctx_workerids(struct starpu_sched_ctx *sched_ctx, int old_nworkers_ctx)
 {
 	int first_free_id = -1;
 	int i;
-	for(i = 0; i < old_nworkerids_ctx; i++)
+	for(i = 0; i < old_nworkers_ctx; i++)
 	  {
 		if(sched_ctx->workerids[i] != -1)
 		  {
-			first_free_id = _starpu_get_first_free_worker_space(sched_ctx->workerids, old_nworkerids_ctx);
+			first_free_id = _starpu_get_first_free_worker_space(sched_ctx->workerids, old_nworkers_ctx);
 			if(first_free_id != -1)
 			  {
 				sched_ctx->workerids[first_free_id] = sched_ctx->workerids[i];
@@ -483,11 +483,11 @@ int starpu_wait_for_all_tasks_of_worker(int workerid)
 	return 0;
 }
 
-int starpu_wait_for_all_tasks_of_workers(int *workerids_ctx, int nworkerids_ctx){
+int starpu_wait_for_all_tasks_of_workers(int *workerids_ctx, int nworkers_ctx){
 	int ret_val = 0;
 	
 	struct starpu_machine_config_s *config = _starpu_get_machine_config();
-	int nworkers = nworkerids_ctx == -1 ? (int)config->topology.nworkers : nworkerids_ctx;
+	int nworkers = nworkers_ctx == -1 ? (int)config->topology.nworkers : nworkers_ctx;
 	
 	int workerid = -1;
 	int i, n;
