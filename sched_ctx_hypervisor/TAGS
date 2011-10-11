@@ -1,26 +1,0 @@
-
-src/sched_ctx_hypervisor_intern.h,974
-#define MAX_IDLE_TIME MAX_IDLE_TIME3,28
-#define MIN_WORKING_TIME MIN_WORKING_TIME4,54
-struct sched_ctx_wrapper {sched_ctx_wrapper6,84
-	unsigned sched_ctx;sched_ctx8,142
-	unsigned min_nprocs;min_nprocs11,210
-	unsigned max_nprocs;max_nprocs14,274
-	int priority[STARPU_NMAXWORKERS];priority19,437
-	double max_idle_time[STARPU_NMAXWORKERS];max_idle_time22,535
-	double min_working_time[STARPU_NMAXWORKERS];min_working_time25,646
-	double current_idle_time[STARPU_NMAXWORKERS];current_idle_time28,746
-	double current_working_time[STARPU_NMAXWORKERS];current_working_time31,850
-	unsigned current_nprocs;current_nprocs34,940
-struct sched_ctx_hypervisor {sched_ctx_hypervisor37,970
-	struct sched_ctx_wrapper sched_ctx_wrapper[STARPU_NMAX_SCHED_CTXS];sched_ctx_wrapper38,1000
-	int resize_granularity;resize_granularity39,1069
-	unsigned resize;resize40,1094
-	unsigned num_ctxs;num_ctxs41,1112
-struct sched_ctx_hypervisor hypervisor;hypervisor44,1136
-
-include/sched_ctx_hypervisor.h,0
-
-/home/ahugo/sched_ctx_branch3/sched_ctx/sched_ctx_hypervisor/src/TAGS,include
-
-/home/ahugo/sched_ctx_branch3/sched_ctx/sched_ctx_hypervisor/examples/TAGS,include
