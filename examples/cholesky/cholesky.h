@@ -63,6 +63,8 @@ static unsigned noprio = 0;
 static unsigned check = 0;
 static unsigned with_ctxs = 0;
 static unsigned with_noctxs = 0;
+static unsigned chole1 = 0;
+static unsigned chole2 = 0;
 
 void chol_cpu_codelet_update_u11(void **, void *);
 void chol_cpu_codelet_update_u21(void **, void *);
@@ -88,6 +90,16 @@ static void __attribute__((unused)) parse_args(int argc, char **argv)
 		}
 		if (strcmp(argv[i], "-with_noctxs") == 0) {
 			with_noctxs = 1;
+			break;
+		}
+		
+		if (strcmp(argv[i], "-chole1") == 0) {
+			chole1 = 1;
+			break;
+		}
+
+		if (strcmp(argv[i], "-chole2") == 0) {
+			chole2 = 1;
 			break;
 		}
 

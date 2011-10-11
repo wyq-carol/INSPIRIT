@@ -182,7 +182,7 @@ static void _starpu_launch_drivers(struct starpu_machine_config_s *config)
 		workerarg->worker_size = 1;
 		workerarg->combined_workerid = workerarg->workerid;
 		workerarg->current_rank = 0;
-
+		workerarg->has_prev_init = 0;
 		/* mutex + cond only for the local list */
 		/* we have a single local list */
 		/* afterwards there would be a mutex + cond for the list of each strategy */
@@ -677,7 +677,7 @@ struct starpu_worker_s *_starpu_get_worker_struct(unsigned id)
 	return &config.workers[id];
 }
 
-struct starpu_sched_ctx *_starpu_get_sched_ctx_structure(unsigned id)
+struct starpu_sched_ctx *_starpu_get_sched_ctx_struct(unsigned id)
 {
 	STARPU_ASSERT(id <= STARPU_NMAX_SCHED_CTXS);
 	return &config.sched_ctxs[id];

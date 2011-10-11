@@ -23,6 +23,10 @@
 #include <common/barrier_counter.h>
 #include <profiling/profiling.h>
 
+#define NO_RESIZE -1
+#define REQ_RESIZE 0
+#define DO_RESIZE 1
+
 struct starpu_sched_ctx {
 	/* id of the context used in user mode*/
 	unsigned id;
@@ -38,13 +42,16 @@ struct starpu_sched_ctx {
 	
 	/* list of indices of workers */
 	int workerids[STARPU_NMAXWORKERS]; 
+
+	/* list of workers, those checked have to be deleted */
+	int workerids_to_remove[STARPU_NMAXWORKERS]; 
+
+	/* list of workers, those checked have to be added */
+	int workerids_to_add[STARPU_NMAXWORKERS]; 
 	
 	/* number of threads in contex */
 	int nworkers; 
 
-	/* temporary variable for number of threads in contex */
-	int temp_nworkers; 
-  
 	/* mutext for temp_nworkers_in_ctx*/
 	pthread_mutex_t changing_ctx_mutex;
 
@@ -59,6 +66,10 @@ struct starpu_sched_ctx {
 
 	/* table of sched mutex corresponding to each worker in this ctx */
 	pthread_mutex_t **sched_mutex;
+#ifdef STARPU_USE_SCHED_CTX_HYPERVISOR
+	/* a structure containing a series of criteria determining the resize procedure */
+	struct starpu_sched_ctx_hypervisor_criteria *criteria;
+#endif //STARPU_USE_SCHED_CTX_HYPERVISOR
 };
 
 struct starpu_machine_config_s;
@@ -95,4 +106,11 @@ pthread_cond_t *_starpu_get_sched_cond(struct starpu_sched_ctx *sched_ctx, int w
 
 /* Get the total number of sched_ctxs created till now */
 unsigned _starpu_get_nsched_ctxs();
+
+/* Treat add workers requests */
+void _starpu_actually_add_workers_to_sched_ctx(struct starpu_sched_ctx *sched_ctx);
+
+/* Treat remove workers requests */
+void _starpu_actually_remove_workers_from_sched_ctx(struct starpu_sched_ctx *sched_ctx);
+
 #endif // __SCHED_CONTEXT_H__

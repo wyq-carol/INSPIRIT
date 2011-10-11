@@ -85,6 +85,7 @@ struct starpu_worker_s {
 
 	struct _starpu_barrier_counter_t tasks_barrier; /* wait for the tasks submitted */
        
+	unsigned has_prev_init; /* had already been inited in another ctx */
 #ifdef __GLIBC__
 	cpu_set_t initial_cpu_set;
 	cpu_set_t current_cpu_set;
@@ -203,7 +204,7 @@ struct starpu_worker_s *_starpu_get_worker_struct(unsigned id);
 
 /* Returns the starpu_sched_ctx structure that descriebes the state of the 
  * specified ctx */
-struct starpu_sched_ctx *_starpu_get_sched_ctx_structure(unsigned id);
+struct starpu_sched_ctx *_starpu_get_sched_ctx_struct(unsigned id);
 
 
 struct starpu_combined_worker_s *_starpu_get_combined_worker_struct(unsigned id);

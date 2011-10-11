@@ -72,7 +72,7 @@ struct starpu_sched_policy_s {
 	void (*init_sched)(unsigned ctx_id);
 
 	/* Initialize the scheduling policy only for certain workers. */
-	void (*init_sched_for_workers)(unsigned ctx_id, unsigned n_added_workers);
+	void (*init_sched_for_workers)(unsigned ctx_id, int *workerids, unsigned nworkers);
 
 	/* Cleanup the scheduling policy. */
 	void (*deinit_sched)(unsigned ctx_id);
@@ -107,6 +107,15 @@ struct starpu_sched_policy_s {
 	const char *policy_description;
 };
 
+struct starpu_sched_ctx_hypervisor_criteria {
+	void (*update_current_idle_time)(unsigned sched_ctx, int worker, double idle_time, unsigned current_nprocs);
+	void (*update_current_working_time)(unsigned sched_ctx, int worker, double working_time, unsigned current_nprocs);
+};
+
+#ifdef STARPU_BUILD_SCHED_CTX_HYPERVISOR
+unsigned starpu_create_sched_ctx_with_criteria(const char *policy_name, int *workerids_ctx, int nworkers_ctx, const char *sched_name, struct starpu_sched_ctx_hypervisor_criteria *criteria);
+#endif //STARPU_BUILD_SCHED_CTX_HYPERVISOR
+
 unsigned starpu_create_sched_ctx(const char *policy_name, int *workerids_ctx, int nworkers_ctx, const char *sched_name);
 
 void starpu_delete_sched_ctx(unsigned sched_ctx_id, unsigned inheritor_sched_ctx_id);
@@ -114,6 +123,11 @@ void starpu_delete_sched_ctx(unsigned sched_ctx_id, unsigned inheritor_sched_ctx
 void starpu_add_workers_to_sched_ctx(int *workerids_ctx, int nworkers_ctx, unsigned sched_ctx);
 
 void starpu_remove_workers_from_sched_ctx(int *workerids_ctx, int nworkers_ctx, unsigned sched_ctx);
+
+int* starpu_get_workers_of_ctx(unsigned sched_ctx);
+
+void starpu_require_resize(unsigned sched_ctx, int *workers_to_be_moved, unsigned nworkers_to_be_moved);
+
 
 /* When there is no available task for a worker, StarPU blocks this worker on a
 condition variable. This function specifies which condition variable (and the

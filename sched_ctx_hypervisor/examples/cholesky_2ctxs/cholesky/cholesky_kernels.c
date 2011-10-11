@@ -15,9 +15,9 @@
  * See the GNU Lesser General Public License in COPYING.LGPL for more details.
  */
 
-#include <starpu_config.h>
+//#include <starpu_config.h>
 #include "cholesky.h"
-#include "../../common/blas.h"
+//#include "../../common/blas.h"
 #ifdef STARPU_USE_CUDA
 #include <starpu_cuda.h>
 #endif

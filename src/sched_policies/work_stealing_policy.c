@@ -135,7 +135,7 @@ static struct starpu_deque_jobq_s *select_workerq(work_stealing_data *ws, unsign
 #endif
 static struct starpu_task *ws_pop_task(unsigned sched_ctx_id)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	work_stealing_data *ws = (work_stealing_data*)sched_ctx->policy_data;
 
 	struct starpu_task *task;
@@ -176,7 +176,7 @@ int ws_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
 	starpu_job_t j = _starpu_get_job_associated_to_task(task);
 
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	work_stealing_data *ws = (work_stealing_data*)sched_ctx->policy_data;
 
 	int workerid = starpu_worker_get_id();
@@ -202,7 +202,7 @@ int ws_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 
 static void initialize_ws_policy_for_workers(unsigned sched_ctx_id, unsigned nnew_workers) 
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	work_stealing_data *ws = (work_stealing_data*)sched_ctx->policy_data;
 
 	unsigned nworkers_ctx = sched_ctx->nworkers;
@@ -220,15 +220,11 @@ static void initialize_ws_policy_for_workers(unsigned sched_ctx_id, unsigned nne
 		sched_ctx->sched_mutex[workerid_ctx] = sched_ctx->sched_mutex[0];
 		sched_ctx->sched_cond[workerid_ctx] = sched_ctx->sched_cond[0];
 	}
-	/* take into account the new number of threads at the next push */
-	PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
-	sched_ctx->temp_nworkers = all_workers;
-	PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
 }
 
 static void initialize_ws_policy(unsigned sched_ctx_id) 
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	work_stealing_data *ws = (work_stealing_data*)malloc(sizeof(work_stealing_data));
 	sched_ctx->policy_data = (void*)ws;
 	

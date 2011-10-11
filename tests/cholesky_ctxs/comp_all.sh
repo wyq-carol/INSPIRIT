@@ -15,15 +15,15 @@
 # 
 # See the GNU Lesser General Public License in COPYING.LGPL for more details.
 
+source all_sched.sh
+
 rm -rf res_*
 compute_effic=$1
 #for one matrix 20000 x 20000 and one of 10000 x 10000
 ninstr=2999999987712
-#no_ctx_prefix=../../../../trunk2/trunk/tests/cholesky_and_lu/timings-sched_attila
-no_ctx_prefix=../cholesky_no_ctxs/timings-sched
-ctx_prefix=timings-sched
+prefix=timings-sched
 
-source comp.sh $no_ctx_prefix/cholesky_no_ctxs res_cholesky_no_ctxs 0 $compute_effic $ninstr
+source comp.sh $prefix/cholesky_no_ctxs res_cholesky_no_ctxs 0 $compute_effic $ninstr
 
 bestval_noctx=0
 while read line
@@ -40,16 +40,16 @@ done < res_cholesky_no_ctxs
 
 echo $bestval_noctx
 
-source comp.sh $ctx_prefix/isole res_isole 1 $compute_effic $ninstr $bestval_noctx
+source comp.sh $prefix/isole res_isole 1 $compute_effic $ninstr $bestval_noctx
 
 #compute efficiency in a heterogeneous system
 #for the homogeneous one we can compute gflops rate per PU
 
 if [ $compute_effic -eq 1 ]
 then
-    source comp.sh $ctx_prefix/1gpu res_1gpu 1 $compute_effic $ninstr $bestval_noctx
-    source comp.sh $ctx_prefix/2gpu res_2gpu  1 $compute_effic $ninstr $bestval_noctx
-    source comp.sh $ctx_prefix/3gpu res_3gpu 1 $compute_effic $ninstr $bestval_noctx
+    source comp.sh $prefix/1gpu res_1gpu 1 $compute_effic $ninstr $bestval_noctx
+    source comp.sh $prefix/2gpu res_2gpu  1 $compute_effic $ninstr $bestval_noctx
+    source comp.sh $prefix/3gpu res_3gpu 1 $compute_effic $ninstr $bestval_noctx
 
     source gnuplot_efficiency.sh efficiency
 else

@@ -3,7 +3,6 @@
  * Copyright (C) 2009, 2010, 2011  Université de Bordeaux 1
  * Copyright (C) 2010  Mehdi Juhoor <mjuhoor@gmail.com>
  * Copyright (C) 2010, 2011  Centre National de la Recherche Scientifique
- * Copyright (C) 2011  INRIA
  *
  * StarPU is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,7 +17,6 @@
  */
 
 #include "cholesky.h"
-
 /*
  *	Create the codelets
  */
@@ -70,7 +68,7 @@ static void callback_turn_spmd_on(void *arg __attribute__ ((unused)))
 	cl22.type = STARPU_SPMD;
 }
 
-static double _cholesky(starpu_data_handle dataA, unsigned nblocks, double *timing)
+static double _cholesky(starpu_data_handle dataA, unsigned nblocks, unsigned sched_ctx, double *timing)
 {
 	struct timeval start;
 	struct timeval end;
@@ -78,6 +76,7 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, double *timi
 	unsigned i,j,k;
 
 	int prio_level = noprio?STARPU_DEFAULT_PRIO:STARPU_MAX_PRIO;
+
 
 	gettimeofday(&start, NULL);
 
@@ -95,7 +94,6 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, double *timi
 		for (j = k+1; j<nblocks; j++)
 		{
                         starpu_data_handle sdatakj = starpu_data_get_sub_data(dataA, 2, k, j);
-
 			starpu_insert_task(&cl21,
 					   STARPU_PRIORITY, (j == k+1)?prio_level:STARPU_DEFAULT_PRIO,
 					   STARPU_R, sdatakk,
@@ -108,6 +106,7 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, double *timi
                                 {
 					starpu_data_handle sdataki = starpu_data_get_sub_data(dataA, 2, k, i);
 					starpu_data_handle sdataij = starpu_data_get_sub_data(dataA, 2, i, j);
+					
 					starpu_insert_task(&cl22,
 							   STARPU_PRIORITY, ((i == k+1) && (j == k+1))?prio_level:STARPU_DEFAULT_PRIO,
 							   STARPU_R, sdataki,
@@ -132,14 +131,12 @@ static double _cholesky(starpu_data_handle dataA, unsigned nblocks, double *timi
 	double flop = (1.0f*n*n*n)/3.0f;
 
 	double gflops = (flop/(*timing)/1000.0f);
-	
-	(*timing) /= 1000000.0f; //(sec)
-	//printf("%2.2f\n", *timing);
-	//	(*timing) /= 60.0f; //(min)
+	(*timing) /= 1000000.0f; //sec
+	//	(*timing) /= 60.0f; //min
 	return gflops;
 }
 
-static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks, double *timing)
+static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks, unsigned sched_ctx, double *timing)
 {
 	starpu_data_handle dataA;
 
@@ -147,40 +144,40 @@ static double cholesky(float *matA, unsigned size, unsigned ld, unsigned nblocks
 	 * one block is now determined by 2 unsigned (i,j) */
 	starpu_matrix_data_register(&dataA, 0, (uintptr_t)matA, ld, size, size, sizeof(float));
 
-	struct starpu_data_filter f;
-		f.filter_func = starpu_vertical_block_filter_func;
-		f.nchildren = nblocks;
-		f.get_nchildren = NULL;
-		f.get_child_ops = NULL;
+	struct starpu_data_filter f = {
+		.filter_func = starpu_vertical_block_filter_func,
+		.nchildren = nblocks
+	};
 
-	struct starpu_data_filter f2;
-		f2.filter_func = starpu_block_filter_func;
-		f2.nchildren = nblocks;
-		f2.get_nchildren = NULL;
-		f2.get_child_ops = NULL;
+	struct starpu_data_filter f2 = {
+		.filter_func = starpu_block_filter_func,
+		.nchildren = nblocks
+	};
 
 	starpu_data_map_filters(dataA, 2, &f, &f2);
-
-	return _cholesky(dataA, nblocks, timing);
+	double gflops = _cholesky(dataA, nblocks, sched_ctx, timing);
+	starpu_data_unregister(dataA);
+	return gflops;
 }
 
-double run_cholesky_implicit(int start, int argc, char **argv, double *timing, pthread_barrier_t *barrier)
+double run_cholesky_implicit(unsigned sched_ctx, int start, int argc, char **argv, double *timing, pthread_barrier_t *barrier)
 {
 	/* create a simple definite positive symetric matrix example
 	 *
 	 *	Hilbert matrix : h(i,j) = 1/(i+j+1)
 	 * */
 
-	int size;
-	int nblocks;
-	parse_args_2kernels(start, argc, argv, &size, &nblocks);
+	unsigned size = 4 * 1024;
+	unsigned nblocks = 16;
+	parse_args_ctx(start, argc, argv, &size, &nblocks);
 
 	//	starpu_init(NULL);
 
 	//	starpu_helper_cublas_init();
 
 	float *mat;
-	starpu_data_malloc_pinned_if_possible((void **)&mat, (size_t)size*size*sizeof(float));
+
+	starpu_malloc((void **)&mat, (size_t)size*size*sizeof(float));
 
 	unsigned i,j;
 	for (i = 0; i < size; i++)
@@ -210,8 +207,9 @@ double run_cholesky_implicit(int start, int argc, char **argv, double *timing, p
 		printf("\n");
 	}
 #endif
-	//	pthread_barrier_wait(barrier);
-	double gflops = cholesky(mat, size, size, nblocks, timing);
+	//	if(barrier != NULL)
+	//	  pthread_barrier_wait(barrier);
+	double gflops = cholesky(mat, size, size, nblocks, sched_ctx, timing);
 
 #ifdef PRINT_OUTPUT
 	printf("Results :\n");
@@ -281,7 +279,7 @@ double run_cholesky_implicit(int start, int argc, char **argv, double *timing, p
 			}
 	        }
 	}
-
+	starpu_free((void *)mat);
 	//	starpu_helper_cublas_shutdown();
 	//	starpu_shutdown();
 

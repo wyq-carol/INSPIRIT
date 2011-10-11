@@ -125,10 +125,59 @@ void start_2benchs(void (*bench)(unsigned, unsigned))
 	double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
 	timing /= 1000000;
 
-	printf("%2.2f %2.2f ", rv[0].flops, rv[0].flops);
-	printf("%2.2f %2.2f %2.2f\n", rv[1].avg_timing, rv[2].avg_timing, timing);
+	printf("%2.2f %2.2f ", rv[0].flops, rv[1].flops);
+	printf("%2.2f %2.2f %2.2f\n", rv[0].avg_timing, rv[1].avg_timing, timing);
 
 }
+
+void start_1stbench(void (*bench)(unsigned, unsigned))
+{
+	p1.bench = bench;
+	p1.size = size1;
+	p1.nblocks = nblocks1;
+	
+	struct timeval start;
+	struct timeval end;
+
+	gettimeofday(&start, NULL);
+
+	start_bench((void*)&p1);
+
+	gettimeofday(&end, NULL);
+
+	pthread_mutex_destroy(&mut);
+  
+	double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
+	timing /= 1000000;
+
+	printf("%2.2f %2.2f ", rv[0].flops);
+	printf("%2.2f %2.2f %2.2f\n", rv[0].avg_timing, timing);
+}
+
+void start_2ndbench(void (*bench)(unsigned, unsigned))
+{
+	p2.bench = bench;
+	p2.size = size2;
+	p2.nblocks = nblocks2;
+	
+	struct timeval start;
+	struct timeval end;
+
+	gettimeofday(&start, NULL);
+
+	start_bench((void*)&p2);
+
+	gettimeofday(&end, NULL);
+
+	pthread_mutex_destroy(&mut);
+  
+	double timing = (double)((end.tv_sec - start.tv_sec)*1000000 + (end.tv_usec - start.tv_usec));
+	timing /= 1000000;
+
+	printf("%2.2f %2.2f ", rv[1].flops);
+	printf("%2.2f %2.2f %2.2f\n", rv[1].avg_timing, timing);
+}
+
 void construct_contexts(void (*bench)(unsigned, unsigned))
 {
 	int nprocs1 = cpu1 + gpu + gpu1;

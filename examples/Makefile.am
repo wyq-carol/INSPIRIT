@@ -56,8 +56,6 @@ EXTRA_DIST = 					\
 	lu/xlu_kernels.c			\
 	lu/lu_example.c				\
 	sched_ctx_utils/sched_ctx_utils.c		\
-	cholesky_2ctxs/cholesky_2ctxs.c			\
-	cholesky_no_ctxs/cholesky_no_ctxs.c			\
 	incrementer/incrementer_kernels_opencl_kernel.cl 	\
 	basic_examples/variable_kernels_opencl_kernel.cl	\
 	matvecmult/matvecmult_kernel.cl				\
@@ -539,38 +537,6 @@ lu_lu_implicit_example_complex_double_LDADD =	\
 endif
 endif
 
-
-###########################
-# 2 Cholesky in 2 ctxs  example #
-###########################
-if !NO_BLAS_LIB
-
-examplebin_PROGRAMS += 				\
-	cholesky_2ctxs/cholesky_2ctxs
-
-cholesky_2ctxs_cholesky_2ctxs_SOURCES =			\
-	cholesky_2ctxs/cholesky_2ctxs.c			\
-	cholesky_2ctxs/cholesky/cholesky_implicit.c		\
-	cholesky_2ctxs/cholesky/cholesky_models.c		\
-	cholesky_2ctxs/cholesky/cholesky_kernels.c		\
-	common/blas.c
-endif
-
-###########################
-# 2 Cholesky in no ctx example #
-###########################
-if !NO_BLAS_LIB
-
-examplebin_PROGRAMS += 				\
-	cholesky_no_ctxs/cholesky_no_ctxs
-
-cholesky_no_ctxs_cholesky_no_ctxs_SOURCES =			\
-	cholesky_no_ctxs/cholesky_no_ctxs.c			\
-	cholesky_no_ctxs/cholesky/cholesky_implicit.c		\
-	cholesky_no_ctxs/cholesky/cholesky_models.c		\
-	cholesky_no_ctxs/cholesky/cholesky_kernels.c		\
-	common/blas.c
-endif
 
 ################
 # Heat example #

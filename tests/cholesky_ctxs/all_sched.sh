@@ -1,5 +1,4 @@
-#!/bin/bash 
-
+#!/bin/bash                                                                     
 
 # StarPU --- Runtime system for heterogeneous multicore architectures.
 # 
@@ -16,8 +15,25 @@
 # 
 # See the GNU Lesser General Public License in COPYING.LGPL for more details.
 
+#export STARPU_NCUDA=3
+#export STARPU_NCPUS=9
 #export STARPU_DIR=$HOME/sched_ctx/build
 
-source sched.sh 
-source sched.sh 1stchole -chole1
-source sched.sh 2ndchole -chole2
+#source sched.sh isole 0 0 0 
+source sched_no_ctxs.sh
+source sched_no_ctxs.sh 1stchole -chole1
+source sched_no_ctxs.sh 2ndchole -chole2
+ 
+source sched_with_ctxs.sh isole 0 0 3 
+source sched_with_ctxs.sh isole 0 1 2
+source sched_with_ctxs.sh isole 0 2 1
+source sched_with_ctxs.sh isole 0 3 0   
+
+source sched_with_ctxs.sh 1gpu 1 0 2
+source sched_with_ctxs.sh 1gpu 1 1 1
+source sched_with_ctxs.sh 1gpu 1 2 0
+
+source sched_with_ctxs.sh 2gpu 2 1 0
+source sched_with_ctxs.sh 2gpu 2 0 1
+
+source sched_with_ctxs.sh 3gpu 3 0 0

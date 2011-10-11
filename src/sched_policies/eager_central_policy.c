@@ -26,7 +26,7 @@
 
 static void initialize_eager_center_policy_for_workers(unsigned sched_ctx_id, unsigned nnew_workers) 
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 
 	unsigned nworkers_ctx = sched_ctx->nworkers;
 	struct starpu_machine_config_s *config = (struct starpu_machine_config_s *)_starpu_get_machine_config();
@@ -39,15 +39,11 @@ static void initialize_eager_center_policy_for_workers(unsigned sched_ctx_id, un
 		sched_ctx->sched_mutex[workerid_ctx] = sched_ctx->sched_mutex[0];
 		sched_ctx->sched_cond[workerid_ctx] = sched_ctx->sched_cond[0];
 	}
-	/* take into account the new number of threads at the next push */
-	PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
-	sched_ctx->temp_nworkers = all_workers;
-	PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
 }
 
 static void initialize_eager_center_policy(unsigned sched_ctx_id) 
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 
 	/* there is only a single queue in that trivial design */
 	struct starpu_fifo_taskq_s *fifo =  _starpu_create_fifo();
@@ -70,7 +66,7 @@ static void deinitialize_eager_center_policy(unsigned sched_ctx_id)
 {
 	/* TODO check that there is no task left in the queue */
 
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	struct starpu_fifo_taskq_s *fifo = (struct starpu_fifo_taskq_s*)sched_ctx->policy_data;
 
 	/* deallocate the job queue */
@@ -86,7 +82,7 @@ static void deinitialize_eager_center_policy(unsigned sched_ctx_id)
 
 static int push_task_eager_policy(struct starpu_task *task, unsigned sched_ctx_id)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	int i;
 	int workerid;
 	for(i = 0; i < sched_ctx->nworkers; i++){
@@ -100,7 +96,7 @@ static int push_task_eager_policy(struct starpu_task *task, unsigned sched_ctx_i
 
 static struct starpu_task *pop_every_task_eager_policy(unsigned sched_ctx_id)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	struct starpu_fifo_taskq_s *fifo = (struct starpu_fifo_taskq_s*)sched_ctx->policy_data;
 	return _starpu_fifo_pop_every_task(fifo, sched_ctx->sched_mutex[0], starpu_worker_get_id());
 }
@@ -108,7 +104,7 @@ static struct starpu_task *pop_every_task_eager_policy(unsigned sched_ctx_id)
 static struct starpu_task *pop_task_eager_policy(unsigned sched_ctx_id)
 {
         unsigned workerid = starpu_worker_get_id();
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	struct starpu_fifo_taskq_s *fifo = (struct starpu_fifo_taskq_s*)sched_ctx->policy_data;
 	struct starpu_task *task =  _starpu_fifo_pop_task(fifo, workerid);
 

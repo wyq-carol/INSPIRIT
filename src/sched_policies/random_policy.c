@@ -69,14 +69,14 @@ static int _random_push_task(struct starpu_task *task, unsigned prio, struct sta
 
 static int random_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 
     return _random_push_task(task, 0, sched_ctx);
 }
 
 static void initialize_random_policy_for_workers(unsigned sched_ctx_id, unsigned nnew_workers) 
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 
 	unsigned nworkers_ctx = sched_ctx->nworkers;
 
@@ -94,15 +94,11 @@ static void initialize_random_policy_for_workers(unsigned sched_ctx_id, unsigned
 		sched_ctx->sched_mutex[workerid_ctx] = workerarg->sched_mutex;
 		sched_ctx->sched_cond[workerid_ctx] = workerarg->sched_cond;
 	}
-	/* take into account the new number of threads at the next push */
-	PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
-	sched_ctx->temp_nworkers = all_workers;
-	PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
 }
 
 static void initialize_random_policy(unsigned sched_ctx_id) 
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 
 	starpu_srand48(time(NULL));
 

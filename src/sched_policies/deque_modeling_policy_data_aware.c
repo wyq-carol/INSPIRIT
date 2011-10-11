@@ -119,7 +119,7 @@ static struct starpu_task *_starpu_fifo_pop_first_ready_task(struct starpu_fifo_
 
 static struct starpu_task *dmda_pop_ready_task(unsigned sched_ctx_id)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	dmda_data *dt = (dmda_data*)sched_ctx->policy_data;
 
 	struct starpu_task *task;
@@ -155,7 +155,7 @@ static struct starpu_task *dmda_pop_ready_task(unsigned sched_ctx_id)
 
 static struct starpu_task *dmda_pop_task(unsigned sched_ctx_id)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	dmda_data *dt = (dmda_data*)sched_ctx->policy_data;
 
 	struct starpu_task *task;
@@ -191,7 +191,7 @@ static struct starpu_task *dmda_pop_task(unsigned sched_ctx_id)
 
 static struct starpu_task *dmda_pop_every_task(unsigned sched_ctx_id)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	dmda_data *dt = (dmda_data*)sched_ctx->policy_data;
 
 	struct starpu_task *new_list;
@@ -580,25 +580,25 @@ static int _dmda_push_task(struct starpu_task *task, unsigned prio, struct starp
 
 static int dmda_push_sorted_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	return _dmda_push_task(task, 2, sched_ctx);
 }
 
 static int dm_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	return _dm_push_task(task, 0, sched_ctx);
 }
 
 static int dmda_push_task(struct starpu_task *task, unsigned sched_ctx_id)
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	return _dmda_push_task(task, 0, sched_ctx);
 }
 
 static void initialize_dmda_policy_for_workers(unsigned sched_ctx_id, unsigned nnew_workers) 
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	unsigned nworkers = sched_ctx->nworkers;
 	dmda_data *dt = (dmda_data*)sched_ctx->policy_data;
 
@@ -618,10 +618,6 @@ static void initialize_dmda_policy_for_workers(unsigned sched_ctx_id, unsigned n
 		PTHREAD_COND_INIT(sched_ctx->sched_cond[workerid_ctx], NULL);
 	}
 
-	/* take into account the new number of threads at the next push */
-	PTHREAD_MUTEX_LOCK(&sched_ctx->changing_ctx_mutex);
-	sched_ctx->temp_nworkers = all_workers;
-	PTHREAD_MUTEX_UNLOCK(&sched_ctx->changing_ctx_mutex);
 }
 
 static void initialize_dmda_policy(unsigned sched_ctx_id) 
@@ -632,7 +628,7 @@ static void initialize_dmda_policy(unsigned sched_ctx_id)
 	dt->_gamma = STARPU_DEFAULT_GAMMA;
 	dt->idle_power = 0.0;
 
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	unsigned nworkers = sched_ctx->nworkers;
 	sched_ctx->policy_data = (void*)dt;
 
@@ -673,7 +669,7 @@ static void initialize_dmda_sorted_policy(unsigned sched_ctx_id)
 
 static void deinitialize_dmda_policy(unsigned sched_ctx_id) 
 {
-	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_structure(sched_ctx_id);
+	struct starpu_sched_ctx *sched_ctx = _starpu_get_sched_ctx_struct(sched_ctx_id);
 	dmda_data *dt = (dmda_data*)sched_ctx->policy_data;
 	int workerid_ctx;
         int nworkers = sched_ctx->nworkers;

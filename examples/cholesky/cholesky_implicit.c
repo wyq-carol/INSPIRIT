@@ -131,7 +131,7 @@ static void _cholesky(starpu_data_handle dataA, unsigned nblocks)
 
 	double flop = (1.0f*n*n*n)/3.0f;
 
-	if(with_ctxs || with_noctxs)
+	if(with_ctxs || with_noctxs || chole1 || chole2)
 		update_sched_ctx_timing_results((flop/timing/1000.0f), (timing/1000000.0f));
 	else
 	{
@@ -295,6 +295,10 @@ int main(int argc, char **argv)
 	}
 	else if(with_noctxs)
 		start_2benchs(execute_cholesky);
+	else if(chole1)
+		start_1stbench(execute_cholesky);
+	else if(chole2)
+		start_2ndbench(execute_cholesky);
 	else
 		execute_cholesky(size, nblocks);
 
