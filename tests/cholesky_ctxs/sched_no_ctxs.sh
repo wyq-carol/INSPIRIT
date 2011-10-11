@@ -34,13 +34,6 @@ blocks2=40
 size1=20000
 size2=10000
 
-param=""
-if [ $2="" ];
-then
-    param="-with_noctxs"
-else
-    param=$2
-fi
 
 for j in `seq $nmincpus 1 $nmaxcpus`
 do
@@ -51,7 +44,7 @@ do
 	export STARPU_NCPUS=$(($j-3))
     fi
     
-    OPTIONS="$param -nblocks1 $blocks1 -size1 $size1 -nblocks2 $blocks2 -size2 $size2 $2"
+    OPTIONS="$2 -with_noctxs -nblocks1 $blocks1 -size1 $size1 -nblocks2 $blocks2 -size2 $size2"
 
     source evaluate_expression.sh "$BENCH_NAME" "$OPTIONS" "$filename" "$j"
 

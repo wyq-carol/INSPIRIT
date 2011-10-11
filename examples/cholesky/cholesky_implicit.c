@@ -281,7 +281,7 @@ int main(int argc, char **argv)
 
 	parse_args(argc, argv);
 
-	if(with_ctxs || with_noctxs)
+	if(with_ctxs || with_noctxs || chole1 || chole2)
 		parse_args_ctx(argc, argv);
 
 	starpu_init(NULL);
