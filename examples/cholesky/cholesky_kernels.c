@@ -60,7 +60,18 @@ static inline void chol_common_cpu_codelet_update_gemm(void *descr[], int s, voi
 	case 0:
 	{
 		/* CPU kernel */
-		int worker_size = starpu_combined_worker_get_size();
+        
+        // // reduce CPU GEMM size
+        // int tmp = ld21/dx;
+        // dx = dx/5;
+        // dy = dy/5;
+        // dz = dz/5;
+
+        // ld21 = dx*tmp;
+        // ld12 = dy*tmp;
+        // ld22 = dz*tmp;
+
+        int worker_size = starpu_combined_worker_get_size();
 
 		if (worker_size == 1)
 		{

@@ -42,6 +42,106 @@ static void callback_turn_spmd_on(void *arg)
 	cl_gemm.type = STARPU_SPMD;
 }
 
+static int potrf_priority(unsigned nblocks, unsigned k, double t_potrf, double t_trsm, double t_syrk, double t_gemm, int ptr_priors)
+{
+    if (noprio_p)
+        return STARPU_DEFAULT_PRIO;
+
+    if (STARPU_MAX_PRIO != INT_MAX || STARPU_MIN_PRIO != INT_MIN)
+        return STARPU_MAX_PRIO;
+
+    if (priority_attribution_p == -1 && priors != NULL) /* user_defined */
+        return priors[ptr_priors];
+
+    if (priority_attribution_p == 0) /* Base priority */
+        return 2 * nblocks - 2 * k;
+
+    if (priority_attribution_p == 1) /* Bottom-level priorities as computed by Christophe Alias' Kut polyhedral tool */
+        return 3 * nblocks - 3 * k;
+
+    if (priority_attribution_p == 2) /* Priority of PaRSEC */
+        return pow((nblocks - k), 3);
+
+    if (priority_attribution_p == 3) /* Bottom level priorities computed from timings */
+        return 3 * (t_potrf + t_trsm + t_syrk + t_gemm) - (t_potrf + t_trsm + t_gemm) * k;
+
+    return 1;
+}
+
+static int trsm_priority(unsigned nblocks, unsigned k, unsigned m, double t_potrf, double t_trsm, double t_syrk, double t_gemm, int ptr_priors)
+{
+    if (noprio_p)
+        return STARPU_DEFAULT_PRIO;
+
+    if (STARPU_MAX_PRIO != INT_MAX || STARPU_MIN_PRIO != INT_MIN)
+    {
+        if (m == k + 1)
+            return STARPU_MAX_PRIO;
+        else
+            return STARPU_DEFAULT_PRIO;
+    }
+
+    if (priority_attribution_p == -1) /* user_defined */
+        return priors[ptr_priors];
+
+    if (priority_attribution_p == 0) /* Base priority */
+        return 2 * nblocks - 2 * k - m;
+
+    if (priority_attribution_p == 1)
+        return 3 * nblocks - (2 * k + m);
+
+    if (priority_attribution_p == 2) /* Priority of PaRSEC */
+        return pow((nblocks - m), 3) + 3 * (m - k) * (2 * nblocks - k - m - 1);
+
+    if (priority_attribution_p == 3)
+        return 3 * (t_potrf + t_trsm + t_syrk + t_gemm) - ((t_trsm + t_gemm) * k + (t_potrf + t_syrk - t_gemm) * m + t_gemm - t_syrk);
+
+    return 1;
+}
+
+static int gemm_priority(unsigned nblocks, unsigned k, unsigned m, unsigned n, double t_potrf, double t_trsm, double t_syrk, double t_gemm, int ptr_priors)
+{
+    if (noprio_p)
+        return STARPU_DEFAULT_PRIO;
+
+    if (STARPU_MAX_PRIO != INT_MAX || STARPU_MIN_PRIO != INT_MIN)
+    {
+        if ((n == k + 1) && (m == k + 1))
+            return STARPU_MAX_PRIO;
+        else
+            return STARPU_DEFAULT_PRIO;
+    }
+
+    if (priority_attribution_p == -1) /* user_defined */
+        return priors[ptr_priors];
+
+    if (priority_attribution_p == 0) /* Base priority */
+        return 2 * nblocks - 2 * k - m - n;
+
+    if (priority_attribution_p == 1)
+        return 3 * nblocks - (k + n + m);
+
+    if (priority_attribution_p == 2) /* Priority of PaRSEC */
+        if (n == m)                  /* SYRK has different prio in PaRSEC */
+        {
+            return pow((nblocks - m), 3) + 3 * (m - k);
+        }
+        else
+        {
+            return pow((nblocks - m), 3) + 3 * (m - n) * (2 * nblocks - m - n - 3) + 6 * (m - k);
+        }
+
+    if (priority_attribution_p == 3)
+        return 3 * (t_potrf + t_trsm + t_syrk + t_gemm) - (t_gemm * k + t_trsm * n + (t_potrf + t_syrk - t_gemm) * m - t_syrk + t_gemm);
+
+    return 1;
+}
+
+static int syrk_priority(unsigned nblocks, unsigned k, unsigned n, double t_potrf, double t_trsm, double t_syrk, double t_gemm, int ptr_priors)
+{
+    return gemm_priority(nblocks, k, n, n, t_potrf, t_trsm, t_syrk, t_gemm, ptr_priors);
+}
+
 static int _cholesky(starpu_data_handle_t dataA, unsigned nblocks)
 {
 	double start;
@@ -51,7 +151,10 @@ static int _cholesky(starpu_data_handle_t dataA, unsigned nblocks)
 	unsigned long nx = starpu_matrix_get_nx(dataA);
 	unsigned long nn = nx/nblocks;
 
-	unsigned unbound_prio = STARPU_MAX_PRIO == INT_MAX && STARPU_MIN_PRIO == INT_MIN;
+    double t_potrf = 0, t_trsm = 0, t_gemm = 0, t_syrk = 0;
+    int insert_order = 0;
+
+    unsigned unbound_prio = STARPU_MAX_PRIO == INT_MAX && STARPU_MIN_PRIO == INT_MIN;
 
 	if (bound_p || bound_lp_p || bound_mps_p)
 		starpu_bound_start(bound_deps_p, 0);
@@ -59,55 +162,123 @@ static int _cholesky(starpu_data_handle_t dataA, unsigned nblocks)
 
 	start = starpu_timing_now();
 
-	/* create all the DAG nodes */
+    int rename = 1;
+    char *_name;
+
+    int priors_abi_tmp = 0;
+    int priors_efi_tmp = 0;
+
+    /* create all the DAG nodes */
 	for (k = 0; k < nblocks; k++)
 	{
 		int ret;
 		starpu_iteration_push(k);
                 starpu_data_handle_t sdatakk = starpu_data_get_sub_data(dataA, 2, k, k);
 
+                if (priors_abi == NULL) {
+                    priors_abi_tmp = 0;
+                    priors_efi_tmp = 0;
+                } else {
+                    priors_abi_tmp = priors_abi[insert_order];
+                    priors_efi_tmp = priors_efi[insert_order];
+                }
+
+                _name = (char *)malloc(30 * sizeof(char));
+                // 使用memset初始化内存块
+                memset(_name, 0, 30 * sizeof(char));
+                if (rename == 1) {
+                    sprintf(_name, "POTRF_%d", insert_order);
+                } else {
+                    sprintf(_name, "POTRF");
+                }
+
                 ret = starpu_task_insert(&cl_potrf,
-					 STARPU_PRIORITY, noprio_p ? STARPU_DEFAULT_PRIO : unbound_prio ? (int)(2*nblocks - 2*k) : STARPU_MAX_PRIO,
-					 STARPU_RW, sdatakk,
-					 STARPU_CALLBACK, (k == 3*nblocks/4)?callback_turn_spmd_on:NULL,
-					 STARPU_FLOPS, (double) FLOPS_SPOTRF(nn),
-					 STARPU_NAME, "POTRF",
-					 STARPU_TAG_ONLY, TAG_POTRF(k),
-					 0);
-		if (ret == -ENODEV) return 77;
-		STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_insert");
+                                         STARPU_PRIORITY, potrf_priority(nblocks, k, t_potrf, t_trsm, t_syrk, t_gemm, insert_order),
+                                         STARPU_PRIORITY_ABI, priors_abi_tmp,
+                                         STARPU_PRIORITY_EFI, priors_efi_tmp,
+                                         STARPU_RW, sdatakk,
+                                         STARPU_CALLBACK, (k == 3 * nblocks / 4) ? callback_turn_spmd_on : NULL,
+                                         STARPU_FLOPS, (double)FLOPS_SPOTRF(nn),
+                                         STARPU_NAME, _name,
+                                         STARPU_TAG_ONLY, TAG_POTRF(k),
+                                         0);
+                insert_order++;
+                if (ret == -ENODEV)
+                    return 77;
+                STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_insert");
 
-		for (m = k+1; m<nblocks; m++)
-		{
-                        starpu_data_handle_t sdatamk = starpu_data_get_sub_data(dataA, 2, m, k);
+                for (m = k + 1; m < nblocks; m++)
+                {
+                    starpu_data_handle_t sdatamk = starpu_data_get_sub_data(dataA, 2, m, k);
 
-                        ret = starpu_task_insert(&cl_trsm,
-						 STARPU_PRIORITY, noprio_p ? STARPU_DEFAULT_PRIO : unbound_prio ? (int)(2*nblocks - 2*k - m) : (m == k+1)?STARPU_MAX_PRIO:STARPU_DEFAULT_PRIO,
-						 STARPU_R, sdatakk,
-						 STARPU_RW, sdatamk,
-						 STARPU_FLOPS, (double) FLOPS_STRSM(nn, nn),
-						 STARPU_NAME, "TRSM",
-						 STARPU_TAG_ONLY, TAG_TRSM(m,k),
-						 0);
-			if (ret == -ENODEV) return 77;
-			STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_insert");
+                    if (priors_abi == NULL) {
+                        priors_abi_tmp = 0;
+                        priors_efi_tmp = 0;
+                    } else {
+                        priors_abi_tmp = priors_abi[insert_order];
+                        priors_efi_tmp = priors_efi[insert_order];
+                    }
+
+                    _name = (char *)malloc(30 * sizeof(char));
+                    // 使用memset初始化内存块
+                    memset(_name, 0, 30 * sizeof(char));
+                    if (rename == 1) {
+                        sprintf(_name, "TRSM_%d", insert_order);
+                    } else {
+                        sprintf(_name, "TRSM");
+                    }
+
+                    ret = starpu_task_insert(&cl_trsm,
+                                             STARPU_PRIORITY, trsm_priority(nblocks, k, m, t_potrf, t_trsm, t_syrk, t_gemm, insert_order),
+                                             STARPU_PRIORITY_ABI, priors_abi_tmp,
+                                             STARPU_PRIORITY_EFI, priors_efi_tmp,
+                                             STARPU_R, sdatakk,
+                                             STARPU_RW, sdatamk,
+                                             STARPU_FLOPS, (double)FLOPS_STRSM(nn, nn),
+                                             STARPU_NAME, _name,
+                                             STARPU_TAG_ONLY, TAG_TRSM(m, k),
+                                             0);
+                    insert_order++;
+                    if (ret == -ENODEV)
+                        return 77;
+                    STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_insert");
 		}
 		starpu_data_wont_use(sdatakk);
 
 		for (n = k+1; n<nblocks; n++)
 		{
-                        starpu_data_handle_t sdatank = starpu_data_get_sub_data(dataA, 2, n, k);
+            starpu_data_handle_t sdatank = starpu_data_get_sub_data(dataA, 2, n, k);
 			starpu_data_handle_t sdatann = starpu_data_get_sub_data(dataA, 2, n, n);
 
-			ret = starpu_task_insert(&cl_syrk,
-						 STARPU_PRIORITY, noprio_p ? STARPU_DEFAULT_PRIO : unbound_prio ? (int)(2*nblocks - 2*k - n - n) : (n == k+1)?STARPU_MAX_PRIO:STARPU_DEFAULT_PRIO,
-						 STARPU_R, sdatank,
-						 cl_syrk.modes[1], sdatann,
-						 STARPU_FLOPS, (double) FLOPS_SSYRK(nn, nn),
-						 STARPU_NAME, "SYRK",
-						 STARPU_TAG_ONLY, TAG_GEMM(k,n,n),
-						 0);
-			if (ret == -ENODEV) return 77;
+            if (priors_abi == NULL) {
+                priors_abi_tmp = 0;
+                priors_efi_tmp = 0;
+            } else {
+                priors_abi_tmp = priors_abi[insert_order];
+                priors_efi_tmp = priors_efi[insert_order];
+            }
+
+            _name = (char *)malloc(30 * sizeof(char));
+            // 使用memset初始化内存块
+            memset(_name, 0, 30 * sizeof(char));
+            if (rename == 1) {
+                sprintf(_name, "SYRK_%d", insert_order);
+            } else {
+                sprintf(_name, "SYRK");
+            }
+
+            ret = starpu_task_insert(&cl_syrk,
+                                     STARPU_PRIORITY, syrk_priority(nblocks, k, n, t_potrf, t_trsm, t_syrk, t_gemm, insert_order),
+                                     STARPU_PRIORITY_ABI, priors_abi_tmp,
+                                     STARPU_PRIORITY_EFI, priors_efi_tmp,
+                                     STARPU_R, sdatank,
+                                     cl_syrk.modes[1], sdatann,
+                                     STARPU_FLOPS, (double)FLOPS_SSYRK(nn, nn),
+                                     STARPU_NAME, "SYRK",
+                                     STARPU_TAG_ONLY, TAG_GEMM(k, n, n),
+                                     0);
+            insert_order++;
+            if (ret == -ENODEV) return 77;
 			STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_insert");
 
 			for (m = n+1; m<nblocks; m++)
@@ -115,16 +286,36 @@ static int _cholesky(starpu_data_handle_t dataA, unsigned nblocks)
 				starpu_data_handle_t sdatamk = starpu_data_get_sub_data(dataA, 2, m, k);
 				starpu_data_handle_t sdatamn = starpu_data_get_sub_data(dataA, 2, m, n);
 
-				ret = starpu_task_insert(&cl_gemm,
-							 STARPU_PRIORITY, noprio_p ? STARPU_DEFAULT_PRIO : unbound_prio ? (int)(2*nblocks - 2*k - m - n) : ((n == k+1) && (m == k+1))?STARPU_MAX_PRIO:STARPU_DEFAULT_PRIO,
-							 STARPU_R, sdatamk,
-							 STARPU_R, sdatank,
-							 cl_gemm.modes[2], sdatamn,
-							 STARPU_FLOPS, (double) FLOPS_SGEMM(nn, nn, nn),
-							 STARPU_NAME, "GEMM",
-							 STARPU_TAG_ONLY, TAG_GEMM(k,m,n),
-							 0);
-				if (ret == -ENODEV) return 77;
+                if (priors_abi == NULL) {
+                    priors_abi_tmp = 0;
+                    priors_efi_tmp = 0;
+                } else {
+                    priors_abi_tmp = priors_abi[insert_order];
+                    priors_efi_tmp = priors_efi[insert_order];
+                }
+
+                _name = (char *)malloc(30 * sizeof(char));
+                // 使用memset初始化内存块
+                memset(_name, 0, 30 * sizeof(char));
+                if (rename == 1) {
+                    sprintf(_name, "GEMM_%d", insert_order);
+                } else {
+                    sprintf(_name, "GEMM");
+                }
+
+                ret = starpu_task_insert(&cl_gemm,
+                                         STARPU_PRIORITY, gemm_priority(nblocks, k, m, n, t_potrf, t_trsm, t_syrk, t_gemm, insert_order),
+                                         STARPU_PRIORITY_ABI, priors_abi_tmp,
+                                         STARPU_PRIORITY_EFI, priors_efi_tmp,
+                                         STARPU_R, sdatamk,
+                                         STARPU_R, sdatank,
+                                         cl_gemm.modes[2], sdatamn,
+                                         STARPU_FLOPS, (double)FLOPS_SGEMM(nn, nn, nn),
+                                         STARPU_NAME, "GEMM",
+                                         STARPU_TAG_ONLY, TAG_GEMM(k, m, n),
+                                         0);
+                insert_order++;
+                if (ret == -ENODEV) return 77;
 				STARPU_CHECK_RETURN_VALUE(ret, "starpu_task_insert");
 			}
 			starpu_data_wont_use(sdatank);
@@ -353,15 +544,25 @@ int main(int argc, char **argv)
 #endif
 
 	int ret;
-	ret = starpu_init(NULL);
-	if (ret == -ENODEV) return 77;
-        STARPU_CHECK_RETURN_VALUE(ret, "starpu_init");
-
 	//starpu_fxt_stop_profiling();
 
 	init_sizes();
 
 	parse_args(argc, argv);
+
+    struct starpu_conf conf;
+    starpu_conf_init(&conf);
+    conf.nready_lb_list = nready_lb_list;
+    conf.nready_lb_list_size = nready_lb_list_size;
+    conf.nready_k_list = nready_k_list;
+    conf.nready_k_list_size = nready_k_list_size;
+    conf.auto_opt = auto_opt;
+
+    ret = starpu_init(&conf);
+
+    ret = starpu_init(NULL);
+	if (ret == -ENODEV) return 77;
+        STARPU_CHECK_RETURN_VALUE(ret, "starpu_init");
 
 	if(with_ctxs_p || with_noctxs_p || chole1_p || chole2_p)
 		parse_args_ctx(argc, argv);

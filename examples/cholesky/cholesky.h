@@ -125,6 +125,18 @@
 static unsigned size_p;
 static unsigned nblocks_p;
 static unsigned nbigblocks_p;
+static int priority_attribution_p;
+static int *priors;
+static int *priors_abi;
+static int *priors_efi;
+int priors_size;
+int priors_abi_size;
+int priors_efi_size;
+int* nready_lb_list;
+int nready_lb_list_size;
+double *nready_k_list;
+int nready_k_list_size;
+int auto_opt;
 
 static inline void init_sizes(void)
 {
@@ -152,6 +164,16 @@ static inline void init_sizes(void)
 	if (!nbigblocks_p)
 		nbigblocks_p = 4*power_cbrt;
 #endif
+    priority_attribution_p = 0;
+    priors = NULL;
+    priors_abi = NULL;
+    priors_efi = NULL;
+    priors_size = 0;
+    nready_lb_list = NULL;
+    nready_lb_list_size = 0;
+    nready_k_list = NULL;
+    nready_k_list_size = 0;
+    auto_opt = 0;
 }
 
 static unsigned pinned_p = 1;
@@ -210,6 +232,71 @@ void initialize_chol_model(struct starpu_perfmodel* model, char* symbol,
 			   double (*cpu_cost_function)(struct starpu_task *, struct starpu_perfmodel_arch*, unsigned),
 			   double (*cuda_cost_function)(struct starpu_task *, struct starpu_perfmodel_arch*, unsigned));
 
+static int get_element_size(FILE *fp)
+{
+    int size = 0;
+    int value = 0;
+    char ch = '\0';
+    if (fscanf(fp, "%c", &ch) != 1 || (ch != '['))
+    {
+        fprintf(stderr, "ERROR reading left bracket\n");
+    }
+    while (fscanf(fp, "%d", &value) == 1)
+    {
+        size++;
+        if (fscanf(fp, "%c", &ch) != 1 || (ch != ',' && ch != ']'))
+        {
+            fprintf(stderr, "ERROR reading comma or right bracket\n");
+        }
+        if (ch == ']')
+        {
+            break;
+        }
+    }
+    // 将文件指针移动到文件开头
+    if (fseek(fp, 0, SEEK_SET) != 0)
+    {
+        printf("cannot fseek\n");
+    }
+    return size;
+}
+
+static void set_file_priors(char *priors_path, int **array, int *psize)
+{
+    int value = 0;
+    char ch = '\0';
+    FILE *file = fopen(priors_path, "r");
+    if (file == NULL)
+    {
+        fprintf(stderr, "ERROR opening file\n");
+    }
+    int file_size = get_element_size(file);
+    fclose(file);
+    file = fopen(priors_path, "r");
+    *array = (int *)malloc(file_size * sizeof(int));
+
+    if (fscanf(file, "%c", &ch) != 1 || (ch != '['))
+    {
+        fprintf(stderr, "ERROR reading left bracket\n");
+    }
+    int priors_size_tmp = 0;
+    while (fscanf(file, "%d", &value) == 1)
+    {
+        (*array)[priors_size_tmp++] = value;
+        // priors_size_tmp++;
+        if (fscanf(file, "%c", &ch) != 1 || (ch != ',' && ch != ']'))
+        {
+            fprintf(stderr, "ERROR reading comma or right bracket\n");
+        }
+        if (ch == ']')
+        {
+            break;
+        }
+    }
+    *psize = priors_size_tmp;
+    fclose(file);
+}
+
 static void parse_args(int argc, char **argv)
 {
 	int i;
@@ -258,7 +345,204 @@ static void parse_args(int argc, char **argv)
 		{
 			noprio_p = 1;
 		}
-		else if (strcmp(argv[i], "-commute") == 0)
+        else if (strcmp(argv[i], "-priority_attribution_p") == 0)
+        {
+            char *argptr;
+            priority_attribution_p = strtol(argv[++i], &argptr, 10);
+        }
+        else if (strcmp(argv[i], "-priors") == 0)
+        {
+            int use_path = 1;
+            if (use_path == 0)
+            {
+                if (i + 1 < argc)
+                {
+                    char *argptr = argv[++i];
+                    char *token = strtok(argptr, " [],");
+                    while (token != NULL)
+                    {
+                        int value = atoi(token);
+                        priors_size++;
+                        priors = (int *)realloc(priors, priors_size * sizeof(int));
+                        priors[priors_size - 1] = value;
+                        token = strtok(NULL, " [],");
+                    }
+                    STARPU_ASSERT_MSG(1, "read priors with size = %d :\n", priors_size);
+                    for (int k = 0; k < priors_size; k++)
+                    {
+                        STARPU_ASSERT_MSG(1, "%d ", priors[k]);
+                    }
+                    STARPU_ASSERT_MSG(1, "\n");
+                }
+            }
+            else
+            {
+                char *priors_path = NULL;
+                if (i + 1 < argc)
+                {
+                    i++;
+                    priors_path = argv[i];
+                }
+                if (priors_path != NULL)
+                {
+                    printf("priors_path: %s\n", priors_path);
+                }
+                else
+                {
+                    fprintf(stderr, "priors_path is not provided\n");
+                }
+
+                set_file_priors(priors_path, &priors, &priors_size);
+            }
+        }
+        else if (strcmp(argv[i], "-priors_abi") == 0)
+        {
+            int use_path = 1;
+            if (use_path == 1)
+            {
+                char *priors_path = NULL;
+                if (i + 1 < argc)
+                {
+                    i++;
+                    priors_path = argv[i];
+                }
+                if (priors_path != NULL)
+                {
+                    printf("priors_path: %s\n", priors_path);
+                }
+                else
+                {
+                    fprintf(stderr, "priors_path is not provided\n");
+                }
+
+                set_file_priors(priors_path, &priors_abi, &priors_abi_size);
+            }
+        }
+        else if (strcmp(argv[i], "-priors_efi") == 0)
+        {
+            int use_path = 1;
+            if (use_path == 1)
+            {
+                char *priors_path = NULL;
+                if (i + 1 < argc)
+                {
+                    i++;
+                    priors_path = argv[i];
+                }
+                if (priors_path != NULL)
+                {
+                    printf("priors_path: %s\n", priors_path);
+                }
+                else
+                {
+                    fprintf(stderr, "priors_path is not provided\n");
+                }
+
+                set_file_priors(priors_path, &priors_efi, &priors_efi_size);
+            }
+        }
+        else if (strcmp(argv[i], "-nready_k_list") == 0)
+        {
+            int use_path = 0;
+            if (use_path == 0)
+            {
+                if (i + 1 < argc)
+                {
+                    char *argptr = argv[++i];
+                    char *p = argptr;
+                    int len_char = 0;
+                    if (strcmp(p, "[]") == 0)
+                    {
+                        nready_k_list_size = 0;
+                        nready_k_list = NULL;
+                        continue;
+                    }
+
+                    while (*p)
+                    {
+                        len_char++;
+                        if (*p == ',')
+                        {
+                            nready_k_list_size++;
+                        }
+                        p++;
+                    }
+                    nready_k_list_size += 1;
+
+                    argptr[len_char - 1] = 0;
+                    // alloc nready_k_list
+                    nready_k_list = (double *)malloc(nready_k_list_size * sizeof(double));
+
+                    // skip the first [
+                    p = argptr + 1;
+
+                    int ele;
+                    char *token = strtok(p, " ,");
+                    int cnt = 0;
+                    while (token != NULL)
+                    {
+                        double value = atof(token);
+                        nready_k_list[cnt++] = value;
+                        // printf("%lf\n", nready_k_list[cnt - 1 <0?  0:cnt - 1]);
+                        token = strtok(NULL, " ,");
+                    }
+                }
+                // printf("%d\n", nready_k_list_size);
+            }
+        }
+        else if (strcmp(argv[i], "-nready_lb_list") == 0)
+        {
+            int use_path = 0;
+            if (use_path == 0)
+            {
+                if (i + 1 < argc)
+                {
+                    char *argptr = argv[++i];
+                    char *p = argptr;
+                    int len_char = 0;
+                    if (strcmp(p, "[]") == 0)
+                    {
+                        nready_lb_list_size = 0;
+                        nready_lb_list = NULL;
+                        continue;
+                    }
+
+                    while (*p)
+                    {
+                        len_char++;
+                        if (*p == ',')
+                        {
+                            nready_lb_list_size++;
+                        }
+                        p++;
+                    }
+                    nready_lb_list_size += 1;
+
+                    argptr[len_char - 1] = 0;
+                    // alloc nready_lb_list
+                    nready_lb_list = (int *)malloc(nready_lb_list_size * sizeof(int));
+
+                    // skip the first [
+                    p = argptr + 1;
+
+                    int ele;
+                    char *token = strtok(p, " ,");
+                    int cnt = 0;
+                    while (token != NULL)
+                    {
+                        int value = atoi(token);
+                        nready_lb_list[cnt++] = value;
+                        token = strtok(NULL, " ,");
+                    }
+                }
+            }
+        }
+        else if (strcmp(argv[i], "-auto_opt") == 0)
+        {
+            char *argptr;
+            auto_opt = strtol(argv[++i], &argptr, 10);
+        }
+        else if (strcmp(argv[i], "-commute") == 0)
 		{
 			cl_syrk.modes[1] |= STARPU_COMMUTE;
 			cl_gemm.modes[2] |= STARPU_COMMUTE;
